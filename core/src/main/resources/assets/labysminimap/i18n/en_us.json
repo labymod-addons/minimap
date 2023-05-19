@@ -1,0 +1,18 @@
+{
+  "labysminimap": {
+    "settings": {
+      "name": "Laby's Minimap",
+      "enabled": {
+        "name": "Enabled"
+      }
+    },
+    "hudWidget": {
+      "minimap": {
+        "name": "Laby's Minimap",
+        "displayType": {
+          "name": "Display"
+        }
+      }
+    }
+  }
+}
