@@ -1,5 +1,6 @@
 package net.labymod.addons.minimap.map;
 
+import net.labymod.addons.minimap.MinimapAddon;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.config.MinimapUpdateMethod;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget.MinimapHudWidgetConfig;
@@ -19,6 +20,7 @@ public class MinimapTexture {
   private static final ResourceLocation LOCATION = ResourceLocation.create("minimap", "minimap");
   private static final float ROUND_DECIMALS = 10F;
 
+  private final MinimapAddon addon;
   private final MinimapHudWidgetConfig config;
 
   private final MinimapGenerator generator;
@@ -30,7 +32,8 @@ public class MinimapTexture {
 
   private float animatedHighestBlockY = 0F;
 
-  public MinimapTexture(MinimapHudWidgetConfig config) {
+  public MinimapTexture(MinimapAddon addon, MinimapHudWidgetConfig config) {
+    this.addon = addon;
     this.config = config;
     this.generator = new MinimapGenerator();
   }
@@ -65,7 +68,9 @@ public class MinimapTexture {
       return;
     }
 
-    if (!this.config.isEnabled() || !Laby.labyAPI().minecraft().isIngame()) {
+    if (!this.config.isEnabled()
+        || !Laby.labyAPI().minecraft().isIngame()
+        || !this.addon.isMinimapAllowed()) {
       this.generator.reset();
       return;
     }

@@ -1,5 +1,6 @@
 package net.labymod.addons.minimap.hudwidget;
 
+import net.labymod.addons.minimap.MinimapAddon;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.addons.minimap.config.MinimapCardinalType;
 import net.labymod.addons.minimap.config.MinimapDisplayType;
@@ -30,21 +31,24 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   private final DefaultMinimapRenderEvent renderEvent = new DefaultMinimapRenderEvent();
 
+  private final MinimapAddon addon;
+
   private MinimapTexture texture;
 
   private float distanceToCorner = 0;
   private float lastRadius = 0;
-  private float lastZoom = 0;
 
   private final StencilRenderPass stencilRenderPass = new StencilRenderPass();
 
-  public MinimapHudWidget() {
+  public MinimapHudWidget(MinimapAddon addon) {
     super("minimap", MinimapHudWidgetConfig.class);
+
+    this.addon = addon;
   }
 
   @Override
   public boolean isVisibleInGame() {
-    return true;
+    return this.addon.isMinimapAllowed();
   }
 
   @Override
@@ -55,7 +59,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       this.texture.release();
     }
 
-    this.texture = new MinimapTexture(config);
+    this.texture = new MinimapTexture(this.addon, config);
     this.texture.init();
   }
 
@@ -72,12 +76,12 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       return;
     }
 
-    stack.push();
-
     ClientPlayer player = this.labyAPI.minecraft().getClientPlayer();
     if (player == null) {
       return;
     }
+
+    stack.push();
 
     this.renderEvent.fill(stack, size, this.texture.getCurrentBounds());
 
@@ -89,23 +93,25 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     GFXBridge gfx = this.labyAPI.gfxRenderPipeline().gfx();
 
-    this.labyAPI.gfxRenderPipeline().renderToActivityTarget(target -> {
-      gfx.enableStencil();
+    if (this.addon.isMinimapAllowed()) {
+      this.labyAPI.gfxRenderPipeline().renderToActivityTarget(target -> {
+        gfx.enableStencil();
 
-      this.labyAPI.gfxRenderPipeline().clear(target);
+        this.labyAPI.gfxRenderPipeline().clear(target);
 
-      this.stencilRenderPass.begin();
-      this.config.displayType().get().stencil().render(stack, radius);
-      this.stencilRenderPass.end();
+        this.stencilRenderPass.begin();
+        this.config.displayType().get().stencil().render(stack, radius);
+        this.stencilRenderPass.end();
 
-      // Render minimap
-      this.applyRotation(player, stack, size);
-      this.renderMapTexture(player, stack, size);
+        // Render minimap
+        this.applyRotation(player, stack, size);
+        this.renderMapTexture(player, stack, size);
 
-      this.renderEvent.fireWithStage(Stage.ROTATED);
+        this.renderEvent.fireWithStage(Stage.ROTATED);
 
-      gfx.disableStencil();
-    });
+        gfx.disableStencil();
+      });
+    }
 
     stack.pop();
 
@@ -137,8 +143,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       }
       addZoom -= distanceToFloor / (100D + distanceToFloor);
     }
-
-    this.lastZoom = addZoom;
 
     // Rotate and scale map
     stack.translate(size.getWidth() / 2F, size.getHeight() / 2F, 0F);

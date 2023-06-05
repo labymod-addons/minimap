@@ -9,13 +9,21 @@ import net.labymod.api.models.addon.annotation.AddonMain;
 @AddonMain
 public class MinimapAddon extends LabyAddon<MinimapConfiguration> {
 
+  private final MinimapServers servers = new MinimapServers();
+
   @Override
   protected void enable() {
-    Laby.references().hudWidgetRegistry().register(new MinimapHudWidget());
+    Laby.references().hudWidgetRegistry().register(new MinimapHudWidget(this));
+
+    this.registerListener(this.servers);
   }
 
   @Override
   protected Class<? extends MinimapConfiguration> configurationClass() {
     return MinimapConfiguration.class;
+  }
+
+  public boolean isMinimapAllowed() {
+    return this.servers.isCurrentlyAllowed();
   }
 }
