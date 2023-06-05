@@ -1,5 +1,6 @@
 package net.labymod.addons.minimap.map;
 
+import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.config.MinimapUpdateMethod;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget.MinimapHudWidgetConfig;
 import net.labymod.api.Laby;

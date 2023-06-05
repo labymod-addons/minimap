@@ -1,10 +1,12 @@
 package net.labymod.addons.minimap.hudwidget;
 
+import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.addons.minimap.config.MinimapCardinalType;
 import net.labymod.addons.minimap.config.MinimapDisplayType;
 import net.labymod.addons.minimap.config.MinimapUpdateMethod;
+import net.labymod.addons.minimap.event.DefaultMinimapRenderEvent;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget.MinimapHudWidgetConfig;
-import net.labymod.addons.minimap.map.MinimapBounds;
+import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.map.MinimapTexture;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.GFXBridge;
@@ -25,6 +27,8 @@ import net.labymod.api.util.math.MathHelper;
 public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   public static final float BORDER_PADDING = 5F;
+
+  private final DefaultMinimapRenderEvent renderEvent = new DefaultMinimapRenderEvent();
 
   private MinimapTexture texture;
 
@@ -75,6 +79,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       return;
     }
 
+    this.renderEvent.fill(stack, size, this.texture.getCurrentBounds());
+
     float radius = size.getWidth() / 2F;
     if (this.lastRadius != radius) {
       this.distanceToCorner = (float) Math.sqrt(radius * radius + radius * radius);
@@ -96,10 +102,14 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       this.applyRotation(player, stack, size);
       this.renderMapTexture(player, stack, size);
 
+      this.renderEvent.fireWithStage(Stage.ROTATED);
+
       gfx.disableStencil();
     });
 
     stack.pop();
+
+    this.renderEvent.fireWithStage(Stage.STRAIGHT);
 
     this.renderMapOutline(stack, size);
 
@@ -188,7 +198,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     float yaw = player.getRotationHeadYaw();
     float radius = size.getWidth() / 2F;
 
-    boolean circle = this.config.displayType.get() == MinimapDisplayType.ROUND;
+    boolean circle = this.config.displayType().get() == MinimapDisplayType.ROUND;
 
     float rotCenterX = size.getWidth() / 2F;
     float rotCenterY = size.getHeight() / 2F;

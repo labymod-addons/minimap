@@ -1,4 +1,4 @@
-package net.labymod.addons.minimap.map;
+package net.labymod.addons.minimap.api.map;
 
 public class MinimapBounds {
 
