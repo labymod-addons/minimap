@@ -16,6 +16,7 @@ import net.labymod.api.client.gui.mouse.MutableMouse;
 import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
 import net.labymod.api.client.gui.screen.widget.widgets.input.SliderWidget.SliderSetting;
 import net.labymod.api.client.gui.screen.widget.widgets.input.SwitchWidget.SwitchSetting;
+import net.labymod.api.client.gui.screen.widget.widgets.input.dropdown.DropdownWidget.DropdownEntryTranslationPrefix;
 import net.labymod.api.client.gui.screen.widget.widgets.input.dropdown.DropdownWidget.DropdownSetting;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.configuration.loader.property.ConfigProperty;
@@ -57,11 +58,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   @Override
   public void updateSize(HudWidgetWidget widget, boolean isEditorContext, HudSize size) {
     size.set(150, 150);
-
-    if (this.config.displayType().get() == MinimapDisplayType.ROUND) {
-      float radius = size.getWidth() / 2F;
-      // this.texture.icon().setBorderRadius(new BorderRadius(radius, radius, radius, radius));
-    }
   }
 
   @Override
@@ -75,6 +71,9 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     stack.push();
 
     ClientPlayer player = this.labyAPI.minecraft().getClientPlayer();
+    if (player == null) {
+      return;
+    }
 
     float radius = size.getWidth() / 2F;
     if (this.lastRadius != radius) {
@@ -236,7 +235,11 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   public static class MinimapHudWidgetConfig extends HudWidgetConfig {
 
-    @DropdownSetting
+    // TODO: Round is currently not working when scaled @DropdownSetting
+    private static final ConfigProperty<MinimapDisplayType> SQUARE =
+        new ConfigProperty<>(MinimapDisplayType.SQUARE);
+
+    @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.displayType.entries")
     private final ConfigProperty<MinimapDisplayType> displayType =
         new ConfigProperty<>(MinimapDisplayType.ROUND);
     @SwitchSetting
@@ -246,14 +249,16 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     @SliderSetting(min = 2, max = 30)
     private final ConfigProperty<Integer> zoom = new ConfigProperty<>(12);
     @DropdownSetting
+    @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.updateMethod.entries")
     private final ConfigProperty<MinimapUpdateMethod> updateMethod =
         new ConfigProperty<>(MinimapUpdateMethod.CHUNK_TRIGGER);
     @DropdownSetting
+    @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.cardinalType.entries")
     private final ConfigProperty<MinimapCardinalType> cardinalType
         = new ConfigProperty<>(MinimapCardinalType.NORMAL);
 
     public ConfigProperty<MinimapDisplayType> displayType() {
-      return this.displayType;
+      return SQUARE;
     }
 
     public ConfigProperty<Boolean> jumpBouncing() {

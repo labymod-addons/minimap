@@ -43,7 +43,7 @@ labyMod {
     }
 
     addonDev {
-        localRelease()
+        internalRelease()
     }
 }
 
@@ -72,19 +72,7 @@ fun configureRun(provider: net.labymod.gradle.core.minecraft.provider.VersionPro
         args("--addon-dev-environment", "true")
     }
 
-    provider.javaVersion = when (gameVersion) {
-        "1.8.9", "1.12.2", "1.16.5" -> {
-            JavaVersion.VERSION_1_8
-        }
-
-        "1.17.1" -> {
-            JavaVersion.VERSION_16
-        }
-
-        else -> {
-            JavaVersion.VERSION_17
-        }
-    }
+    provider.javaVersion = JavaVersion.VERSION_17
 
     provider.mixin {
         val mixinMinVersion = when (gameVersion) {

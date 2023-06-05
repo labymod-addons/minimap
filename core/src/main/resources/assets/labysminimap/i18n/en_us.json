@@ -10,7 +10,36 @@
       "minimap": {
         "name": "Laby's Minimap",
         "displayType": {
-          "name": "Display"
+          "name": "Display",
+          "entries": {
+            "round": "Round",
+            "square": "Square"
+          }
+        },
+        "jumpBouncing": {
+          "name": "Jump bouncing"
+        },
+        "autoZoom": {
+          "name": "Auto zoom"
+        },
+        "zoom": {
+          "name": "Zoom"
+        },
+        "updateMethod": {
+          "name": "Update Method",
+          "entries": {
+            "blockTrigger": "While moving (Lower FPS)",
+            "chunkTrigger": "Enter new chunk"
+          }
+        },
+        "cardinalType": {
+          "name": "Cardinals",
+          "entries": {
+            "hidden": "Hidden",
+            "normal": "N, E, S, W",
+            "extended": "N, NE, E, SE, S, SW, W, NW",
+            "numbers": "0, 1, 2, 3"
+          }
         }
       }
     }
