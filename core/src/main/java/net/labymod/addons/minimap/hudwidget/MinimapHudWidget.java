@@ -203,6 +203,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     float rotCenterX = size.getWidth() / 2F;
     float rotCenterY = size.getHeight() / 2F;
 
+
     int index = 1;
     for (String cardinal : cardinals) {
       double f =
