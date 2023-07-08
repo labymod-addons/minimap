@@ -1,27 +1,39 @@
 package net.labymod.addons.minimap;
 
+import net.labymod.addons.minimap.api.MinimapConfigProvider;
+import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
+import net.labymod.addons.minimap.api.generated.ReferenceStorage;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
-import net.labymod.addons.minimap.server.MinimapPacket;
-import net.labymod.addons.minimap.server.MinimapPacketHandler;
+import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration;
 import net.labymod.addons.minimap.server.MinimapServers;
-import net.labymod.addons.minimap.server.MinimapTranslationListener;
 import net.labymod.api.Laby;
 import net.labymod.api.addon.LabyAddon;
+import net.labymod.api.models.Implements;
 import net.labymod.api.models.addon.annotation.AddonMain;
-import net.labymod.serverapi.protocol.packet.protocol.AddonProtocol;
-import net.labymod.serverapi.protocol.packet.protocol.ProtocolService;
+import javax.inject.Singleton;
 
 @AddonMain
-public class MinimapAddon extends LabyAddon<MinimapConfiguration> {
+@Singleton
+@Implements(MinimapConfigProvider.class)
+public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements MinimapConfigProvider {
 
   private final MinimapServers servers = new MinimapServers();
 
+  private static ReferenceStorage references;
+
+  private MinimapHudWidget hudWidget;
+
   @Override
   protected void enable() {
-    Laby.references().hudWidgetRegistry().register(new MinimapHudWidget(this));
+    MinimapAddon.references = this.referenceStorageAccessor();
+
+    Laby.references().hudWidgetRegistry().register(this.hudWidget = new MinimapHudWidget(this));
 
     this.servers.init();
+
+    Laby.references().addonIntegrationService()
+        .registerIntegration("labyswaypoints", WaypointsIntegration.class);
   }
 
   @Override
@@ -31,5 +43,14 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> {
 
   public boolean isMinimapAllowed() {
     return this.servers.isCurrentlyAllowed();
+  }
+
+  @Override
+  public MinimapHudWidgetConfig widgetConfig() {
+    return this.hudWidget.getConfig();
+  }
+
+  public static ReferenceStorage getReferences() {
+    return MinimapAddon.references;
   }
 }

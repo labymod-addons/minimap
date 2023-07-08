@@ -1,7 +1,7 @@
 package net.labymod.addons.minimap.map;
 
 import net.labymod.addons.minimap.api.map.MinimapBounds;
-import net.labymod.addons.minimap.config.MinimapUpdateMethod;
+import net.labymod.addons.minimap.api.map.MinimapUpdateMethod;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.resources.texture.GameImage;

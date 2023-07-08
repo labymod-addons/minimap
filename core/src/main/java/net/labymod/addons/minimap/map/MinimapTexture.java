@@ -1,9 +1,9 @@
 package net.labymod.addons.minimap.map;
 
 import net.labymod.addons.minimap.MinimapAddon;
+import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
-import net.labymod.addons.minimap.config.MinimapUpdateMethod;
-import net.labymod.addons.minimap.hudwidget.MinimapHudWidget.MinimapHudWidgetConfig;
+import net.labymod.addons.minimap.api.map.MinimapUpdateMethod;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.texture.GFXTextureFilter;
@@ -87,7 +87,8 @@ public class MinimapTexture {
     int z2 = (int) (player.getPosZ() + zoom);
     int depth = (int) player.getPosY();
 
-    MinimapUpdateMethod method = this.config.updateMethod().get();
+    MinimapUpdateMethod method = this.config.updateMethod()
+        .getOrDefault(MinimapUpdateMethod.CHUNK_TRIGGER);
 
     if (this.generator.isUpdateNecessary(player, x1, z1, x2, z2, depth, method)) {
       GameImage image = this.generator.getMinimap(

@@ -1,35 +1,26 @@
 package net.labymod.addons.minimap.hudwidget;
 
 import net.labymod.addons.minimap.MinimapAddon;
+import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
+import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
-import net.labymod.addons.minimap.config.MinimapCardinalType;
-import net.labymod.addons.minimap.config.MinimapDisplayType;
-import net.labymod.addons.minimap.config.MinimapUpdateMethod;
-import net.labymod.addons.minimap.event.DefaultMinimapRenderEvent;
-import net.labymod.addons.minimap.hudwidget.MinimapHudWidget.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
+import net.labymod.addons.minimap.api.map.MinimapCardinalType;
+import net.labymod.addons.minimap.api.map.MinimapDisplayType;
 import net.labymod.addons.minimap.map.MinimapTexture;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.GFXBridge;
 import net.labymod.api.client.gfx.pipeline.pass.passes.StencilRenderPass;
 import net.labymod.api.client.gui.hud.hudwidget.HudWidget;
-import net.labymod.api.client.gui.hud.hudwidget.HudWidgetConfig;
 import net.labymod.api.client.gui.hud.position.HudSize;
 import net.labymod.api.client.gui.mouse.MutableMouse;
 import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
-import net.labymod.api.client.gui.screen.widget.widgets.input.SliderWidget.SliderSetting;
-import net.labymod.api.client.gui.screen.widget.widgets.input.SwitchWidget.SwitchSetting;
-import net.labymod.api.client.gui.screen.widget.widgets.input.dropdown.DropdownWidget.DropdownEntryTranslationPrefix;
-import net.labymod.api.client.gui.screen.widget.widgets.input.dropdown.DropdownWidget.DropdownSetting;
 import net.labymod.api.client.render.matrix.Stack;
-import net.labymod.api.configuration.loader.property.ConfigProperty;
 import net.labymod.api.util.math.MathHelper;
 
 public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
-  public static final float BORDER_PADDING = 5F;
-
-  private final DefaultMinimapRenderEvent renderEvent = new DefaultMinimapRenderEvent();
+  private final MinimapRenderEvent renderEvent = new MinimapRenderEvent();
 
   private final MinimapAddon addon;
 
@@ -104,7 +95,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
         this.stencilRenderPass.end();
 
         // Render minimap
-        this.applyRotation(player, stack, size);
+        this.applyZoom(player, stack, size, true);
         this.renderMapTexture(player, stack, size);
 
         this.renderEvent.fireWithStage(Stage.ROTATED);
@@ -115,7 +106,12 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     stack.pop();
 
-    this.renderEvent.fireWithStage(Stage.STRAIGHT);
+    stack.push();
+    this.applyZoom(player, stack, size, false);
+    this.renderEvent.fireWithStage(Stage.STRAIGHT_ZOOMED);
+    stack.pop();
+
+    this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL);
 
     this.renderMapOutline(stack, size);
 
@@ -129,7 +125,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     }
   }
 
-  private void applyRotation(ClientPlayer player, Stack stack, HudSize size) {
+  private void applyZoom(ClientPlayer player, Stack stack, HudSize size, boolean rotate) {
     float addZoom = this.distanceToCorner / this.lastRadius + 0.3F;
 
     if (this.config.jumpBouncing().get()) {
@@ -146,9 +142,13 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     // Rotate and scale map
     stack.translate(size.getWidth() / 2F, size.getHeight() / 2F, 0F);
-    stack.rotate(-player.getRotationHeadYaw() + 180F, 0F, 0F, 1F);
+    if (rotate) {
+      stack.rotate(-player.getRotationHeadYaw() + 180F, 0F, 0F, 1F);
+    }
     stack.scale(addZoom, addZoom, 1F);
     stack.translate(-size.getWidth() / 2F, -size.getHeight() / 2F, 0F);
+
+    this.renderEvent.setZoom(addZoom);
   }
 
   private void renderMapTexture(ClientPlayer player, Stack stack, HudSize size) {
@@ -174,6 +174,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     float pixelWidthX = -0.4F;
     float pixelWidthY = -0.4F;
 
+    this.renderEvent.setPixelLength(pixelLength);
+
     this.texture.icon().render(
         stack,
         pixelWidthX + offsetX,
@@ -186,10 +188,10 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   private void renderMapOutline(Stack stack, HudSize size) {
     this.config.displayType().get().icon().render(
         stack,
-        -BORDER_PADDING,
-        -BORDER_PADDING,
-        size.getWidth() + BORDER_PADDING * 2F,
-        size.getHeight() + BORDER_PADDING * 2F
+        -MinimapHudWidgetConfig.BORDER_PADDING,
+        -MinimapHudWidgetConfig.BORDER_PADDING,
+        size.getWidth() + MinimapHudWidgetConfig.BORDER_PADDING * 2F,
+        size.getHeight() + MinimapHudWidgetConfig.BORDER_PADDING * 2F
     );
   }
 
@@ -247,54 +249,4 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       index++;
     }
   }
-
-  public static class MinimapHudWidgetConfig extends HudWidgetConfig {
-
-    // TODO: Round is currently not working when scaled @DropdownSetting
-    private static final ConfigProperty<MinimapDisplayType> SQUARE =
-        new ConfigProperty<>(MinimapDisplayType.SQUARE);
-
-    @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.displayType.entries")
-    private final ConfigProperty<MinimapDisplayType> displayType =
-        new ConfigProperty<>(MinimapDisplayType.ROUND);
-    @SwitchSetting
-    private final ConfigProperty<Boolean> jumpBouncing = new ConfigProperty<>(false);
-    @SwitchSetting
-    private final ConfigProperty<Boolean> autoZoom = new ConfigProperty<>(false);
-    @SliderSetting(min = 2, max = 30)
-    private final ConfigProperty<Integer> zoom = new ConfigProperty<>(12);
-    @DropdownSetting
-    @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.updateMethod.entries")
-    private final ConfigProperty<MinimapUpdateMethod> updateMethod =
-        new ConfigProperty<>(MinimapUpdateMethod.CHUNK_TRIGGER);
-    @DropdownSetting
-    @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.cardinalType.entries")
-    private final ConfigProperty<MinimapCardinalType> cardinalType
-        = new ConfigProperty<>(MinimapCardinalType.NORMAL);
-
-    public ConfigProperty<MinimapDisplayType> displayType() {
-      return SQUARE;
-    }
-
-    public ConfigProperty<Boolean> jumpBouncing() {
-      return this.jumpBouncing;
-    }
-
-    public ConfigProperty<Boolean> autoZoom() {
-      return this.autoZoom;
-    }
-
-    public ConfigProperty<Integer> zoom() {
-      return this.zoom;
-    }
-
-    public ConfigProperty<MinimapUpdateMethod> updateMethod() {
-      return this.updateMethod;
-    }
-
-    public ConfigProperty<MinimapCardinalType> cardinalType() {
-      return this.cardinalType;
-    }
-  }
-
 }

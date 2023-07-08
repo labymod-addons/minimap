@@ -1,12 +1,10 @@
-package net.labymod.addons.minimap.config;
+package net.labymod.addons.minimap.api.map;
 
-import static net.labymod.addons.minimap.hudwidget.MinimapHudWidget.BORDER_PADDING;
-
+import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.api.Laby;
 import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.client.resources.texture.ThemeTextureLocation;
-import net.labymod.api.util.Color;
 import org.jetbrains.annotations.NotNull;
 
 public enum MinimapDisplayType {
@@ -14,15 +12,15 @@ public enum MinimapDisplayType {
       Icon.texture(ThemeTextureLocation.of("labysminimap:overlay/round")),
       (stack, radius) -> Laby.labyAPI().renderPipeline().circleRenderer()
           .pos(radius, radius)
-          .radius(radius - BORDER_PADDING)
+          .radius(radius - MinimapHudWidgetConfig.BORDER_PADDING)
           .color(Integer.MAX_VALUE)
           .render(stack)
   ),
   SQUARE(
       Icon.texture(ThemeTextureLocation.of("labysminimap:overlay/square")),
       (stack, radius) -> Laby.labyAPI().renderPipeline().rectangleRenderer()
-          .pos(BORDER_PADDING, BORDER_PADDING)
-          .size(radius * 2F - BORDER_PADDING * 2F)
+          .pos(MinimapHudWidgetConfig.BORDER_PADDING, MinimapHudWidgetConfig.BORDER_PADDING)
+          .size(radius * 2F - MinimapHudWidgetConfig.BORDER_PADDING * 2F)
           .color(Integer.MAX_VALUE)
           .render(stack)
   );

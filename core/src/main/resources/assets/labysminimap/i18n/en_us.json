@@ -40,6 +40,10 @@
             "extended": "N, NE, E, SE, S, SW, W, NW",
             "numbers": "0, 1, 2, 3"
           }
+        },
+        "tileSize": {
+          "name": "Tile Size",
+          "description": "Size of the tiles (Player heads, Waypoints) on the Minimap"
         }
       }
     }

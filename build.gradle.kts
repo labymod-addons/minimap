@@ -1,3 +1,5 @@
+import net.labymod.gradle.core.addon.info.dependency.AddonDependency
+
 plugins {
     id("java-library")
     id("net.labymod.gradle")
@@ -30,7 +32,7 @@ labyMod {
                 "1.19.2",
                 "1.19.3",
                 "1.19.4",
-                "23w18a"
+                "1.20.1"
         ) { version, provider ->
             configureRun(provider, version)
         }
