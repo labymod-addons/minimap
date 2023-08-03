@@ -11,13 +11,16 @@ import net.labymod.addons.minimap.map.MinimapTexture;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.GFXBridge;
 import net.labymod.api.client.gfx.pipeline.pass.passes.StencilRenderPass;
+import net.labymod.api.client.gui.hud.binding.category.HudWidgetCategory;
 import net.labymod.api.client.gui.hud.hudwidget.HudWidget;
 import net.labymod.api.client.gui.hud.position.HudSize;
 import net.labymod.api.client.gui.mouse.MutableMouse;
 import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
 import net.labymod.api.client.render.matrix.Stack;
+import net.labymod.api.configuration.loader.annotation.SpriteSlot;
 import net.labymod.api.util.math.MathHelper;
 
+@SpriteSlot(size = 32)
 public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   private final MinimapRenderEvent renderEvent = new MinimapRenderEvent();
@@ -33,6 +36,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   public MinimapHudWidget(MinimapAddon addon) {
     super("minimap", MinimapHudWidgetConfig.class);
+
+    this.bindCategory(HudWidgetCategory.INGAME);
 
     this.addon = addon;
   }
