@@ -53,14 +53,11 @@ public class MinimapGenerator {
           }
 
           // Trigger on teleport
-          // TODO lastChunkBounds?!
           if (player != null
-              && (Math.abs(x1 - this.lastChunkBounds.getX1()) > 8
-              || Math.abs(z1 - this.lastChunkBounds.getZ1()) > 8)) {
-            this.teleportStarted = System.currentTimeMillis() + 1000;
+              && (Math.abs(x1 - this.lastBounds.getX1()) > 128
+              || Math.abs(z1 - this.lastBounds.getZ1()) > 128)) {
+            this.teleportStarted = System.currentTimeMillis() + 2500;
           }
-
-          this.lastBounds.update(x1, z1, x2, z2, depth);
 
           break;
         case CHUNK_TRIGGER:
@@ -78,7 +75,7 @@ public class MinimapGenerator {
           // Trigger on teleport
           if (player != null && (Math.abs(chunkX1 - this.lastChunkBounds.getX1()) > 2
               || Math.abs(chunkZ1 - this.lastChunkBounds.getZ1()) > 2)) {
-            this.teleportStarted = System.currentTimeMillis() + 1000;
+            this.teleportStarted = System.currentTimeMillis() + 2500;
           }
 
           this.lastChunkBounds.update(chunkX1, chunkZ1, chunkX2, chunkZ2, depth);
@@ -86,6 +83,7 @@ public class MinimapGenerator {
       }
     }
 
+    this.lastBounds.update(x1, z1, x2, z2, depth);
     return true;
   }
 

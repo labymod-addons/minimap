@@ -72,8 +72,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       return;
     }
 
-    stack.push();
-
     this.renderEvent.fill(stack, size, this.texture.getCurrentBounds());
 
     float radius = size.getWidth() / 2F;
@@ -84,32 +82,36 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     GFXBridge gfx = this.labyAPI.gfxRenderPipeline().gfx();
 
-    if (this.addon.isMinimapAllowed()) {
-      this.labyAPI.gfxRenderPipeline().renderToActivityTarget(target -> {
-        gfx.enableStencil();
+    this.labyAPI.gfxRenderPipeline().renderToActivityTarget(target -> {
+      gfx.enableStencil();
 
-        this.labyAPI.gfxRenderPipeline().clear(target);
+      this.labyAPI.gfxRenderPipeline().clear(target);
 
-        this.stencilRenderPass.begin();
-        this.config.displayType().get().stencil().render(stack, radius);
-        this.stencilRenderPass.end();
+      this.stencilRenderPass.begin();
+      this.config.displayType().get().stencil().render(stack, radius);
+      this.stencilRenderPass.end();
 
-        // Render minimap
+      // Render minimap
+      if (this.addon.isMinimapAllowed()) {
+        stack.push();
+
         this.applyZoom(player, stack, size, true);
         this.renderMapTexture(player, stack, size);
 
         this.renderEvent.fireWithStage(Stage.ROTATED);
 
-        gfx.disableStencil();
-      });
-    }
+        stack.pop();
+      }
 
-    stack.pop();
+      stack.push();
+      this.applyZoom(player, stack, size, false);
+      this.renderEvent.fireWithStage(Stage.STRAIGHT_ZOOMED);
+      stack.pop();
 
-    stack.push();
-    this.applyZoom(player, stack, size, false);
-    this.renderEvent.fireWithStage(Stage.STRAIGHT_ZOOMED);
-    stack.pop();
+      this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL_STENCIL);
+
+      gfx.disableStencil();
+    });
 
     this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL);
 
@@ -208,7 +210,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     float rotCenterX = size.getWidth() / 2F;
     float rotCenterY = size.getHeight() / 2F;
-
 
     int index = 1;
     for (String cardinal : cardinals) {

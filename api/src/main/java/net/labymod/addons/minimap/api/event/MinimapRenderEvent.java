@@ -62,6 +62,7 @@ public class MinimapRenderEvent implements Event {
 
   public enum Stage {
     ROTATED,
+    STRAIGHT_NORMAL_STENCIL,
     STRAIGHT_NORMAL,
     STRAIGHT_ZOOMED
   }

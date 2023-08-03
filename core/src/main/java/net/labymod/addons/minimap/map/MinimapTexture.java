@@ -103,7 +103,8 @@ public class MinimapTexture {
       );
 
       this.texture.queueUpdate(image)
-          .thenAccept(v -> this.currentBounds.update(x1, z1, x2, z2, depth));
+          .thenAccept(v -> Laby.labyAPI().minecraft()
+              .executeNextTick(() -> this.currentBounds.update(x1, z1, x2, z2, depth)));
     }
 
     float highestBlockY = (this.generator.getHighestBlockY() / ROUND_DECIMALS) * ROUND_DECIMALS;
