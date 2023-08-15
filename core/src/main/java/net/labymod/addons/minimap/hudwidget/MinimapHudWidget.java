@@ -6,7 +6,7 @@ import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.map.MinimapCardinalType;
-import net.labymod.addons.minimap.api.map.MinimapDisplayType;
+import net.labymod.addons.minimap.api.map.MinimapCircle;
 import net.labymod.addons.minimap.map.MinimapTexture;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.GFXBridge;
@@ -26,6 +26,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   private final MinimapRenderEvent renderEvent = new MinimapRenderEvent();
 
   private final MinimapAddon addon;
+
+  private final MinimapCircle circle = new MinimapCircle();
 
   private MinimapTexture texture;
 
@@ -77,13 +79,14 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       return;
     }
 
-    this.renderEvent.fill(stack, size, this.texture.getCurrentBounds());
-
     float radius = size.getWidth() / 2F;
     if (this.lastRadius != radius) {
       this.distanceToCorner = (float) Math.sqrt(radius * radius + radius * radius);
       this.lastRadius = radius;
     }
+
+    this.renderEvent.fill(stack, size, this.texture.getCurrentBounds(), this.circle);
+    this.circle.init(this.config.displayType().get(), size, this.distanceToCorner);
 
     GFXBridge gfx = this.labyAPI.gfxRenderPipeline().gfx();
 
@@ -103,14 +106,14 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
         this.applyZoom(player, stack, size, true);
         this.renderMapTexture(player, stack, size);
 
-        this.renderEvent.fireWithStage(Stage.ROTATED);
+        this.renderEvent.fireWithStage(Stage.ROTATED_STENCIL);
 
         stack.pop();
       }
 
       stack.push();
       this.applyZoom(player, stack, size, false);
-      this.renderEvent.fireWithStage(Stage.STRAIGHT_ZOOMED);
+      this.renderEvent.fireWithStage(Stage.STRAIGHT_ZOOMED_STENCIL);
       stack.pop();
 
       this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL_STENCIL);
@@ -118,18 +121,30 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       gfx.disableStencil();
     });
 
-    this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL);
-
     this.renderMapOutline(stack, size);
 
     if (this.config.cardinalType().get() != MinimapCardinalType.HIDDEN) {
       stack.push();
       stack.translate(0F, 0F, 400.0F);
 
-      this.renderCardinals(player, stack, size);
+      this.renderCardinals(player, stack);
 
       stack.pop();
     }
+
+    if (this.addon.isMinimapAllowed()) {
+      stack.push();
+      this.applyZoom(player, stack, size, true);
+      this.renderEvent.fireWithStage(Stage.ROTATED);
+      stack.pop();
+    }
+
+    stack.push();
+    this.applyZoom(player, stack, size, false);
+    this.renderEvent.fireWithStage(Stage.STRAIGHT_ZOOMED);
+    stack.pop();
+
+    this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL);
   }
 
   private void applyZoom(ClientPlayer player, Stack stack, HudSize size, boolean rotate) {
@@ -202,52 +217,24 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     );
   }
 
-  private void renderCardinals(ClientPlayer player, Stack stack, HudSize size) {
+  private void renderCardinals(ClientPlayer player, Stack stack) {
     MinimapCardinalType type = this.config.cardinalType().get();
     boolean numbers = type == MinimapCardinalType.NUMBERS;
     String[] cardinals = numbers
         ? new String[]{"2", "3", "0", "1"}
         : new String[]{"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
     float yaw = player.getRotationHeadYaw();
-    float radius = size.getWidth() / 2F;
-
-    boolean circle = this.config.displayType().get() == MinimapDisplayType.ROUND;
-
-    float rotCenterX = size.getWidth() / 2F;
-    float rotCenterY = size.getHeight() / 2F;
 
     int index = 1;
     for (String cardinal : cardinals) {
       double f =
           Math.PI / 360 * ((yaw - index * (numbers ? 90 : 45)) % 360 - (numbers ? 0 : 45)) * 2;
-
-      float offsetCos = (float) Math.cos(-f);
-      float offsetSin = (float) Math.sin(-f);
-
-      offsetCos *= circle ? radius : this.distanceToCorner;
-      offsetSin *= circle ? radius : this.distanceToCorner;
-
-      if (offsetCos < -radius) {
-        offsetCos = -radius;
-      }
-      if (offsetSin < -radius) {
-        offsetSin = -radius;
-      }
-
-      if (offsetCos > radius) {
-        offsetCos = radius;
-      }
-      if (offsetSin > radius) {
-        offsetSin = radius;
-      }
-
-      float circleX = rotCenterX + offsetCos;
-      float circleY = rotCenterY + offsetSin;
+      this.circle.calculate(f);
 
       if (numbers || index % 2 == 1 || type == MinimapCardinalType.EXTENDED) {
         this.labyAPI.renderPipeline()
             .textRenderer()
-            .pos(circleX, circleY - 4)
+            .pos(this.circle.getCircleX(), this.circle.getCircleY() - 4)
             .text(cardinal)
             .render(stack);
       }

@@ -60,6 +60,7 @@ public class WaypointsIntegration implements AddonIntegration {
     float scale = MinimapAddon.getReferences().minimapConfigProvider().widgetConfig()
         .tileSize().get() / 10F;
     float radius = event.size().getWidth() / 2F;
+    float scaledRadius = radius / event.zoom();
 
     for (Waypoint waypoint : waypoints) {
       FloatVector3 pos = waypoint.location();
@@ -67,18 +68,29 @@ public class WaypointsIntegration implements AddonIntegration {
       float pixelDistanceX = (playerX - pos.getX() - 0.5F) * event.pixelLength();
       float pixelDistanceZ = (playerZ - pos.getZ() - 0.5F) * event.pixelLength();
 
-      if ((Math.abs(pixelDistanceX) > radius / event.zoom()
-          || Math.abs(pixelDistanceZ) > radius / event.zoom())) {
-        continue;
+      float cos = MathHelper.cos(MathHelper.toRadiansFloat(-player.getRotationHeadYaw()));
+      float sin = MathHelper.sin(MathHelper.toRadiansFloat(-player.getRotationHeadYaw()));
+
+      float rotX = cos * pixelDistanceX - sin * pixelDistanceZ;
+      float rotZ = sin * pixelDistanceX + cos * pixelDistanceZ;
+
+      if (rotX < -scaledRadius) {
+        rotX = -scaledRadius;
+      }
+      if (rotZ < -scaledRadius) {
+        rotZ = -scaledRadius;
+      }
+
+      if (rotX > scaledRadius) {
+        rotX = scaledRadius;
+      }
+      if (rotZ > scaledRadius) {
+        rotZ = scaledRadius;
       }
 
       stack.push();
 
-      stack.rotate(-player.getRotationHeadYaw(), 0, 0, 1);
-      stack.translate(pixelDistanceX, pixelDistanceZ, 0);
-      stack.rotate(player.getRotationHeadYaw(), 0, 0, 1);
-      stack.translate(radius, radius, 0);
-
+      stack.translate(rotX + radius, rotZ + radius, 0F);
       stack.scale(scale, scale, 1F);
 
       stack.translate(0F, 0F, 1F);
