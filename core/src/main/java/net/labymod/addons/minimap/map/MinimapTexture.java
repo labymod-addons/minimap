@@ -13,7 +13,7 @@ import net.labymod.api.client.resources.texture.GameImage;
 import net.labymod.api.client.resources.texture.concurrent.RefreshableTexture;
 import net.labymod.api.event.Phase;
 import net.labymod.api.event.Subscribe;
-import net.labymod.api.event.client.lifecycle.GameTickEvent;
+import net.labymod.api.event.client.render.GameRenderEvent;
 
 public class MinimapTexture {
 
@@ -63,7 +63,7 @@ public class MinimapTexture {
   }
 
   @Subscribe
-  public void tick(GameTickEvent event) {
+  public void tick(GameRenderEvent event) {
     if (event.phase() != Phase.POST || this.texture.wasReleased()) {
       return;
     }
