@@ -41,7 +41,7 @@ public class WaypointsIntegration implements AddonIntegration {
       return;
     }
 
-    Collection<Waypoint> waypoints = Waypoints.getReferences().waypointService().getAllWaypoints();
+    Collection<Waypoint> waypoints = Waypoints.getReferences().waypointService().getVisibleWaypoints();
     if (waypoints.isEmpty()) {
       return;
     }
@@ -109,8 +109,9 @@ public class WaypointsIntegration implements AddonIntegration {
 
       WaypointTextures.MARKER_ICON.render(
           stack,
-          -4F,
+          -2.25F,
           -8F,
+          4.5F,
           8F,
           false,
           waypoint.color().get()
