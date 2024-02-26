@@ -12,7 +12,7 @@ public class MinimapTranslationListener extends AbstractLabyMod3PayloadTranslati
   private final AddonProtocol protocol;
 
   public MinimapTranslationListener(AddonProtocol protocol) {
-    super("addons");
+    super(protocol, "addons");
 
     this.protocol = protocol;
   }
