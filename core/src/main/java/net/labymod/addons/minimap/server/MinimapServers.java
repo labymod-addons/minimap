@@ -9,9 +9,14 @@ import net.labymod.api.event.client.world.WorldEnterEvent.Type;
 import net.labymod.serverapi.protocol.packet.protocol.AddonProtocol;
 import net.labymod.serverapi.protocol.packet.protocol.ProtocolService;
 import java.util.Locale;
+import net.labymod.serverapi.protocol.payload.identifier.PayloadChannelIdentifier;
 
 public class MinimapServers {
 
+  private static final PayloadChannelIdentifier LABYMOD_3_MAIN = PayloadChannelIdentifier.create(
+      "labymod3",
+      "main"
+  );
   private final static String[] BLACKLIST = {
       "hypixel",
       "mineplex",
@@ -27,7 +32,7 @@ public class MinimapServers {
     Laby.labyAPI().eventBus().registerListener(this);
 
     ProtocolService protocolService = Laby.references().labyProtocolApi().getProtocolService();
-    AddonProtocol protocol = new AddonProtocol("labysminimap");
+    AddonProtocol protocol = new AddonProtocol("labysminimap", LABYMOD_3_MAIN);
 
     protocolService.registerAddonProtocol(protocol);
 
