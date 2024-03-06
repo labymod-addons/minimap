@@ -43,8 +43,4 @@ public class MinimapTranslationListener extends AbstractLabyMod3PayloadTranslati
     return new byte[0];
   }
 
-  @Override
-  public PayloadChannelIdentifier getNewIdentifier() {
-    return this.protocol.getIdentifier();
-  }
 }
