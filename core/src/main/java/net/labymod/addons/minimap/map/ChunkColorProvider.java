@@ -3,12 +3,12 @@ package net.labymod.addons.minimap.map;
 import net.labymod.api.client.world.block.BlockState;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.client.world.chunk.HeightmapType;
-import net.labymod.api.util.ColorUtil;
+import net.labymod.api.util.color.format.ColorFormat;
 
 public class ChunkColorProvider {
 
-  private static final int WATER_COLOR = ColorUtil.toValue(20, 20, 100, 255);
-  private static final int SKY_COLOR = ColorUtil.toValue(142, 163, 255);
+  private static final int WATER_COLOR = ColorFormat.ARGB32.pack(20, 20, 100, 255);
+  private static final int SKY_COLOR = ColorFormat.ARGB32.pack(142, 163, 255);
 
   public void getOverworldPixels(int[] chunkColors, Chunk chunk) {
     int index = 0;
@@ -25,7 +25,7 @@ public class ChunkColorProvider {
           ++y;
         }
 
-        chunkColors[index] = this.getColor(block, x, y, z);
+        chunkColors[index] = this.getColor(block, y);
         index++;
       }
     }
@@ -35,7 +35,7 @@ public class ChunkColorProvider {
     int index = 0;
 
     BlockState[] heightArray = new BlockState[21];
-    int backgroundColor = ColorUtil.toValue(70, 70, 70, 255);
+    int backgroundColor = ColorFormat.ARGB32.pack(70, 70, 70, 255);
 
     for (int x = 0; x < 16; x++) {
       for (int z = 0; z < 16; z++) {
@@ -58,12 +58,7 @@ public class ChunkColorProvider {
               h < 0 ? heightArray[h * -1] : chunk.getBlockState(x & 15, blockY, z & 15);
 
           if (!block.block().isAir()) {
-            color = this.getColor(
-                block,
-                chunk.getAbsoluteBlockX(x),
-                blockY,
-                chunk.getAbsoluteBlockZ(z)
-            );
+            color = this.getColor(block, blockY);
           }
         }
 
@@ -73,7 +68,7 @@ public class ChunkColorProvider {
     }
   }
 
-  private int getColor(BlockState block, int x, int y, int z) {
+  private int getColor(BlockState block, int y) {
     int color;
 
     if (block.block().isAir()) {
@@ -86,26 +81,27 @@ public class ChunkColorProvider {
     }
 
     // Heightmap
-    color = adjustPixelBrightness(color, y % 2 == 0 ? -6 : 0);
+    color = this.adjustPixelBrightness(color, y % 2 == 0 ? -6 : 0);
 
     // Light level
     color = this.adjustPixelBrightness(
         color,
-        (int) (-50D + block.getLightLevel(x, y, z) * 5D + 20D)
+        (int) (-50D + block.getLightLevel() * 5D + 20D)
     );
 
     return color;
   }
 
   private int adjustPixelBrightness(int color, int brightness) {
-    int r = color >> 16 & 0xFF;
-    int g = color >> 8 & 0xFF;
-    int b = color >> 0 & 0xFF;
+    ColorFormat colorFormat = ColorFormat.ARGB32;
+    int r = colorFormat.red(color);
+    int g = colorFormat.green(color);
+    int b = colorFormat.blue(color);
 
     r = Math.min(Math.max(0, r + brightness), 255);
     g = Math.min(Math.max(0, g + brightness), 255);
     b = Math.min(Math.max(0, b + brightness), 255);
 
-    return (color & 0xFF000000) | r << 16 | g << 8 | b;
+    return colorFormat.pack(r, g, b, 255);
   }
 }

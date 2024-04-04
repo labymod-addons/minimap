@@ -8,7 +8,7 @@ import net.labymod.api.client.resources.texture.GameImage;
 import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.client.world.chunk.HeightmapType;
-import net.labymod.api.util.ColorUtil;
+import net.labymod.api.util.color.format.ColorFormat;
 
 public class MinimapGenerator {
 
@@ -142,7 +142,7 @@ public class MinimapGenerator {
             int destZ = (ccZ + tZ) - z1;
 
             if (destX >= 0 && destX < image.getWidth() && destZ >= 0 && destZ < image.getHeight()) {
-              image.setRGBA(destX, destZ, ColorUtil.toValue(chunkColors[tIndex], 255));
+              image.setARGB(destX, destZ, ColorFormat.ARGB32.pack(chunkColors[tIndex], 255));
             }
 
             tIndex++;
