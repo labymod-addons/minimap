@@ -14,11 +14,8 @@ public class MinimapHudWidgetConfig extends HudWidgetConfig {
 
   public static final float BORDER_PADDING = 5F;
 
-  // TODO: Round is currently not working when scaled @DropdownSetting
-  private static final ConfigProperty<MinimapDisplayType> SQUARE =
-      new ConfigProperty<>(MinimapDisplayType.SQUARE);
-
   @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.displayType.entries")
+  @DropdownSetting
   private final ConfigProperty<MinimapDisplayType> displayType =
       new ConfigProperty<>(MinimapDisplayType.ROUND);
   @SwitchSetting
@@ -39,7 +36,7 @@ public class MinimapHudWidgetConfig extends HudWidgetConfig {
       = new ConfigProperty<>(MinimapCardinalType.NORMAL);
 
   public ConfigProperty<MinimapDisplayType> displayType() {
-    return SQUARE;
+    return this.displayType;
   }
 
   public ConfigProperty<Boolean> jumpBouncing() {

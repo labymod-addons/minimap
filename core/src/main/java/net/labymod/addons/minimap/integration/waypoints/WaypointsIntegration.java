@@ -59,7 +59,7 @@ public class WaypointsIntegration implements AddonIntegration {
 
     float scale = MinimapAddon.getReferences().minimapConfigProvider().widgetConfig()
         .tileSize().get() / 10F;
-    float radius = event.size().getWidth() / 2F;
+    float radius = event.size().getActualWidth() / 2F;
     float scaledRadius = radius / event.zoom();
 
     for (Waypoint waypoint : waypoints) {

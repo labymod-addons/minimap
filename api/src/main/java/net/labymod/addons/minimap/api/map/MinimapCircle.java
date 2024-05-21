@@ -18,12 +18,12 @@ public class MinimapCircle {
   }
 
   public void calculate(double radians) {
-    float radius = this.size.getWidth() / 2F;
+    float radius = this.size.getActualWidth() / 2F;
 
     boolean circle = this.displayType == MinimapDisplayType.ROUND;
 
-    float rotCenterX = this.size.getWidth() / 2F;
-    float rotCenterY = this.size.getHeight() / 2F;
+    float rotCenterX = this.size.getActualWidth() / 2F;
+    float rotCenterY = this.size.getActualHeight() / 2F;
 
     float offsetCos = (float) Math.cos(-radians);
     float offsetSin = (float) Math.sin(-radians);

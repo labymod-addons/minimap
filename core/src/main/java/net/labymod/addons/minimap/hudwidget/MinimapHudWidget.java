@@ -7,6 +7,7 @@ import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.map.MinimapCardinalType;
 import net.labymod.addons.minimap.api.map.MinimapCircle;
+import net.labymod.addons.minimap.api.map.MinimapDisplayType;
 import net.labymod.addons.minimap.map.MinimapTexture;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.GFXBridge;
@@ -63,7 +64,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   @Override
   public void updateSize(HudWidgetWidget widget, boolean isEditorContext, HudSize size) {
-    size.set(150, 150);
+    size.set(150F, 150F);
   }
 
   @Override
@@ -79,7 +80,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       return;
     }
 
-    float radius = size.getWidth() / 2F;
+    float radius = size.getActualWidth() / 2F;
     if (this.lastRadius != radius) {
       this.distanceToCorner = (float) Math.sqrt(radius * radius + radius * radius);
       this.lastRadius = radius;
@@ -163,12 +164,12 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     }
 
     // Rotate and scale map
-    stack.translate(size.getWidth() / 2F, size.getHeight() / 2F, 0F);
+    stack.translate(size.getActualWidth() / 2F, size.getActualHeight() / 2F, 0F);
     if (rotate) {
       stack.rotate(-player.getRotationHeadYaw() + 180F, 0F, 0F, 1F);
     }
     stack.scale(addZoom, addZoom, 1F);
-    stack.translate(-size.getWidth() / 2F, -size.getHeight() / 2F, 0F);
+    stack.translate(-size.getActualWidth() / 2F, -size.getActualHeight() / 2F, 0F);
 
     this.renderEvent.setZoom(addZoom);
   }
@@ -189,7 +190,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     smoothX -= mapMidX;
     smoothZ -= mapMidZ;
 
-    float pixelLength = size.getWidth() / (this.config.zoom().get() * 10F) / 2F;
+    float pixelLength = size.getActualWidth() / (this.config.zoom().get() * 10F) / 2F;
     float offsetX = -pixelLength * smoothX;
     float offsetZ = -pixelLength * smoothZ;
 
@@ -202,8 +203,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
         stack,
         pixelWidthX + offsetX,
         pixelWidthY + offsetZ,
-        size.getWidth(),
-        size.getHeight()
+        size.getActualWidth(),
+        size.getActualHeight()
     );
   }
 
@@ -212,8 +213,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
         stack,
         -MinimapHudWidgetConfig.BORDER_PADDING,
         -MinimapHudWidgetConfig.BORDER_PADDING,
-        size.getWidth() + MinimapHudWidgetConfig.BORDER_PADDING * 2F,
-        size.getHeight() + MinimapHudWidgetConfig.BORDER_PADDING * 2F
+        size.getActualWidth() + MinimapHudWidgetConfig.BORDER_PADDING * 2F,
+        size.getActualHeight() + MinimapHudWidgetConfig.BORDER_PADDING * 2F
     );
   }
 
