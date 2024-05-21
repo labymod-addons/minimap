@@ -1,7 +1,7 @@
 rootProject.name = "minimap"
 
 pluginManagement {
-    val labyGradlePluginVersion = "0.3.48"
+    val labyGradlePluginVersion = "0.3.51"
     plugins {
         id("net.labymod.gradle") version (labyGradlePluginVersion)
     }
