@@ -9,6 +9,8 @@ import net.labymod.addons.minimap.api.map.MinimapCardinalType;
 import net.labymod.addons.minimap.api.map.MinimapCircle;
 import net.labymod.addons.minimap.api.map.MinimapDisplayType;
 import net.labymod.addons.minimap.map.MinimapTexture;
+import net.labymod.addons.minimap.map.v2.MinimapRenderer;
+import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.GFXBridge;
 import net.labymod.api.client.gfx.pipeline.pass.passes.StencilRenderPass;
@@ -30,6 +32,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   private final MinimapCircle circle = new MinimapCircle();
 
+  private MinimapRenderer minimapRenderer;
   private MinimapTexture texture;
 
   private float distanceToCorner = 0;
@@ -43,6 +46,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     this.bindCategory(HudWidgetCategory.INGAME);
 
     this.addon = addon;
+
+    this.minimapRenderer = new MinimapRenderer();
   }
 
   @Override
@@ -60,6 +65,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     this.texture = new MinimapTexture(this.addon, config);
     this.texture.init();
+
+    this.minimapRenderer.initialize();
   }
 
   @Override
@@ -175,11 +182,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   }
 
   private void renderMapTexture(ClientPlayer player, Stack stack, HudSize size) {
-    if (!this.texture.isAvailable()) {
-      return;
-    }
-
-    MinimapBounds bounds = this.texture.getCurrentBounds();
+    MinimapBounds bounds = new MinimapBounds(0, 0, 16 * 24, 16 + 24, 0);
 
     float mapMidX = bounds.getX1() + (bounds.getX2() - bounds.getX1()) / 2F;
     float mapMidZ = bounds.getZ1() + (bounds.getZ2() - bounds.getZ1()) / 2F;
@@ -199,10 +202,10 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     this.renderEvent.setPixelLength(pixelLength);
 
-    this.texture.icon().render(
+    this.minimapRenderer.render(
         stack,
-        pixelWidthX + offsetX,
-        pixelWidthY + offsetZ,
+        0,
+        0,
         size.getActualWidth(),
         size.getActualHeight()
     );
