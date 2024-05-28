@@ -11,6 +11,7 @@ import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.resources.ResourceLocation;
 import net.labymod.api.client.resources.texture.GameImage;
 import net.labymod.api.client.resources.texture.concurrent.RefreshableTexture;
+import net.labymod.api.client.world.effect.PotionEffect;
 import net.labymod.api.event.Phase;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.render.GameRenderEvent;
@@ -90,6 +91,15 @@ public class MinimapTexture {
     MinimapUpdateMethod method = this.config.updateMethod()
         .getOrDefault(MinimapUpdateMethod.CHUNK_TRIGGER);
 
+    boolean hasBlindness = false;
+    for (PotionEffect effect : player.getActivePotionEffects()) {
+      String translationKey = effect.getTranslationKey();
+      if (translationKey.contains("blindness")) {
+        hasBlindness = true;
+        break;
+      }
+    }
+
     if (this.generator.isUpdateNecessary(player, x1, z1, x2, z2, depth, method)) {
       GameImage image = this.generator.getMinimap(
           true,
@@ -99,7 +109,8 @@ public class MinimapTexture {
           z2,
           (int) player.getPosX(),
           (int) player.getPosY(),
-          (int) player.getPosZ()
+          (int) player.getPosZ(),
+          hasBlindness
       );
 
       this.texture.queueUpdate(image)

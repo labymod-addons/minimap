@@ -1,5 +1,3 @@
-import net.labymod.gradle.core.addon.info.dependency.AddonDependency
-
 plugins {
     id("java-library")
     id("net.labymod.gradle")

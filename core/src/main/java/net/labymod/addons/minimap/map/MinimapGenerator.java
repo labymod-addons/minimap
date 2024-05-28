@@ -8,11 +8,16 @@ import net.labymod.api.client.resources.texture.GameImage;
 import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.client.world.chunk.HeightmapType;
+import net.labymod.api.util.ColorUtil;
+import net.labymod.api.util.bounds.MutableRectangle;
+import net.labymod.api.util.bounds.Rectangle;
 import net.labymod.api.util.color.format.ColorFormat;
+import java.io.IOException;
 
 public class MinimapGenerator {
 
   private final ChunkColorProvider chunkColorProvider = new ChunkColorProvider();
+  private final ChunkTileColorProvider colorProvider = new OverworldChunkTileColorProvider();
 
   private final MinimapBounds lastBounds = new MinimapBounds();
   private final MinimapBounds lastChunkBounds = new MinimapBounds();
@@ -88,7 +93,16 @@ public class MinimapGenerator {
   }
 
   public GameImage getMinimap(
-      boolean undergroundViewEnabled, int x1, int z1, int x2, int z2, int midX, int midY, int midZ) {
+      boolean undergroundViewEnabled,
+      int x1,
+      int z1,
+      int x2,
+      int z2,
+      int midX,
+      int midY,
+      int midZ,
+      boolean hasBlindness
+  ) {
     ClientWorld world = Laby.labyAPI().minecraft().clientWorld();
 
     if (world == null) {
@@ -129,7 +143,7 @@ public class MinimapGenerator {
         if (this.underground) {
           this.chunkColorProvider.getUndergroundPixels(chunkColors, chunk, midY);
         } else {
-          this.chunkColorProvider.getOverworldPixels(chunkColors, chunk);
+          this.colorProvider.getColor(chunk, chunkColors);
         }
 
         int cCX = cX << 4;
@@ -142,7 +156,15 @@ public class MinimapGenerator {
             int destZ = (ccZ + tZ) - z1;
 
             if (destX >= 0 && destX < image.getWidth() && destZ >= 0 && destZ < image.getHeight()) {
-              image.setARGB(destX, destZ, ColorFormat.ARGB32.pack(chunkColors[tIndex], 255));
+              int chunkColor = chunkColors[tIndex];
+
+              int alpha = ColorFormat.ARGB32.alpha(chunkColor);
+
+              if (alpha <= 51) {
+                chunkColor = ColorFormat.ARGB32.pack(chunkColor, 255);
+              }
+
+              image.setARGB(destX, destZ, chunkColor);
             }
 
             tIndex++;
@@ -155,6 +177,45 @@ public class MinimapGenerator {
               .getHeight(midInChunkX, midInChunkZ);
         }
       }
+    }
+
+    int width = image.getWidth();
+    int height = image.getHeight();
+    int centerX = (width / 2);
+    int centerY = (height / 2);
+
+    float radius = 3;
+    float smoothing = radius - 1.0F;
+
+    float fullRadius = radius + smoothing;
+
+    try {
+      if (hasBlindness) {
+        for (int y = 0; y < width; y++) {
+          for (int x = 0; x < height; x++) {
+
+            float distX = centerX - x - 1;
+            float distY = centerY - y;
+            float distSquared = (float) Math.sqrt(distX * distX + distY * distY);
+
+            if (distSquared > fullRadius) {
+              image.setARGB(x, y, 0xFF000000);
+            } else if (distSquared > radius) {
+
+              float distanceFromEdge = distSquared - radius;
+              float proportionInside = (Math.min(distanceFromEdge, smoothing) / smoothing);
+
+              int argb = image.getARGB(x, y);
+              ColorFormat format = ColorFormat.ARGB32;
+
+              int packedArgb = format.pack(0, 0, 0, proportionInside);
+              image.setARGB(x, y, ColorUtil.blendColors(argb, packedArgb));
+            }
+          }
+        }
+      }
+    } catch (Throwable throwable) {
+      System.out.println("Failed");
     }
 
     this.imageAvailable = true;

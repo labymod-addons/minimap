@@ -19,8 +19,7 @@ public class ChunkColorProvider {
         BlockState block = chunk.getBlockState(x, y, z);
         BlockState blockAbove = chunk.getBlockState(x, y + 1, z);
 
-        if (blockAbove.block().id().getNamespace().equals("minecraft")
-            && blockAbove.block().id().getPath().equals("lava")) {
+        if (block.isWater()) {
           block = blockAbove;
           ++y;
         }
@@ -73,9 +72,6 @@ public class ChunkColorProvider {
 
     if (block.block().isAir()) {
       color = SKY_COLOR;
-    } else if (block.block().id().getNamespace().equals("minecraft")
-        && block.block().id().getPath().equals("water")) {
-      color = WATER_COLOR;
     } else {
       color = block.getTopColor();
     }
@@ -102,6 +98,6 @@ public class ChunkColorProvider {
     g = Math.min(Math.max(0, g + brightness), 255);
     b = Math.min(Math.max(0, b + brightness), 255);
 
-    return colorFormat.pack(r, g, b, 255);
+    return colorFormat.pack(r, g, b, colorFormat.alpha(color));
   }
 }
