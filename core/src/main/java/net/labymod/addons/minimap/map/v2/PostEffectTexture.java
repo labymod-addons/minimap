@@ -62,7 +62,7 @@ public class PostEffectTexture extends DynamicTexture {
           }
         }
       } else {
-        this.image().fillRect(0, 0, this.image().getWidth(), this.image().getHeight(), 0x00FFFFFF);
+        this.image().fillRect(0, 0, this.image().getWidth(), this.image().getHeight(), 0);
       }
 
       this.updateTexture();

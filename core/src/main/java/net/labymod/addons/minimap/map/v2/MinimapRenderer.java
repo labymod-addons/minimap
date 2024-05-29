@@ -2,6 +2,7 @@ package net.labymod.addons.minimap.map.v2;
 
 import net.labymod.api.Laby;
 import net.labymod.api.client.render.matrix.Stack;
+import net.labymod.api.event.EventBus;
 import net.labymod.api.event.Phase;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.lifecycle.GameTickEvent;
@@ -14,9 +15,12 @@ public final class MinimapRenderer {
   private DynamicTexture postEffectTexture;
 
   public MinimapRenderer() {
-    this.minimapTexture = new MinimapTexture();
+    MinimapChunkStorage storage = new MinimapChunkStorage();
+    this.minimapTexture = new MinimapTexture(storage);
     this.postEffectTexture = new PostEffectTexture();
-    Laby.references().eventBus().registerListener(this);
+    EventBus eventBus = Laby.references().eventBus();
+    eventBus.registerListener(this);
+    eventBus.registerListener(storage);
   }
 
   @Subscribe

@@ -9,10 +9,7 @@ import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.client.world.chunk.HeightmapType;
 import net.labymod.api.util.ColorUtil;
-import net.labymod.api.util.bounds.MutableRectangle;
-import net.labymod.api.util.bounds.Rectangle;
 import net.labymod.api.util.color.format.ColorFormat;
-import java.io.IOException;
 
 public class MinimapGenerator {
 
@@ -39,6 +36,10 @@ public class MinimapGenerator {
       int z2,
       int depth,
       MinimapUpdateMethod updateMethod) {
+    if (true) {
+      return false;
+    }
+
     int depthRange = this.underground ? 1 : 5;
 
     // Trigger on teleport

@@ -40,6 +40,8 @@ public abstract class DynamicTexture {
     );
 
     this.texture.bindTo(this.location);
+    this.image().fillRect(0, 0, this.getWidth(), this.getHeight(), 0);
+    this.updateTexture();
   }
 
   public void updateTexture() {
