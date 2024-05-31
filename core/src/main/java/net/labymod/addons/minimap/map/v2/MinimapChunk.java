@@ -5,8 +5,6 @@ import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.client.world.block.BlockColorProvider;
 import net.labymod.api.client.world.block.BlockState;
 import net.labymod.api.client.world.chunk.Chunk;
-import net.labymod.api.client.world.chunk.Heightmap;
-import net.labymod.api.client.world.chunk.HeightmapType;
 import net.labymod.api.util.ColorUtil;
 import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.math.vector.IntVector3;
@@ -18,8 +16,11 @@ public class MinimapChunk {
   private final BlockColorProvider blockColorProvider;
   private final Chunk chunk;
   private final int[] colors = new int[CHUNK_SIZE * CHUNK_SIZE];
-  private final Heightmap heightmap;
+  private final int[] heightmap = new int[CHUNK_SIZE * CHUNK_SIZE];
   private final ClientWorld level;
+
+  private int minY;
+  private int maxY;
 
   private boolean compiled;
 
@@ -27,7 +28,6 @@ public class MinimapChunk {
     this.blockColorProvider = Laby.references().blockColorProvider();
     this.level = Laby.references().clientWorld();
     this.chunk = chunk;
-    this.heightmap = this.chunk.heightmap(HeightmapType.WORLD_SURFACE);
   }
 
   public void compile() {
@@ -47,6 +47,7 @@ public class MinimapChunk {
 
         int baseColor = 0xFF000000 | this.getColor(format, blockState);
 
+        this.setHeight(x, z, blockState.position().getY());
         if (blockState.isWater()) {
           BlockState blockStateUnderWater = this.getBlockStateUnderWater(blockState);
 
@@ -54,6 +55,7 @@ public class MinimapChunk {
 
           int colorUnderWater = 0xFF000000 | this.getColor(format, blockStateUnderWater);
           baseColor = ColorUtil.blendColors(colorUnderWater, baseColor);
+          this.setHeight(x, z, blockStateUnderWater.position().getY());
         }
 
         this.setColor(x, z, baseColor);
@@ -105,7 +107,7 @@ public class MinimapChunk {
     int minBuildHeight = this.level.getMinBuildHeight();
 
     BlockState blockState = null;
-    while (y > minBuildHeight){
+    while (y > minBuildHeight) {
       blockState = this.chunk.getBlockState(x, y, z);
       if (!blockState.isWater()) {
         break;
@@ -121,16 +123,40 @@ public class MinimapChunk {
     this.compiled = false;
   }
 
-  public int getHeight(int x, int z) {
-    return this.heightmap.getHeight(x, z);
+  private void setHeight(int x, int z, int height) {
+    this.heightmap[this.getIndex(x, z)] = height;
+
+    if (height < this.minY) {
+      this.minY = height;
+    }
+
+    if (height > this.maxY) {
+      this.maxY = height;
+    }
   }
 
-  public int getColor(int x, int y) {
-    return this.colors[x * CHUNK_SIZE + y];
+  public int getHeight(int x, int z) {
+    return this.heightmap[this.getIndex(x, z)];
+  }
+
+  public int getMinY() {
+    return this.minY;
+  }
+
+  public int getMaxY() {
+    return this.maxY;
   }
 
   private void setColor(int x, int y, int argb) {
-    this.colors[x * CHUNK_SIZE + y] = argb;
+    this.colors[this.getIndex(x, y)] = argb;
+  }
+
+  public int getColor(int x, int y) {
+    return this.colors[this.getIndex(x, y)];
+  }
+
+  private int getIndex(int x, int z) {
+    return x * CHUNK_SIZE + z;
   }
 
   public int getX() {
