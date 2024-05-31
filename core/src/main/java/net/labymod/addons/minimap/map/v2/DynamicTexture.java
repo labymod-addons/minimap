@@ -35,8 +35,8 @@ public abstract class DynamicTexture {
     }
 
     this.texture = Laby.references().asynchronousTextureUploader().newRefreshableTexture(
-        GFXTextureFilter.NEAREST,
-        GFXTextureFilter.NEAREST
+        GFXTextureFilter.LINEAR,
+        GFXTextureFilter.LINEAR
     );
 
     this.texture.bindTo(this.location);

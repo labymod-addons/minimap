@@ -5,7 +5,6 @@ import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.network.server.ServerDisconnectEvent;
 import net.labymod.api.event.client.network.server.ServerSwitchEvent;
 import net.labymod.api.event.client.world.chunk.BlockUpdateEvent;
-import net.labymod.api.event.client.world.chunk.BlockUpdateEvent.Flags;
 import net.labymod.api.event.client.world.chunk.ChunkEvent;
 import net.labymod.api.event.client.world.chunk.ChunkEvent.Type;
 import net.labymod.api.util.logging.Logging;
@@ -68,8 +67,34 @@ public class MinimapChunkStorage {
 
   private void loadChunk(Chunk chunk) {
     this.chunks.put(this.getChunkId(chunk), new MinimapChunk(chunk));
+    this.resetNeighboringChunks(chunk);
     this.setShouldProcess(true);
   }
+
+  private void resetNeighboringChunks(Chunk currentChunk) {
+    int chunkX = currentChunk.getChunkX();
+    int chunkZ = currentChunk.getChunkZ();
+
+    int minChunkX = currentChunk.getChunkX() - 1;
+    int minChunkZ = currentChunk.getChunkZ() - 1;
+
+    int maxChunkX = currentChunk.getChunkX() + 1;
+    int maxChunkZ = currentChunk.getChunkZ() + 1;
+
+    for (int x = minChunkX; x <= maxChunkX; x++) {
+      for (int z = minChunkZ; z <= maxChunkZ; z++) {
+        if (x == chunkX && z == chunkZ) {
+          continue;
+        }
+
+        MinimapChunk chunk = this.getChunk(x, z);
+        if (chunk != null) {
+          chunk.resetCompilation();
+        }
+      }
+    }
+  }
+
 
   private void unloadChunk(Chunk chunk) {
     this.chunks.remove(this.getChunkId(chunk));
