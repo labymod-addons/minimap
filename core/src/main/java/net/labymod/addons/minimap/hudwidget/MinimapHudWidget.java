@@ -47,7 +47,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     this.addon = addon;
 
-    this.minimapRenderer = new MinimapRenderer();
+    this.minimapRenderer = new MinimapRenderer(() -> this.config);
   }
 
   @Override
@@ -101,20 +101,17 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     this.labyAPI.gfxRenderPipeline().renderToActivityTarget(target -> {
       gfx.enableStencil();
 
-      gfx.disableStencil();
       this.labyAPI.gfxRenderPipeline().clear(target);
 
-      if (false) {
-        this.stencilRenderPass.begin();
-        this.config.displayType().get().stencil().render(stack, radius);
-        this.stencilRenderPass.end();
-      }
+      this.stencilRenderPass.begin();
+      this.config.displayType().get().stencil().render(stack, radius);
+      this.stencilRenderPass.end();
 
       // Render minimap
       if (this.addon.isMinimapAllowed()) {
         stack.push();
 
-        //this.applyZoom(player, stack, size, true);
+        this.applyZoom(player, stack, size, true);
         this.renderMapTexture(player, stack, size);
 
         this.renderEvent.fireWithStage(Stage.ROTATED_STENCIL);
@@ -185,10 +182,9 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   }
 
   private void renderMapTexture(ClientPlayer player, Stack stack, HudSize size) {
-    MinimapBounds bounds = new MinimapBounds(0, 0, 16 * 24, 16 * 24, 0);
-
-    float mapMidX = (bounds.getX2() - bounds.getX1()) / 2F;
-    float mapMidZ = (bounds.getZ2() - bounds.getZ1()) / 2F;
+    MinimapBounds bounds = this.minimapRenderer.minimapBounds();
+    float mapMidX = bounds.getX1() + (bounds.getX2() - bounds.getX1()) / 2F;
+    float mapMidZ = bounds.getZ1() + (bounds.getZ2() - bounds.getZ1()) / 2F;
 
     float smoothX = MathHelper.lerp(player.getPosX(), player.getPreviousPosX());
     float smoothZ = MathHelper.lerp(player.getPosZ(), player.getPreviousPosZ());
@@ -197,33 +193,21 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     smoothZ -= mapMidZ;
 
     float pixelLength = size.getActualWidth() / (this.config.zoom().get() * 10F) / 2F;
-    float offsetX = -pixelLength;
-    float offsetZ = -pixelLength;
+    float offsetX = -pixelLength * smoothX;
+    float offsetZ = -pixelLength * smoothZ;
+
+    float pixelWidthX = -0.4F;
+    float pixelWidthY = -0.4F;
 
     this.renderEvent.setPixelLength(pixelLength);
 
-    stack.push();
-
-    float x = player.getPosX();
-    float z = player.getPosZ();
-
-    float width = size.getActualWidth();
-    float height = size.getActualHeight();
-    stack.translate(width / 2.0F, height / 2.0F, 0);
-    stack.scale(8);
-    stack.translate(-width / 2.0F, -height / 2.0F, 0);
-
-    float xPos = -x % 8;
-    float zPos = -z % 8;
-
     this.minimapRenderer.render(
         stack,
-        xPos,
-        zPos,
-        width,
-        height
+        pixelWidthX + offsetX,
+        pixelWidthY + offsetZ,
+        size.getActualWidth(),
+        size.getActualHeight()
     );
-    stack.pop();
   }
 
   private void renderMapOutline(Stack stack, HudSize size) {

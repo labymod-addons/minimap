@@ -95,10 +95,10 @@ public class MinimapGenerator {
 
   public GameImage getMinimap(
       boolean undergroundViewEnabled,
-      int x1,
-      int z1,
-      int x2,
-      int z2,
+      int minX,
+      int minZ,
+      int maxX,
+      int maxZ,
       int midX,
       int midY,
       int midZ,
@@ -111,21 +111,21 @@ public class MinimapGenerator {
     }
 
     if (this.image == null
-        || this.image.getWidth() != x2 - x1
-        || this.image.getHeight() != z2 - z1) {
+        || this.image.getWidth() != maxX - minX
+        || this.image.getHeight() != maxZ - minZ) {
       if (this.image != null) {
         this.image.close();
       }
 
-      this.image = Laby.references().gameImageProvider().createImage(x2 - x1, z2 - z1);
+      this.image = Laby.references().gameImageProvider().createImage(maxX - minX, maxZ - minZ);
     }
 
     GameImage image = this.image;
 
-    int chunkX1 = x1 >> 4;
-    int chunkZ1 = z1 >> 4;
-    int chunkX2 = x2 >> 4;
-    int chunkZ2 = z2 >> 4;
+    int minChunkX = minX >> 4;
+    int minChunkZ = minZ >> 4;
+    int maxChunkX = maxX >> 4;
+    int maxChunkZ = maxZ >> 4;
 
     int midChunkX = midX >> 4;
     int midChunkZ = midZ >> 4;
@@ -137,9 +137,9 @@ public class MinimapGenerator {
 
     int[] chunkColors = new int[16 * 16];
 
-    for (int cX = chunkX1; cX <= chunkX2; cX++) {
-      for (int cZ = chunkZ1; cZ <= chunkZ2; cZ++) {
-        Chunk chunk = world.getChunk(cX, cZ);
+    for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+      for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+        Chunk chunk = world.getChunk(chunkX, chunkZ);
 
         if (this.underground) {
           this.chunkColorProvider.getUndergroundPixels(chunkColors, chunk, midY);
@@ -147,14 +147,14 @@ public class MinimapGenerator {
           this.colorProvider.getColor(chunk, chunkColors);
         }
 
-        int cCX = cX << 4;
-        int ccZ = cZ << 4;
+        int currentX = chunkX << 4;
+        int currentZ = chunkZ << 4;
 
         int tIndex = 0;
-        for (int tX = 0; tX < 16; tX++) {
-          for (int tZ = 0; tZ < 16; tZ++) {
-            int destX = (cCX + tX) - x1;
-            int destZ = (ccZ + tZ) - z1;
+        for (int pixelX = 0; pixelX < 16; pixelX++) {
+          for (int pixelZ = 0; pixelZ < 16; pixelZ++) {
+            int destX = (currentX + pixelX) - minX;
+            int destZ = (currentZ + pixelZ) - minZ;
 
             if (destX >= 0 && destX < image.getWidth() && destZ >= 0 && destZ < image.getHeight()) {
               int chunkColor = chunkColors[tIndex];
@@ -172,7 +172,7 @@ public class MinimapGenerator {
           }
         }
 
-        if (cX == midChunkX && cZ == midChunkZ) {
+        if (chunkX == midChunkX && chunkZ == midChunkZ) {
           this.highestBlockY = chunk
               .heightmap(HeightmapType.WORLD_SURFACE)
               .getHeight(midInChunkX, midInChunkZ);

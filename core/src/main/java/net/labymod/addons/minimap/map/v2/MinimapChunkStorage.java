@@ -27,7 +27,7 @@ public class MinimapChunkStorage {
     if (type == Type.LOAD) {
       this.loadChunk(event.getChunk());
     } else if (type == Type.UNLOAD) {
-      this.unloadChunk(event.getChunk());
+     // this.unloadChunk(event.getChunk());
     }
   }
 
@@ -45,12 +45,6 @@ public class MinimapChunkStorage {
   public void onBlockUpdate(BlockUpdateEvent event) {
     MinimapChunk minimapChunk = this.chunks.get(this.getChunkId(event.getChunk()));
     if (minimapChunk != null) {
-      int flags = event.getFlags();
-
-      if ((flags & Flags.UPDATE_INVISIBLE) == 0) {
-        System.out.println("Invisible update");
-      }
-
       minimapChunk.resetCompilation();
       this.setShouldProcess(true);
     }
@@ -66,6 +60,10 @@ public class MinimapChunkStorage {
 
   public void processed() {
     this.setShouldProcess(false);
+  }
+
+  public MinimapChunk getChunk(int x, int z) {
+    return this.chunks.get(this.getChunkId(x, z));
   }
 
   private void loadChunk(Chunk chunk) {
