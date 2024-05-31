@@ -4,6 +4,7 @@ import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
+import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.math.MathHelper;
 import java.util.function.Supplier;
 
@@ -11,6 +12,9 @@ public class MinimapTexture extends DynamicTexture {
 
   private static final int CHUNK_X = 16;
   private static final int CHUNK_Z = 16;
+
+  private static final int SKY_COLOR = ColorFormat.ARGB32.pack(142,163, 255, 255);
+
   private final Supplier<MinimapHudWidgetConfig> config;
   private final MinimapBounds minimapBounds;
   private final MinimapChunkStorage storage;
@@ -61,7 +65,7 @@ public class MinimapTexture extends DynamicTexture {
     if (changed || this.storage.shouldProcess()) {
       this.resize(maxX - minX, maxZ - minZ);
 
-      this.image().fillRect(0, 0, this.getWidth(), this.getHeight(), 0xFF000000);
+      this.image().fillRect(0, 0, this.getWidth(), this.getHeight(), SKY_COLOR);
       for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
         for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
           MinimapChunk chunk = this.storage.getChunk(chunkX, chunkZ);
@@ -81,7 +85,7 @@ public class MinimapTexture extends DynamicTexture {
 
               if (destX >= 0 && destX < this.image().getWidth() && destZ >= 0
                   && destZ < this.image().getHeight()) {
-                int tileColor = 0xFF000000 | chunk.getColor(pixelX, pixelZ);
+                int tileColor = chunk.getColor(pixelX, pixelZ);
                 this.image().setARGB(destX, destZ, tileColor);
               }
             }

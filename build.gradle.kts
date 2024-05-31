@@ -21,6 +21,7 @@ labyMod {
     minecraft {
         registerVersions(
                 "1.8.9",
+                "1.20.4",
                 "1.20.6"
         ) { version, provider ->
             configureRun(provider, version)
