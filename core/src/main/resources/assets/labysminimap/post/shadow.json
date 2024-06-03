@@ -1,0 +1,29 @@
+{
+  "vertex": "labysminimap:post/shaders/shadow.vsh",
+  "fragment": "labysminimap:post/shaders/shadow.fsh",
+  "uniforms": [
+    {
+      "name": "DiffuseSampler",
+      "type": "sampler2D"
+    },
+    {
+      "name": "HeightmapSampler",
+      "type": "sampler2D"
+    },
+    {
+      "name": "PixelSize",
+      "type": "vec3"
+    },
+    {
+      "name": "SunPosition",
+      "type": "vec3"
+    }
+  ],
+  "passes": [
+    {
+      "name": "main",
+      "sourceTarget": "minecraft:main",
+      "destinationTarget": "minecraft:main"
+    }
+  ]
+}

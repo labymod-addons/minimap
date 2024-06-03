@@ -47,7 +47,7 @@ public class MinimapChunk {
 
         int baseColor = 0xFF000000 | this.getColor(format, blockState);
 
-        this.setHeight(x, z, blockState.position().getY());
+        this.setHeight(x, z, blockState.position().getY() - (blockState.hasCollision() ? 0 : 1));
         if (blockState.isWater()) {
           BlockState blockStateUnderWater = this.getBlockStateUnderWater(blockState);
 

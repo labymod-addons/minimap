@@ -2,15 +2,26 @@ package net.labymod.addons.minimap.map.v2;
 
 import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
+import net.labymod.addons.minimap.util.Util;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
+import net.labymod.api.client.gfx.GFXBridge;
+import net.labymod.api.client.gfx.pipeline.GFXRenderPipeline;
+import net.labymod.api.client.gfx.pipeline.post.CustomPostPassProcessor;
+import net.labymod.api.client.gfx.pipeline.post.PostProcessor;
+import net.labymod.api.client.gfx.pipeline.post.PostProcessorLoader;
+import net.labymod.api.client.gfx.shader.ShaderProgram;
+import net.labymod.api.client.gfx.shader.ShaderTextures;
+import net.labymod.api.client.gfx.shader.uniform.Uniform3F;
+import net.labymod.api.client.gfx.shader.uniform.UniformSampler;
+import net.labymod.api.client.gfx.target.RenderTarget;
 import net.labymod.api.client.gui.screen.key.Key;
+import net.labymod.api.client.gui.window.Window;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.client.resources.texture.GameImage;
 import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.math.MathHelper;
-import net.labymod.api.util.math.vector.FloatVector3;
 import net.labymod.api.util.time.TimeUtil;
 import java.util.function.Supplier;
 
@@ -26,6 +37,9 @@ public class MinimapTexture extends DynamicTexture {
   private final MinimapChunkStorage storage;
   private final HeightmapTexture heightmapTexture;
 
+  private final RenderTarget renderTarget;
+  private PostProcessor postProcessor;
+
   private int lastMidChunkX;
   private int lastMidChunkZ;
 
@@ -39,6 +53,42 @@ public class MinimapTexture extends DynamicTexture {
     this.storage = storage;
     this.minimapBounds = minimapBounds;
     this.heightmapTexture = new HeightmapTexture();
+
+    this.renderTarget = new RenderTarget();
+    this.renderTarget.addColorAttachment(0);
+    this.renderTarget.setClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+    this.renderTarget.resize(this.getWidth(), this.getHeight());
+    PostProcessorLoader.loadDynamic(this.renderTarget, Util.newDefaultNamespace("post/shadow.json"), processor -> {
+      this.postProcessor = processor;
+
+      this.postProcessor.setCustomPostPassProcessor(new CustomPostPassProcessor() {
+        @Override
+        public void process(String name, ShaderProgram program, float time) {
+          UniformSampler diffuseSampler = program.getUniform("DiffuseSampler");
+          UniformSampler heightmapSampler = program.getUniform("HeightmapSampler");
+
+          GFXBridge gfx = Laby.gfx();
+          gfx.setActiveTexture(0);
+          MinimapTexture minimapTexture = MinimapTexture.this;
+          gfx.bindResourceLocation(minimapTexture.location());
+          gfx.setActiveTexture(1);
+          gfx.bindResourceLocation(minimapTexture.heightmapTexture.location());
+
+          diffuseSampler.set(ShaderTextures.getShaderTexture(0));
+          heightmapSampler.set(ShaderTextures.getShaderTexture(1));
+
+          float scale = 1000.0F;
+          float x = (float) Math.cos((TimeUtil.getMillis() / scale) * 0.75F + 0.5F);
+          float y = (float) Math.sin((TimeUtil.getMillis() / scale) * 0.75F + 0.5F);
+
+          Uniform3F sunPosition = program.getUniform("SunPosition");
+          sunPosition.set(x, y, 1F);
+
+          Uniform3F pixelSize = program.getUniform("PixelSize");
+          pixelSize.set(1.0F / minimapTexture.getWidth(), 1.0F / minimapTexture.getHeight(), 0F);
+        }
+      });
+    });
   }
 
   @Override
@@ -100,9 +150,6 @@ public class MinimapTexture extends DynamicTexture {
                 int tileColor = chunk.getColor(pixelX, pixelZ);
                 int height = chunk.getHeight(pixelX, pixelZ);
 
-                if (height < 64) {
-                  height = 64;
-                }
 
                 float normalized =
                     (height - minBuildHeight) * (1.0F - 0.0F) / (maxBuildHeight - minBuildHeight)
@@ -132,11 +179,30 @@ public class MinimapTexture extends DynamicTexture {
 
   @Override
   public void render(Stack stack, float x, float y, float width, float height) {
+    GFXBridge gfx = Laby.gfx();
+    gfx.glPushDebugGroup(0, "PostProcessor");
+    this.postProcessor.process(1.0F);
+    gfx.glPopDebugGroup();
+
+    this.renderTarget.setProjectionSetter((projectionMatrix, width1, height1, near, far) -> {
+      Window window = Laby.labyAPI().minecraft().minecraftWindow();
+      projectionMatrix.setOrthographic(window.getScaledWidth() / 2, -window.getScaledHeight()  /2, near, far);
+    });
+    GFXRenderPipeline renderPipeline = Laby.references().gfxRenderPipeline();
+    renderPipeline.renderToActivityTarget(a -> {
+      if(true) {
+        this.renderTarget.render((int) width, (int) height, false);
+      } else {
+        this.renderTarget.render(false);
+      }
+    });
+
+    /*
     if (Laby.labyAPI().minecraft().isKeyPressed(Key.H)) {
       this.heightmapTexture.render(stack, x, y, width, height);
     } else {
       super.render(stack, x, y, width, height);
-    }
+    }*/
   }
 
   @Override
@@ -147,6 +213,8 @@ public class MinimapTexture extends DynamicTexture {
 
   @Override
   public void resize(int newWidth, int newHeight) {
+    this.postProcessor.resize(newWidth, newHeight);
+    this.renderTarget.resize(newWidth, newHeight);
     super.resize(newWidth, newHeight);
     this.heightmapTexture.resize(newWidth, newHeight);
   }

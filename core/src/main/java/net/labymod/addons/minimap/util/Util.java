@@ -4,7 +4,7 @@ import net.labymod.api.client.resources.ResourceLocation;
 
 public final class Util {
 
-  private static final String NAMESPACE = "minimap";
+  private static final String NAMESPACE = "labysminimap";
 
   public static ResourceLocation newDefaultNamespace(String path) {
     return ResourceLocation.create(NAMESPACE, path);

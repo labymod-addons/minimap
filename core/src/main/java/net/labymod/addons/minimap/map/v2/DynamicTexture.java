@@ -66,6 +66,10 @@ public abstract class DynamicTexture {
     this.icon().render(stack, x, y, width, height);
   }
 
+  public ResourceLocation location() {
+    return this.location;
+  }
+
   public Icon icon() {
     return this.icon;
   }
