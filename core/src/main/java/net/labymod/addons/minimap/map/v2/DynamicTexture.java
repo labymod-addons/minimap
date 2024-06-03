@@ -4,6 +4,7 @@ import net.labymod.addons.minimap.util.Util;
 import net.labymod.api.Laby;
 import net.labymod.api.client.gfx.texture.GFXTextureFilter;
 import net.labymod.api.client.gui.icon.Icon;
+import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.client.resources.ResourceLocation;
 import net.labymod.api.client.resources.texture.GameImage;
 import net.labymod.api.client.resources.texture.concurrent.RefreshableTexture;
@@ -59,6 +60,10 @@ public abstract class DynamicTexture {
 
   public GameImage image() {
     return this.image;
+  }
+
+  public void render(Stack stack, float x, float y, float width, float height) {
+    this.icon().render(stack, x, y, width, height);
   }
 
   public Icon icon() {

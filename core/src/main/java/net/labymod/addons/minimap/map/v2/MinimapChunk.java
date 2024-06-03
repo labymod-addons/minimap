@@ -147,12 +147,12 @@ public class MinimapChunk {
     return this.maxY;
   }
 
-  private void setColor(int x, int y, int argb) {
-    this.colors[this.getIndex(x, y)] = argb;
+  private void setColor(int x, int z, int argb) {
+    this.colors[this.getIndex(x, z)] = argb;
   }
 
-  public int getColor(int x, int y) {
-    return this.colors[this.getIndex(x, y)];
+  public int getColor(int x, int z) {
+    return this.colors[this.getIndex(x, z)];
   }
 
   private int getIndex(int x, int z) {

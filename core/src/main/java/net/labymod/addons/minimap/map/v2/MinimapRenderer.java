@@ -40,8 +40,8 @@ public final class MinimapRenderer {
   }
 
   public void render(Stack stack, float x, float y, float width, float height) {
-    this.minimapTexture.icon().render(stack, x, y, width, height);
-    this.postEffectTexture.icon().render(stack, x, y, width, height);
+    this.minimapTexture.render(stack, x, y, width, height);
+    this.postEffectTexture.render(stack, x, y, width, height);
   }
 
   public void resize(int newWidth, int newHeight) {
