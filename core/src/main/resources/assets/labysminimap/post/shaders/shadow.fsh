@@ -12,7 +12,7 @@ in vec2 pos;
 out vec4 fragColor;
 
 const vec4 SHADOW_BRIGHTNESS = vec4(0.8, 0.8, 0.8, 1);
-const int MAX_STEPS = 0;
+const int MAX_STEPS = 200;
 
 float getHeightRaw(vec2 pos) {
   vec2 resolution = 1 / PixelSize.xy;

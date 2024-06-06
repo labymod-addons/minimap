@@ -83,7 +83,7 @@ public class MinimapChunk {
   }
 
   private BlockState getBlockState(int x, int z) {
-    int y = this.level.getMaxBuildHeight();
+    int y = this.chunk.getHeightBasedOnSection(64);
     int minBuildHeight = this.level.getMinBuildHeight();
 
     BlockState blockState = null;
