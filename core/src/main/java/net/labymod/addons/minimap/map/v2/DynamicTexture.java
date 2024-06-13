@@ -15,7 +15,8 @@ public abstract class DynamicTexture {
   private static final int DEFAULT_HEIGHT = 16 * 24;
   private final ResourceLocation location;
   private final Icon icon;
-  private RefreshableTexture texture;
+  private boolean initialized;
+  private net.labymod.api.client.resources.texture.DynamicTexture texture;
   private GameImage image;
 
   public DynamicTexture(String path) {
@@ -30,23 +31,24 @@ public abstract class DynamicTexture {
 
   public abstract void tick();
 
+  public abstract void reInitialize();
+
   public void initialize() {
-    if (this.texture != null) {
-      this.texture.release();
+    if (this.initialized) {
+      this.reInitialize();
+      return;
     }
 
-    this.texture = Laby.references().asynchronousTextureUploader().newRefreshableTexture(
-        GFXTextureFilter.LINEAR,
-        GFXTextureFilter.LINEAR
-    );
+    this.initialized = true;
 
-    this.texture.bindTo(this.location);
+    this.texture = new net.labymod.api.client.resources.texture.DynamicTexture(this.location, this.image);
+    Laby.references().textureRepository().register(this.location, this.texture);
     this.image().fillRect(0, 0, this.getWidth(), this.getHeight(), 0);
     this.updateTexture();
   }
 
   public void updateTexture() {
-    this.texture.queueUpdate(this.image());
+    this.texture.upload();
   }
 
   public void resize(int newWidth, int newHeight) {
@@ -56,6 +58,7 @@ public abstract class DynamicTexture {
 
     this.image.close();
     this.image = GameImage.IMAGE_PROVIDER.createImage(newWidth, newHeight);
+    this.texture.setImageAndUpload(this.image);
   }
 
   public GameImage image() {

@@ -100,7 +100,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     this.labyAPI.gfxRenderPipeline().renderToActivityTarget(target -> {
       gfx.enableStencil();
-
       this.labyAPI.gfxRenderPipeline().clear(target);
 
       this.stencilRenderPass.begin();

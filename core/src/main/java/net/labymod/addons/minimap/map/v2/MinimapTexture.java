@@ -112,7 +112,7 @@ public class MinimapTexture extends DynamicTexture {
     int midChunkX = MathHelper.floor(player.getPosX()) >> 4;
     int midChunkZ = MathHelper.floor(player.getPosZ()) >> 4;
 
-    boolean changed = false;
+    boolean changed = true;
     if (this.lastMidChunkX != midChunkX && this.lastMidChunkZ != midChunkZ) {
       this.lastMidChunkX = midChunkX;
       this.lastMidChunkZ = midChunkZ;
@@ -171,6 +171,12 @@ public class MinimapTexture extends DynamicTexture {
 
       this.updateTexture();
     }
+  }
+
+  @Override
+  public void reInitialize() {
+    this.lastMidChunkX = Integer.MIN_VALUE;
+    this.lastMidChunkZ = Integer.MIN_VALUE;
   }
 
   private boolean isWithinBounds(int destX, int destZ) {

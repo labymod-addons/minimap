@@ -10,4 +10,9 @@ public class PostEffectTexture extends DynamicTexture {
   public void tick() {
 
   }
+
+  @Override
+  public void reInitialize() {
+
+  }
 }
