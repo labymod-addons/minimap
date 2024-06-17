@@ -166,13 +166,14 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       if (distanceToFloor < -70) {
         distanceToFloor = -70;
       }
-      addZoom -= distanceToFloor / (100D + distanceToFloor);
+      addZoom -= (float) (distanceToFloor / (100D + distanceToFloor));
     }
 
     // Rotate and scale map
     stack.translate(size.getActualWidth() / 2F, size.getActualHeight() / 2F, 0F);
     if (rotate) {
-      stack.rotate(-player.getRotationHeadYaw() + 180F, 0F, 0F, 1F);
+      stack.scale(-1, 1, 1);
+      stack.rotate(-player.getRotationHeadYaw(), 0F, 0F, 1F);
     }
     stack.scale(addZoom, addZoom, 1F);
     stack.translate(-size.getActualWidth() / 2F, -size.getActualHeight() / 2F, 0F);
@@ -200,6 +201,9 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     this.renderEvent.setPixelLength(pixelLength);
 
+    GFXBridge gfx = Laby.gfx();
+    gfx.storeBlaze3DStates();
+    gfx.disableCull();
     this.minimapRenderer.render(
         stack,
         pixelWidthX + offsetX,
@@ -207,6 +211,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
         size.getActualWidth(),
         size.getActualHeight()
     );
+    gfx.restoreBlaze3DStates();
   }
 
   private void renderMapOutline(Stack stack, HudSize size) {

@@ -194,11 +194,9 @@ public class MinimapTexture extends DynamicTexture {
     this.renderTarget.setProjectionSetter((projectionMatrix, width1, height1, near, far) -> {
       Window window = Laby.labyAPI().minecraft().minecraftWindow();
 
-      // TODO(Christian)
       stack.push();
       stack.translate(0, 0,-2000);
       FloatMatrix4 position = stack.getProvider().getPosition();
-      FloatMatrix4 modelViewMatrix = Laby.references().gfxRenderPipeline().matrixStorage().getModelViewMatrix();
 
       Laby.references().gfxRenderPipeline().matrixStorage().setModelViewMatrix(position, 4);
       stack.pop();

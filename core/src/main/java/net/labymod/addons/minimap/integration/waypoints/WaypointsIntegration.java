@@ -68,6 +68,8 @@ public class WaypointsIntegration implements AddonIntegration {
       float pixelDistanceX = (playerX - pos.getX() - 0.5F) * event.pixelLength();
       float pixelDistanceZ = (playerZ - pos.getZ() - 0.5F) * event.pixelLength();
 
+      float distance = (float) Math.sqrt(pixelDistanceX * pixelDistanceX + pixelDistanceZ * pixelDistanceZ);
+
       float cos = MathHelper.cos(MathHelper.toRadiansFloat(-player.getRotationHeadYaw()));
       float sin = MathHelper.sin(MathHelper.toRadiansFloat(-player.getRotationHeadYaw()));
 
@@ -93,19 +95,32 @@ public class WaypointsIntegration implements AddonIntegration {
       stack.translate(rotX + radius, rotZ + radius, 0F);
       stack.scale(scale, scale, 1F);
 
-      stack.translate(0F, 0F, 1F);
-      ComponentRenderMeta meta = componentRenderer.builder()
-          .text(waypoint.title())
-          .pos(0, -8F - componentRenderer.height() * 0.33F)
-          .centered(true)
-          .scale(0.33F)
-          .render(stack);
-      stack.translate(0F, 0F, -1F);
+      float maxDistance = 24;
+      if (distance < maxDistance) {
+        float diff = (maxDistance - distance) / maxDistance;
+        int alpha = (int) (255 * diff);
 
-      pipeline.rectangleRenderer()
-          .pos(meta.getLeft() - 0.5F, meta.getTop(), meta.getRight() + 0.5F, meta.getBottom())
-          .color(Color.withAlpha(0, 100))
-          .render(stack);
+        if (alpha > 3) {
+
+          stack.translate(0F, 0F, 1F);
+
+          ComponentRenderMeta meta = componentRenderer.builder()
+              .text(waypoint.title())
+              .pos(0, -8F - componentRenderer.height() * 0.33F)
+              .centered(true)
+              .scale(0.33F)
+              .color(Color.withAlpha(0xFFFFFF, alpha))
+              .render(stack);
+
+          stack.translate(0F, 0F, -1F);
+
+          pipeline.rectangleRenderer()
+              .pos(meta.getLeft() - 0.5F, meta.getTop(), meta.getRight() + 0.5F, meta.getBottom())
+              .color(Color.withAlpha(0, MathHelper.clamp(alpha, 0, 100)))
+              .render(stack);
+        }
+
+      }
 
       WaypointTextures.MARKER_ICON.render(
           stack,
