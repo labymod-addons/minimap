@@ -32,7 +32,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   private final MinimapCircle circle = new MinimapCircle();
 
-  private MinimapRenderer minimapRenderer;
+  private final MinimapRenderer minimapRenderer;
   private MinimapTexture texture;
 
   private float distanceToCorner = 0;
@@ -173,7 +173,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     stack.translate(size.getActualWidth() / 2F, size.getActualHeight() / 2F, 0F);
     if (rotate) {
       stack.scale(-1, 1, 1);
-      stack.rotate(-player.getRotationHeadYaw(), 0F, 0F, 1F);
+      stack.rotate(player.getRotationHeadYaw(), 0F, 0F, 1F);
     }
     stack.scale(addZoom, addZoom, 1F);
     stack.translate(-size.getActualWidth() / 2F, -size.getActualHeight() / 2F, 0F);
