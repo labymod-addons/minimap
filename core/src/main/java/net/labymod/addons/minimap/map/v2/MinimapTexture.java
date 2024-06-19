@@ -2,7 +2,7 @@ package net.labymod.addons.minimap.map.v2;
 
 import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
-import net.labymod.addons.minimap.util.Util;
+import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.GFXBridge;
@@ -15,7 +15,6 @@ import net.labymod.api.client.gfx.shader.ShaderTextures;
 import net.labymod.api.client.gfx.shader.uniform.Uniform3F;
 import net.labymod.api.client.gfx.shader.uniform.UniformSampler;
 import net.labymod.api.client.gfx.target.RenderTarget;
-import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.gui.window.Window;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.client.resources.texture.GameImage;

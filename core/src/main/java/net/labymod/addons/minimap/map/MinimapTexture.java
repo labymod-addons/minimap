@@ -4,7 +4,7 @@ import net.labymod.addons.minimap.MinimapAddon;
 import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.map.MinimapUpdateMethod;
-import net.labymod.addons.minimap.util.Util;
+import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.texture.GFXTextureFilter;

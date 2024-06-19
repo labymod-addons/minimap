@@ -2,13 +2,17 @@ package net.labymod.addons.minimap.api;
 
 import net.labymod.addons.minimap.api.map.MinimapCardinalType;
 import net.labymod.addons.minimap.api.map.MinimapDisplayType;
+import net.labymod.addons.minimap.api.map.MinimapPlayerIcon;
 import net.labymod.addons.minimap.api.map.MinimapUpdateMethod;
 import net.labymod.api.client.gui.hud.hudwidget.HudWidgetConfig;
 import net.labymod.api.client.gui.screen.widget.widgets.input.SliderWidget.SliderSetting;
 import net.labymod.api.client.gui.screen.widget.widgets.input.SwitchWidget.SwitchSetting;
+import net.labymod.api.client.gui.screen.widget.widgets.input.color.ColorPickerWidget.ColorPickerSetting;
 import net.labymod.api.client.gui.screen.widget.widgets.input.dropdown.DropdownWidget.DropdownEntryTranslationPrefix;
 import net.labymod.api.client.gui.screen.widget.widgets.input.dropdown.DropdownWidget.DropdownSetting;
 import net.labymod.api.configuration.loader.property.ConfigProperty;
+import net.labymod.api.configuration.settings.annotation.SettingSection;
+import net.labymod.api.util.Color;
 
 public class MinimapHudWidgetConfig extends HudWidgetConfig {
 
@@ -34,6 +38,12 @@ public class MinimapHudWidgetConfig extends HudWidgetConfig {
   @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.cardinalType.entries")
   private final ConfigProperty<MinimapCardinalType> cardinalType
       = new ConfigProperty<>(MinimapCardinalType.NORMAL);
+
+  @SettingSection("player")
+  @DropdownSetting
+  private final ConfigProperty<MinimapPlayerIcon> playerIcon = ConfigProperty.createEnum(MinimapPlayerIcon.TRIANGLE);
+  @ColorPickerSetting(alpha = true, chroma = true)
+  private final ConfigProperty<Color> playerColor = new ConfigProperty<>(Color.WHITE);
 
   public ConfigProperty<MinimapDisplayType> displayType() {
     return this.displayType;
@@ -61,5 +71,13 @@ public class MinimapHudWidgetConfig extends HudWidgetConfig {
 
   public ConfigProperty<Integer> tileSize() {
     return this.tileSize;
+  }
+
+  public ConfigProperty<MinimapPlayerIcon> playerIcon() {
+    return this.playerIcon;
+  }
+
+  public ConfigProperty<Color> playerColor() {
+    return this.playerColor;
   }
 }

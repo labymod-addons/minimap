@@ -44,6 +44,17 @@
         "tileSize": {
           "name": "Tile Size",
           "description": "Size of the tiles (Player heads, Waypoints) on the Minimap"
+        },
+        "playerIcon":{
+          "name": "Player Icon"
+        },
+        "playerColor": {
+          "name": "Player Color"
+        },
+        "header": {
+          "player": {
+            "name": "Player"
+          }
         }
       }
     }

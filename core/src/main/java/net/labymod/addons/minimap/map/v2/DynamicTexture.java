@@ -1,13 +1,11 @@
 package net.labymod.addons.minimap.map.v2;
 
-import net.labymod.addons.minimap.util.Util;
+import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.api.Laby;
-import net.labymod.api.client.gfx.texture.GFXTextureFilter;
 import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.client.resources.ResourceLocation;
 import net.labymod.api.client.resources.texture.GameImage;
-import net.labymod.api.client.resources.texture.concurrent.RefreshableTexture;
 
 public abstract class DynamicTexture {
 
