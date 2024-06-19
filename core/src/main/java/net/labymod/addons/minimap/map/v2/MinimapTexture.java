@@ -111,7 +111,7 @@ public class MinimapTexture extends DynamicTexture {
     int midChunkX = MathHelper.floor(player.getPosX()) >> 4;
     int midChunkZ = MathHelper.floor(player.getPosZ()) >> 4;
 
-    boolean changed = true;
+    boolean changed = false;
     if (this.lastMidChunkX != midChunkX && this.lastMidChunkZ != midChunkZ) {
       this.lastMidChunkX = midChunkX;
       this.lastMidChunkZ = midChunkZ;

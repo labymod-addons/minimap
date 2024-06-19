@@ -204,13 +204,22 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     GFXBridge gfx = Laby.gfx();
     gfx.storeBlaze3DStates();
     gfx.disableCull();
+
+    stack.push();
+    stack.translate(
+        pixelWidthX + offsetX,
+        -(pixelWidthY + offsetZ),
+        0F
+    );
+
     this.minimapRenderer.render(
         stack,
-        pixelWidthX + offsetX,
-        pixelWidthY + offsetZ,
+        0,
+        0,
         size.getActualWidth(),
         size.getActualHeight()
     );
+    stack.pop();
     gfx.restoreBlaze3DStates();
   }
 
