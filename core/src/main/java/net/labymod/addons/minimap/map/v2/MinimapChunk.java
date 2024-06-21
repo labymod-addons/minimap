@@ -5,6 +5,7 @@ import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.client.world.block.BlockColorProvider;
 import net.labymod.api.client.world.block.BlockState;
 import net.labymod.api.client.world.chunk.Chunk;
+import net.labymod.api.client.world.lighting.LightType;
 import net.labymod.api.util.ColorUtil;
 import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.math.vector.IntVector3;
@@ -17,6 +18,7 @@ public class MinimapChunk {
   private final Chunk chunk;
   private final int[] colors = new int[CHUNK_SIZE * CHUNK_SIZE];
   private final int[] heightmap = new int[CHUNK_SIZE * CHUNK_SIZE];
+  private final byte[] lightLevels = new byte[CHUNK_SIZE * CHUNK_SIZE];
   private final ClientWorld level;
 
   private int minY;
@@ -46,8 +48,10 @@ public class MinimapChunk {
         }
 
         int baseColor = 0xFF000000 | this.getColor(format, blockState);
+        BlockState above = this.chunk.getBlockState(x, blockState.position().getY() + 1, z);
 
         this.setHeight(x, z, blockState.position().getY() - (blockState.hasCollision() ? 0 : 1));
+        this.setLightLevel(x, z, above.getLightLevel(LightType.SKY), above.getLightLevel(LightType.BLOCK));
         if (blockState.isWater()) {
           BlockState blockStateUnderWater = this.getBlockStateUnderWater(blockState);
 
@@ -153,6 +157,26 @@ public class MinimapChunk {
 
   public int getColor(int x, int z) {
     return this.colors[this.getIndex(x, z)];
+  }
+
+  private void setLightLevel(int x, int z, int skyLevel, int blockLevel) {
+    this.lightLevels[this.getIndex(x, z)] = (byte) (skyLevel << 4 | blockLevel);
+  }
+
+  public int getLightLevel(LightType type, int x, int z) {
+    final byte combinedLightLevel = this.lightLevels[this.getIndex(x, z)];
+    return switch (type) {
+      case SKY -> combinedLightLevel >> 4;
+      case BLOCK -> combinedLightLevel & 0x0f;
+    };
+  }
+
+  public int getBlockLightLevel(int x, int z) {
+    return this.getLightLevel(LightType.BLOCK, x, z);
+  }
+
+  public int getSkyLightLevel(int x, int z) {
+    return this.getLightLevel(LightType.SKY, x, z);
   }
 
   private int getIndex(int x, int z) {

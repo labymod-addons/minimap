@@ -4,9 +4,11 @@
 
 uniform sampler2D DiffuseSampler;
 uniform sampler2D HeightmapSampler;
+uniform sampler2D LightmapSampler;
 uniform vec2 DestinationSize;
 uniform vec3 PixelSize;
 uniform vec3 SunPosition;
+uniform float DayTime;
 
 in vec2 pos;
 out vec4 fragColor;
@@ -96,11 +98,16 @@ void main() {
   vec4 col = TEXTURE(DiffuseSampler, pos);
 
   vec4 shadowCol = col * SHADOW_BRIGHTNESS * vec4(1, 1, 1 + shadow * 0.2, 1.0);
+
   #ifdef SHADOW
-  shadowCol = mix(col, shadowCol, shadow);
+  shadowCol = mix(finalColor, shadowCol, shadow);
   #else
-  shadowCol = mix(col, shadowCol, normalShadow);
+  shadowCol = mix(finalColor, shadowCol, normalShadow);
   #endif
 
-  fragColor = shadowCol;
+
+  vec4 lightColor = TEXTURE(LightmapSampler, pos);
+  //lightColor.y = getSkyColor(lightColor.y);
+
+  fragColor = lightColor;
 }

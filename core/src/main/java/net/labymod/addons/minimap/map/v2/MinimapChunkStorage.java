@@ -1,7 +1,10 @@
 package net.labymod.addons.minimap.map.v2;
 
+import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.event.Subscribe;
+import net.labymod.api.event.client.input.KeyEvent;
+import net.labymod.api.event.client.input.KeyEvent.State;
 import net.labymod.api.event.client.network.server.ServerDisconnectEvent;
 import net.labymod.api.event.client.network.server.ServerSwitchEvent;
 import net.labymod.api.event.client.world.chunk.BlockUpdateEvent;
@@ -46,6 +49,13 @@ public class MinimapChunkStorage {
     if (minimapChunk != null) {
       minimapChunk.resetCompilation();
       this.setShouldProcess(true);
+    }
+  }
+
+  @Subscribe
+  public void onKey(KeyEvent event) {
+    if (event.state() == State.PRESS && event.key() == Key.O) {
+      this.chunks.values().forEach(MinimapChunk::resetCompilation);
     }
   }
 
