@@ -200,7 +200,7 @@ public class MinimapTexture extends DynamicTexture {
                         green,
                         green,
                         green,
-                        blockLightLevel * 17
+                        255
                     )
                 );
               }

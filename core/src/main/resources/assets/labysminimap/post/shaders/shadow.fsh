@@ -100,14 +100,11 @@ void main() {
   vec4 shadowCol = col * SHADOW_BRIGHTNESS * vec4(1, 1, 1 + shadow * 0.2, 1.0);
 
   #ifdef SHADOW
-  shadowCol = mix(finalColor, shadowCol, shadow);
+  shadowCol = mix(col, shadowCol, shadow);
   #else
-  shadowCol = mix(finalColor, shadowCol, normalShadow);
+  shadowCol = mix(col, shadowCol, normalShadow);
   #endif
 
-
   vec4 lightColor = TEXTURE(LightmapSampler, pos);
-  //lightColor.y = getSkyColor(lightColor.y);
-
-  fragColor = lightColor;
+  fragColor = shadowCol * lightColor;
 }
