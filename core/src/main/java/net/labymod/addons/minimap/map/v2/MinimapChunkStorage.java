@@ -10,7 +10,9 @@ import net.labymod.api.event.client.network.server.ServerSwitchEvent;
 import net.labymod.api.event.client.world.chunk.BlockUpdateEvent;
 import net.labymod.api.event.client.world.chunk.ChunkEvent;
 import net.labymod.api.event.client.world.chunk.ChunkEvent.Type;
+import net.labymod.api.event.client.world.chunk.LightUpdateEvent;
 import net.labymod.api.util.logging.Logging;
+import net.labymod.api.util.math.vector.IntVector3;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -48,6 +50,23 @@ public class MinimapChunkStorage {
     MinimapChunk minimapChunk = this.chunks.get(this.getChunkId(event.getChunk()));
     if (minimapChunk != null) {
       minimapChunk.resetCompilation();
+      this.setShouldProcess(true);
+    }
+  }
+
+  @Subscribe
+  public void onLightUpdate(LightUpdateEvent event) {
+    IntVector3 blockPosition = event.getBlockPosition();
+
+    int x = blockPosition.getX();
+    int z = blockPosition.getZ();
+
+    int chunkX = x >> 4;
+    int chunkZ = z >> 4;
+
+    MinimapChunk chunk = this.chunks.get(this.getChunkId(chunkX, chunkZ));
+    if (chunk != null) {
+      chunk.resetCompilation();
       this.setShouldProcess(true);
     }
   }

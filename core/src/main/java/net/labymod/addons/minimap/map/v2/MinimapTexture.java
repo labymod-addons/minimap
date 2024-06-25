@@ -14,9 +14,9 @@ import net.labymod.api.client.gfx.shader.ShaderProgram;
 import net.labymod.api.client.gfx.shader.ShaderTextures;
 import net.labymod.api.client.gfx.shader.uniform.Uniform1F;
 import net.labymod.api.client.gfx.shader.uniform.Uniform3F;
-import net.labymod.api.client.gfx.shader.uniform.Uniform4F;
 import net.labymod.api.client.gfx.shader.uniform.UniformSampler;
 import net.labymod.api.client.gfx.target.RenderTarget;
+import net.labymod.api.client.gfx.texture.GFXTextureFilter;
 import net.labymod.api.client.gui.window.Window;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.client.resources.texture.GameImage;
@@ -61,7 +61,7 @@ public class MinimapTexture extends DynamicTexture {
     this.lightmapTexture = new LightmapTexture();
 
     this.renderTarget = new RenderTarget();
-    this.renderTarget.addColorAttachment(0);
+    this.renderTarget.addColorAttachment(0, GFXTextureFilter.LINEAR);
     this.renderTarget.setClearColor(0.0F, 0.0F, 0.0F, 0.0F);
     this.renderTarget.resize(this.getWidth(), this.getHeight());
     PostProcessorLoader.loadDynamic(this.renderTarget, Util.newDefaultNamespace("post/shadow.json"),
@@ -100,8 +100,13 @@ public class MinimapTexture extends DynamicTexture {
               pixelSize.set(1.0F / minimapTexture.getWidth(), 1.0F / minimapTexture.getHeight(),
                   0F);
 
+              float timeOfDay = MinimapTexture.this.getTimeOfDay();
+              float normalizedDayTime = (float) (1.0F - (Math.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F + 0.2F));
+              normalizedDayTime = Math.clamp(normalizedDayTime, 0.0F, 1.0F);
+              normalizedDayTime = 1.0F - normalizedDayTime;
+
               Uniform1F dayTime = program.getUniform("DayTime");
-              dayTime.set(Laby.references().clientWorld().getDayTime() % 24000);
+              dayTime.set(normalizedDayTime);
             }
           });
         });
@@ -177,9 +182,6 @@ public class MinimapTexture extends DynamicTexture {
 
                 ColorFormat format = ColorFormat.ARGB32;
 
-                // Change the brightness based on lightLevel 0-15
-                //System.out.println("Level: " + lightLevel);
-
                 float normalized =
                     (height - minBuildHeight) * (1.0F - 0.0F) / (maxBuildHeight - minBuildHeight)
                         + 0.0F;
@@ -189,18 +191,18 @@ public class MinimapTexture extends DynamicTexture {
                 this.heightmapTexture.image().setARGB(destX, destZ, heightmapColor);
 
                 int blockLightLevel = chunk.getBlockLightLevel(pixelX, pixelZ);
-                int skyLightLevel = chunk.getSkyLightLevel(pixelX, pixelZ);
 
-                int green = this.normalize(blockLightLevel);
-                int blue = this.normalize(skyLightLevel);
+                int normalizedLightLevel = this.normalize(blockLightLevel);
+
+                boolean noBlockLighting = normalizedLightLevel == 150;
 
                 this.lightmapTexture.image().setARGB(
                     destX, destZ,
                     format.pack(
-                        green,
-                        green,
-                        green,
-                        255
+                        noBlockLighting ? 0 : normalizedLightLevel,
+                        noBlockLighting ? 0 : normalizedLightLevel,
+                        noBlockLighting ? 0 : normalizedLightLevel,
+                        noBlockLighting ? 0 : 255
                     )
                 );
               }
@@ -217,7 +219,7 @@ public class MinimapTexture extends DynamicTexture {
   }
 
   private int normalize(int value) {
-    return this.normalize(value, 0, 15, 150, 255);
+    return this.normalize(value, 0, 15, 10, 255);
   }
 
   private int normalize(int value, int oldMin, int oldMax, int newMin, int newMax) {
@@ -293,6 +295,17 @@ public class MinimapTexture extends DynamicTexture {
     super.updateTexture();
     this.heightmapTexture.updateTexture();
     this.lightmapTexture.updateTexture();
+  }
+
+  private float getTimeOfDay() {
+    long dayTime = this.getDayTime();
+    double timeFraction = this.frac(dayTime / 24000.0 - 0.25D);
+    double timeOfDay = 0.5D - Math.cos(timeFraction * Math.PI) / 2.0D;
+    return (float) (timeFraction * 2.0D + timeOfDay) / 3.0F;
+  }
+
+  private double frac(double value) {
+    return value - Math.floor(value);
   }
 
   private void setDaylightPeriod(DaylightPeriod period) {

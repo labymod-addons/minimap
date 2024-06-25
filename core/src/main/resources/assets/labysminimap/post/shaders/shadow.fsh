@@ -11,6 +11,7 @@ uniform vec3 SunPosition;
 uniform float DayTime;
 
 in vec2 pos;
+
 out vec4 fragColor;
 
 const vec4 SHADOW_BRIGHTNESS = vec4(0.8, 0.8, 0.8, 1);
@@ -106,5 +107,17 @@ void main() {
   #endif
 
   vec4 lightColor = TEXTURE(LightmapSampler, pos);
-  fragColor = shadowCol * lightColor;
+
+  if (lightColor.a <= 0) {
+    lightColor.a = 1;
+  }
+  vec4 black = vec4(0, 0, 0, 1);
+  float isBlack = float(all(equal(lightColor, black)));
+
+  float dayTime = clamp(DayTime, 0.4, 1);
+  vec4 skyColor = vec4(vec3(dayTime), 1);
+  vec4 mixedLight = mix(lightColor, skyColor, max(dayTime, isBlack));
+  vec4 vanillaLight = lightColor * vec4(1, 1, 1, 1.75);
+  fragColor = shadowCol * mixedLight;
+  //fragColor = vec4(isBlack, isBlack, isBlack, 1);
 }
