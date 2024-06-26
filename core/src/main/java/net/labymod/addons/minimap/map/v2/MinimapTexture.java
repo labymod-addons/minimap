@@ -239,6 +239,8 @@ public class MinimapTexture extends DynamicTexture {
 
   @Override
   public void render(Stack stack, float x, float y, float width, float height) {
+    GFXRenderPipeline renderPipeline = Laby.references().gfxRenderPipeline();
+
     GFXBridge gfx = Laby.gfx();
     gfx.glPushDebugGroup(0, "PostProcessor");
     this.postProcessor.process(1.0F);
@@ -251,27 +253,22 @@ public class MinimapTexture extends DynamicTexture {
       stack.translate(0, 0, -2000);
       FloatMatrix4 position = stack.getProvider().getPosition();
 
-      Laby.references().gfxRenderPipeline().matrixStorage().setModelViewMatrix(position, 4);
+      renderPipeline.matrixStorage().setModelViewMatrix(position, 4);
       stack.pop();
 
-      projectionMatrix.setOrthographic(window.getScaledWidth(), -window.getScaledHeight(), near,
-          far);
-    });
-    GFXRenderPipeline renderPipeline = Laby.references().gfxRenderPipeline();
-    renderPipeline.renderToActivityTarget(a -> {
-      if (true) {
-        this.renderTarget.render((int) width, (int) height, false);
-      } else {
-        this.renderTarget.render(false);
-      }
+      projectionMatrix.setOrthographic(
+          window.getScaledWidth(),
+          -window.getScaledHeight(),
+          near,
+          far
+      );
     });
 
-    /*
-    if (Laby.labyAPI().minecraft().isKeyPressed(Key.H)) {
-      this.heightmapTexture.render(stack, x, y, width, height);
-    } else {
-      super.render(stack, x, y, width, height);
-    }*/
+    renderPipeline.renderToActivityTarget(target -> this.renderTarget.render((int) width, (int) height, false));
+
+    // TODO(Christian)
+    RenderTarget target = renderPipeline.getActivityRenderTarget();
+    target.bind(true);
   }
 
   @Override

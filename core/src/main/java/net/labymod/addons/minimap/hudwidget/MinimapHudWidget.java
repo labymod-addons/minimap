@@ -22,6 +22,7 @@ import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.configuration.loader.annotation.SpriteSlot;
 import net.labymod.api.util.math.MathHelper;
+import net.labymod.api.util.math.vector.FloatMatrix4;
 
 @SpriteSlot(size = 32)
 public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
@@ -224,6 +225,10 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   }
 
   private void renderMapOutline(Stack stack, HudSize size) {
+    if (true) {
+      return;
+    }
+
     this.config.displayType().get().icon().render(
         stack,
         -MinimapHudWidgetConfig.BORDER_PADDING,

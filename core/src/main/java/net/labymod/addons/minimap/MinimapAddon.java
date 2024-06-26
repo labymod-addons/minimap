@@ -7,6 +7,7 @@ import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration;
 import net.labymod.addons.minimap.map.v2.listener.MinimapListener;
+import net.labymod.addons.minimap.map.v2.renderer.PlayerTileRenderer;
 import net.labymod.addons.minimap.server.MinimapServers;
 import net.labymod.api.Laby;
 import net.labymod.api.addon.LabyAddon;
@@ -20,7 +21,6 @@ import javax.inject.Singleton;
 public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements MinimapConfigProvider {
 
   private final MinimapServers servers = new MinimapServers();
-
   private static ReferenceStorage references;
 
   private MinimapHudWidget hudWidget;
@@ -36,7 +36,9 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     Laby.references().addonIntegrationService()
         .registerIntegration("labyswaypoints", WaypointsIntegration.class);
 
-    this.registerListener(new MinimapListener(getReferences().minimapConfigProvider()));
+    MinimapConfigProvider configProvider = getReferences().minimapConfigProvider();
+    this.registerListener(new MinimapListener(configProvider));
+    this.registerListener(getReferences().tileRendererDispatcher());
   }
 
   @Override
