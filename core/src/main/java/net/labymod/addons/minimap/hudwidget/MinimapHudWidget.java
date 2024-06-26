@@ -250,7 +250,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       if (numbers || index % 2 == 1 || type == MinimapCardinalType.EXTENDED) {
         this.labyAPI.renderPipeline()
             .textRenderer()
-            .pos(this.circle.getCircleX(), this.circle.getCircleY() - 4)
+            .pos(this.circle.getCircleX() - 2, this.circle.getCircleY() - 4)
             .text(cardinal)
             .render(stack);
       }
