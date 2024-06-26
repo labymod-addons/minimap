@@ -61,7 +61,7 @@ public class MinimapTexture extends DynamicTexture {
     this.lightmapTexture = new LightmapTexture();
 
     this.renderTarget = new RenderTarget();
-    this.renderTarget.addColorAttachment(0, GFXTextureFilter.LINEAR);
+    this.renderTarget.addColorAttachment(0, GFXTextureFilter.NEAREST);
     this.renderTarget.setClearColor(0.0F, 0.0F, 0.0F, 0.0F);
     this.renderTarget.resize(this.getWidth(), this.getHeight());
     PostProcessorLoader.loadDynamic(this.renderTarget, Util.newDefaultNamespace("post/shadow.json"),
