@@ -10,6 +10,7 @@ import java.util.Collection;
 
 public class EntityTileRenderer extends TileRenderer<Entity> {
 
+  private static final float MAX_DISTANCE = 64.0F * 64.0F;
   private static final float SIZE = 1.0F;
   private static final float OFFSET = SIZE / 2.0F;
 
@@ -19,17 +20,21 @@ public class EntityTileRenderer extends TileRenderer<Entity> {
 
   @Override
   protected boolean shouldRenderTile(Entity entity) {
-    return !(entity instanceof Player);
+    if (entity instanceof Player) {
+      return false;
+    }
+
+    double distanceSquared = this.clientPlayer().getDistanceSquared(entity);
+    return !(distanceSquared > MAX_DISTANCE);
   }
 
   @Override
   protected void renderTile(Stack stack, Entity entity) {
-    Laby.references().rectangleRenderer()
-        .pos(-OFFSET, -OFFSET)
-        .size(SIZE)
+    Laby.references().circleRenderer()
+        .pos(0, 0)
+        .radius(SIZE * 1.25F)
         .color(-1)
         .render(stack);
-
   }
 
   @Override
