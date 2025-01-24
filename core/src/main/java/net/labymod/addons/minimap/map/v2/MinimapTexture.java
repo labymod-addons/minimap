@@ -3,6 +3,8 @@ package net.labymod.addons.minimap.map.v2;
 import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.util.Util;
+import net.labymod.addons.minimap.debug.MinimapDebugger;
+import net.labymod.addons.minimap.debug.MinimapDebugger.TextureInfo;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.GFXBridge;
@@ -17,10 +19,14 @@ import net.labymod.api.client.gfx.shader.uniform.Uniform3F;
 import net.labymod.api.client.gfx.shader.uniform.UniformSampler;
 import net.labymod.api.client.gfx.target.RenderTarget;
 import net.labymod.api.client.gfx.texture.GFXTextureFilter;
+import net.labymod.api.client.gfx.texture.TextureFilter;
 import net.labymod.api.client.gui.window.Window;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.client.resources.texture.GameImage;
 import net.labymod.api.client.world.ClientWorld;
+import net.labymod.api.client.world.lighting.LightType;
+import net.labymod.api.util.Color;
+import net.labymod.api.util.ColorUtil;
 import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.vector.FloatMatrix4;
@@ -61,7 +67,7 @@ public class MinimapTexture extends DynamicTexture {
     this.lightmapTexture = new LightmapTexture();
 
     this.renderTarget = new RenderTarget();
-    this.renderTarget.addColorAttachment(0, GFXTextureFilter.NEAREST);
+    this.renderTarget.addColorAttachment(0, TextureFilter.NEAREST);
     this.renderTarget.setClearColor(0.0F, 0.0F, 0.0F, 0.0F);
     this.renderTarget.resize(this.getWidth(), this.getHeight());
     PostProcessorLoader.loadDynamic(this.renderTarget, Util.newDefaultNamespace("post/shadow.json"),
@@ -186,6 +192,11 @@ public class MinimapTexture extends DynamicTexture {
                     (height - minBuildHeight) * (1.0F - 0.0F) / (maxBuildHeight - minBuildHeight)
                         + 0.0F;
 
+                boolean b = height % 2 == 0;
+                if (b) {
+                  tileColor = ColorUtil.blendColors(tileColor, ColorFormat.ARGB32.pack(0,0,0,10));
+                }
+
                 int heightmapColor = format.pack(normalized, normalized, normalized, 1.0F);
                 this.image().setARGB(destX, destZ, tileColor);
                 this.heightmapTexture.image().setARGB(destX, destZ, heightmapColor);
@@ -292,6 +303,10 @@ public class MinimapTexture extends DynamicTexture {
     super.updateTexture();
     this.heightmapTexture.updateTexture();
     this.lightmapTexture.updateTexture();
+
+    TextureInfo texture = MinimapDebugger.COLOR_MAP_TEXTURE;
+    texture.setId(this.getId());
+    texture.setSize(this.getWidth(), this.getHeight());
   }
 
   private float getTimeOfDay() {

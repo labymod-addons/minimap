@@ -225,10 +225,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   }
 
   private void renderMapOutline(Stack stack, HudSize size) {
-    if (true) {
-      return;
-    }
-
     this.config.displayType().get().icon().render(
         stack,
         -MinimapHudWidgetConfig.BORDER_PADDING,

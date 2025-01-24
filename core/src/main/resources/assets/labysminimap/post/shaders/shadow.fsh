@@ -1,6 +1,6 @@
 #version 150
 
-//#define SHADOW
+#define SHADOW
 
 uniform sampler2D DiffuseSampler;
 uniform sampler2D HeightmapSampler;
@@ -27,11 +27,11 @@ float getHeightRaw(vec2 pos) {
   position *= PixelSize.xy;
 
 
-  float topLeft = texture2D(HeightmapSampler, position).r;
-  float bottomLeft = texture2D(HeightmapSampler, position + PixelSize.zy).r;
+  float topLeft = TEXTURE(HeightmapSampler, position).r;
+  float bottomLeft = TEXTURE(HeightmapSampler, position + PixelSize.zy).r;
 
-  float topRight = texture2D(HeightmapSampler, position + PixelSize.xz).r;
-  float bottomRight = texture2D(HeightmapSampler, position + PixelSize.xy).r;
+  float topRight = TEXTURE(HeightmapSampler, position + PixelSize.xz).r;
+  float bottomRight = TEXTURE(HeightmapSampler, position + PixelSize.xy).r;
 
   float top = mix(topLeft, topRight, lerpP.x);
   float bottom = mix(bottomLeft, bottomRight, lerpP.x);
@@ -53,6 +53,15 @@ vec3 getNormal(vec2 pos) {
   float up = strength * getHeight(pos + PixelSize.zy);
 
   return normalize(vec3(left-right, down-up, 1.));
+}
+
+vec4 getFinalColor() {
+  vec4 col = TEXTURE(DiffuseSampler, pos);
+  float height = TEXTURE(HeightmapSampler, pos).r * 1.5;
+
+  vec3 shadedColor = col.rgb * height;
+
+  return vec4(shadedColor, col.a);
 }
 
 void main() {
@@ -97,6 +106,7 @@ void main() {
   shadow = clamp(shadow + normalShadow, 0, 1);
 
   vec4 col = TEXTURE(DiffuseSampler, pos);
+  //col = getFinalColor();
 
   vec4 shadowCol = col * SHADOW_BRIGHTNESS * vec4(1, 1, 1 + shadow * 0.2, 1.0);
 
@@ -119,5 +129,6 @@ void main() {
   vec4 mixedLight = mix(lightColor, skyColor, max(dayTime, isBlack));
   vec4 vanillaLight = lightColor * vec4(1, 1, 1, 1.75);
   fragColor = shadowCol * mixedLight;
+
   //fragColor = vec4(isBlack, isBlack, isBlack, 1);
 }

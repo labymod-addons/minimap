@@ -40,6 +40,6 @@ public class DefaultTileRendererDispatcher implements TileRendererDispatcher {
 
   @Override
   public <T> void register(Function<MinimapConfigProvider, TileRenderer<T>> tileRendererFactory) {
-    this.renderers.add(tileRendererFactory.apply(this.configProvider));
+    this.register(tileRendererFactory.apply(this.configProvider));
   }
 }

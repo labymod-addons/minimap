@@ -7,7 +7,9 @@ import net.labymod.addons.minimap.api.map.MinimapUpdateMethod;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
+import net.labymod.api.client.gfx.GlConst;
 import net.labymod.api.client.gfx.texture.GFXTextureFilter;
+import net.labymod.api.client.gfx.texture.TextureFilter;
 import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.resources.ResourceLocation;
 import net.labymod.api.client.resources.texture.GameImage;
@@ -46,8 +48,8 @@ public class MinimapTexture {
     }
 
     this.texture = Laby.references().asynchronousTextureUploader().newRefreshableTexture(
-        GFXTextureFilter.NEAREST,
-        GFXTextureFilter.NEAREST
+        TextureFilter.NEAREST,
+        TextureFilter.NEAREST
     );
     this.texture.bindTo(LOCATION);
 

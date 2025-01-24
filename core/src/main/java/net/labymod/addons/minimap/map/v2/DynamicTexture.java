@@ -84,4 +84,8 @@ public abstract class DynamicTexture {
     return this.image.getHeight();
   }
 
+  public int getId() {
+    return this.texture.getTextureId();
+  }
+
 }

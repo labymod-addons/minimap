@@ -1,3 +1,5 @@
+import net.labymod.labygradle.common.extension.model.labymod.ReleaseChannels
+
 plugins {
     id("net.labymod.labygradle")
     id("net.labymod.labygradle.addon")
@@ -15,8 +17,7 @@ labyMod {
         registerVersion(versions.toTypedArray()) {
             runs {
                 getByName("client") {
-                    // When the property is set to true, you can log in with a Minecraft account
-                    // devLogin = true
+                    devLogin = true
                 }
             }
         }
@@ -30,6 +31,7 @@ labyMod {
         minecraftVersion = "*"
         version = rootProject.version.toString()
         addon("labyswaypoints")
+        releaseChannel = ReleaseChannels.LOCAL
     }
 }
 
@@ -39,4 +41,8 @@ subprojects {
 
     group = rootProject.group
     version = rootProject.version
+
+    repositories {
+        mavenLocal()
+    }
 }
