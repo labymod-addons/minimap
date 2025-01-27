@@ -1,5 +1,6 @@
 package net.labymod.addons.minimap.map.v2;
 
+import java.util.function.Supplier;
 import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.util.Util;
@@ -18,26 +19,22 @@ import net.labymod.api.client.gfx.shader.uniform.Uniform1F;
 import net.labymod.api.client.gfx.shader.uniform.Uniform3F;
 import net.labymod.api.client.gfx.shader.uniform.UniformSampler;
 import net.labymod.api.client.gfx.target.RenderTarget;
-import net.labymod.api.client.gfx.texture.GFXTextureFilter;
 import net.labymod.api.client.gfx.texture.TextureFilter;
 import net.labymod.api.client.gui.window.Window;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.client.resources.texture.GameImage;
 import net.labymod.api.client.world.ClientWorld;
-import net.labymod.api.client.world.lighting.LightType;
-import net.labymod.api.util.Color;
-import net.labymod.api.util.ColorUtil;
 import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.vector.FloatMatrix4;
-import net.labymod.api.util.time.TimeUtil;
-import java.util.function.Supplier;
+import net.labymod.api.util.math.vector.FloatVector2;
 
 public class MinimapTexture extends DynamicTexture {
 
   private static final int CHUNK_X = 16;
   private static final int CHUNK_Z = 16;
 
+  private static final FloatVector2 SUN_POSITION = new FloatVector2(0.9F, -1.0F);
   private static final int SKY_COLOR = ColorFormat.ARGB32.pack(142, 163, 255, 255);
 
   private final Supplier<MinimapHudWidgetConfig> config;
@@ -95,20 +92,19 @@ public class MinimapTexture extends DynamicTexture {
               heightmapSampler.set(ShaderTextures.getShaderTexture(1));
               lightmapSampler.set(ShaderTextures.getShaderTexture(2));
 
-              float scale = 10000.0F;
-              float x = (float) Math.cos((TimeUtil.getMillis() / scale) * 0.75F + 0.5F);
-              float y = (float) Math.sin((TimeUtil.getMillis() / scale) * 0.75F + 0.5F);
-
               Uniform3F sunPosition = program.getUniform("SunPosition");
-              sunPosition.set(x, y, 1F);
+              sunPosition.set(SUN_POSITION.getX(), SUN_POSITION.getY(), 1F);
 
               Uniform3F pixelSize = program.getUniform("PixelSize");
-              pixelSize.set(1.0F / minimapTexture.getWidth(), 1.0F / minimapTexture.getHeight(),
-                  0F);
+              pixelSize.set(
+                  1.0F / minimapTexture.getWidth(),
+                  1.0F / minimapTexture.getHeight(),
+                  0F
+              );
 
               float timeOfDay = MinimapTexture.this.getTimeOfDay();
               float normalizedDayTime = (float) (1.0F - (Math.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F + 0.2F));
-              normalizedDayTime = Math.clamp(normalizedDayTime, 0.0F, 1.0F);
+              normalizedDayTime = MathHelper.clamp(normalizedDayTime, 0.0F, 1.0F);
               normalizedDayTime = 1.0F - normalizedDayTime;
 
               Uniform1F dayTime = program.getUniform("DayTime");
@@ -191,11 +187,6 @@ public class MinimapTexture extends DynamicTexture {
                 float normalized =
                     (height - minBuildHeight) * (1.0F - 0.0F) / (maxBuildHeight - minBuildHeight)
                         + 0.0F;
-
-                boolean b = height % 2 == 0;
-                if (b) {
-                  tileColor = ColorUtil.blendColors(tileColor, ColorFormat.ARGB32.pack(0,0,0,10));
-                }
 
                 int heightmapColor = format.pack(normalized, normalized, normalized, 1.0F);
                 this.image().setARGB(destX, destZ, tileColor);
