@@ -48,6 +48,9 @@ public class MinimapTexture extends DynamicTexture {
 
   private DaylightPeriod currentPeriod = DaylightPeriod.DAYTIME;
 
+  private int highestBlockY;
+
+  private boolean lastUnderground = false;
   private int lastMidChunkX;
   private int lastMidChunkZ;
 
@@ -103,7 +106,8 @@ public class MinimapTexture extends DynamicTexture {
               );
 
               float timeOfDay = MinimapTexture.this.getTimeOfDay();
-              float normalizedDayTime = (float) (1.0F - (Math.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F + 0.2F));
+              float normalizedDayTime = (float) (1.0F - (
+                  Math.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F + 0.2F));
               normalizedDayTime = MathHelper.clamp(normalizedDayTime, 0.0F, 1.0F);
               normalizedDayTime = 1.0F - normalizedDayTime;
 
@@ -133,19 +137,28 @@ public class MinimapTexture extends DynamicTexture {
     int minBuildHeight = level.getMinBuildHeight();
     int maxBuildHeight = level.getMaxBuildHeight();
 
-    int zoom = this.config.get().zoom().get() * 10;
-    int minX = (int) (player.getPosX() - zoom);
-    int minZ = (int) (player.getPosZ() - zoom);
-    int maxX = (int) (player.getPosX() + zoom);
-    int maxZ = (int) (player.getPosZ() + zoom);
+    int midX = MathHelper.floor(player.getPosX());
+    int midZ = MathHelper.floor(player.getPosZ());
 
-    int midChunkX = MathHelper.floor(player.getPosX()) >> 4;
-    int midChunkZ = MathHelper.floor(player.getPosZ()) >> 4;
+    int zoom = this.config.get().zoom().get() * 10;
+    int minX = midX - zoom;
+    int minZ = midZ - zoom;
+    int maxX = midX + zoom;
+    int maxZ = midZ + zoom;
+
+    int midChunkX = midX >> 4;
+    int midChunkZ = midZ >> 4;
+
+    boolean underground = (this.highestBlockY - (int) (player.getPosY())) > 10;
 
     boolean changed = false;
-    if (this.lastMidChunkX != midChunkX && this.lastMidChunkZ != midChunkZ) {
+    if ((this.lastMidChunkX != midChunkX && this.lastMidChunkZ != midChunkZ)
+        || this.lastUnderground != underground) {
       this.lastMidChunkX = midChunkX;
       this.lastMidChunkZ = midChunkZ;
+
+      this.lastUnderground = underground;
+      this.highestBlockY = minBuildHeight;
       changed = true;
     }
 
@@ -155,68 +168,83 @@ public class MinimapTexture extends DynamicTexture {
     int maxChunkX = maxX >> 4;
     int maxChunkZ = maxZ >> 4;
 
+    int midInChunkX = midX & 15;
+    int midInChunkZ = midZ & 15;
+
+    ColorFormat format = ColorFormat.ARGB32;
     if (changed || this.storage.shouldProcess()) {
       this.resize(maxX - minX, maxZ - minZ);
 
-      this.image().fillRect(0, 0, this.getWidth(), this.getHeight(), SKY_COLOR);
-      this.heightmapTexture.image().fillRect(0, 0, this.getWidth(), this.getHeight(), 0xFF000000);
-      this.lightmapTexture.image().fillRect(0, 0, this.getWidth(), this.getHeight(), 0xFF000000);
-      for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-        for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-          MinimapChunk chunk = this.storage.getChunk(chunkX, chunkZ);
-          if (chunk == null) {
-            continue;
-          }
+      this.clearImage(SKY_COLOR);
+      this.heightmapTexture.clearImage(0xFF000000);
+      this.lightmapTexture.clearImage(0xFF000000);
 
-          chunk.compile();
+      this.forEach(minChunkX, minChunkZ, maxChunkX, maxChunkZ, (chunkX, chunkZ, chunk) -> {
+        chunk.compile(this.lastUnderground);
 
-          int offsetX = chunkX << 4;
-          int offsetZ = chunkZ << 4;
+        int offsetX = chunkX << 4;
+        int offsetZ = chunkZ << 4;
 
-          for (int pixelX = 0; pixelX < CHUNK_X; pixelX++) {
-            for (int pixelZ = 0; pixelZ < CHUNK_Z; pixelZ++) {
-              int destX = (offsetX + pixelX) - minX;
-              int destZ = (offsetZ + pixelZ) - minZ;
+        for (int pixelX = 0; pixelX < CHUNK_X; pixelX++) {
+          for (int pixelZ = 0; pixelZ < CHUNK_Z; pixelZ++) {
+            int destX = (offsetX + pixelX) - minX;
+            int destZ = (offsetZ + pixelZ) - minZ;
 
-              if (this.isWithinBounds(destX, destZ)) {
-                int tileColor = chunk.getColor(pixelX, pixelZ);
-                int height = chunk.getHeight(pixelX, pixelZ);
+            if (this.isWithinBounds(destX, destZ)) {
+              int tileColor = chunk.getColor(pixelX, pixelZ);
+              int height = chunk.getHeight(pixelX, pixelZ);
 
-                ColorFormat format = ColorFormat.ARGB32;
+              float normalized =
+                  (height - minBuildHeight) * (1.0F - 0.0F) / (maxBuildHeight - minBuildHeight)
+                      + 0.0F;
 
-                float normalized =
-                    (height - minBuildHeight) * (1.0F - 0.0F) / (maxBuildHeight - minBuildHeight)
-                        + 0.0F;
+              int heightmapColor = format.pack(normalized, normalized, normalized, 1.0F);
+              this.image().setARGB(destX, destZ, tileColor);
+              this.heightmapTexture.image().setARGB(destX, destZ, heightmapColor);
 
-                int heightmapColor = format.pack(normalized, normalized, normalized, 1.0F);
-                this.image().setARGB(destX, destZ, tileColor);
-                this.heightmapTexture.image().setARGB(destX, destZ, heightmapColor);
+              int blockLightLevel = chunk.getBlockLightLevel(pixelX, pixelZ);
 
-                int blockLightLevel = chunk.getBlockLightLevel(pixelX, pixelZ);
+              int normalizedLightLevel = this.normalize(blockLightLevel);
 
-                int normalizedLightLevel = this.normalize(blockLightLevel);
+              boolean noBlockLighting = normalizedLightLevel == 150;
 
-                boolean noBlockLighting = normalizedLightLevel == 150;
-
-                this.lightmapTexture.image().setARGB(
-                    destX, destZ,
-                    format.pack(
-                        noBlockLighting ? 0 : normalizedLightLevel,
-                        noBlockLighting ? 0 : normalizedLightLevel,
-                        noBlockLighting ? 0 : normalizedLightLevel,
-                        noBlockLighting ? 0 : 255
-                    )
-                );
-              }
+              this.lightmapTexture.image().setARGB(
+                  destX, destZ,
+                  format.pack(
+                      noBlockLighting ? 0 : normalizedLightLevel,
+                      noBlockLighting ? 0 : normalizedLightLevel,
+                      noBlockLighting ? 0 : normalizedLightLevel,
+                      noBlockLighting ? 0 : 255
+                  )
+              );
             }
           }
         }
-      }
+      });
 
       this.minimapBounds.update(minX, minZ, maxX, maxZ, 0);
       this.storage.processed();
 
       this.updateTexture();
+    }
+
+    this.forEach(minChunkX, minChunkZ, maxChunkX, maxChunkZ, (chunkX, chunkZ, chunk) -> {
+      if (chunkX == midChunkX && chunkZ == midChunkZ) {
+        this.highestBlockY = chunk.getHeight(midInChunkX, midInChunkZ);
+      }
+    });
+  }
+
+  private void forEach(int minX, int minZ, int maxX, int maxZ, ChunkConsumer consumer) {
+    for (int chunkX = minX; chunkX <= maxX; chunkX++) {
+      for (int chunkZ = minZ; chunkZ <= maxZ; chunkZ++) {
+        MinimapChunk chunk = this.storage.getChunk(chunkX, chunkZ);
+        if (chunk == null) {
+          continue;
+        }
+
+        consumer.accept(chunkX, chunkZ, chunk);
+      }
     }
   }
 
@@ -266,7 +294,8 @@ public class MinimapTexture extends DynamicTexture {
       );
     });
 
-    renderPipeline.renderToActivityTarget(target -> this.renderTarget.render((int) width, (int) height, false));
+    renderPipeline.renderToActivityTarget(
+        target -> this.renderTarget.render((int) width, (int) height, false));
 
     // TODO(Christian)
     RenderTarget target = renderPipeline.getActivityRenderTarget();
@@ -318,5 +347,12 @@ public class MinimapTexture extends DynamicTexture {
 
     System.out.println("Changed period from " + this.currentPeriod + " to " + period);
     this.currentPeriod = period;
+  }
+
+  @FunctionalInterface
+  public interface ChunkConsumer {
+
+    void accept(int chunkX, int chunkZ, MinimapChunk chunk);
+
   }
 }

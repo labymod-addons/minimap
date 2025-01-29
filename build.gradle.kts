@@ -1,4 +1,4 @@
-import net.labymod.labygradle.common.extension.model.labymod.ReleaseChannels
+import net.labymod.labygradle.common.extension.model.labymod.ReleaseChannel
 
 plugins {
     id("net.labymod.labygradle")
@@ -31,7 +31,7 @@ labyMod {
         minecraftVersion = "*"
         version = rootProject.version.toString()
         addon("labyswaypoints")
-        releaseChannel = ReleaseChannels.LOCAL
+        releaseChannel = ReleaseChannel.create("internal_4.3")
     }
 }
 

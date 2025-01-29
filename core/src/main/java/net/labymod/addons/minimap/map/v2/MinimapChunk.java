@@ -1,6 +1,8 @@
 package net.labymod.addons.minimap.map.v2;
 
+import java.util.function.Function;
 import net.labymod.api.Laby;
+import net.labymod.api.client.entity.Entity;
 import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.client.world.block.BlockColorProvider;
 import net.labymod.api.client.world.block.BlockState;
@@ -8,6 +10,7 @@ import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.client.world.lighting.LightType;
 import net.labymod.api.util.ColorUtil;
 import net.labymod.api.util.color.format.ColorFormat;
+import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.vector.IntVector3;
 
 public class MinimapChunk {
@@ -17,6 +20,7 @@ public class MinimapChunk {
   private final BlockColorProvider blockColorProvider;
   private final Chunk chunk;
   private final int[] colors = new int[CHUNK_SIZE * CHUNK_SIZE];
+  private final int[] undergroundColors = new int[CHUNK_SIZE * CHUNK_SIZE];
   private final int[] heightmap = new int[CHUNK_SIZE * CHUNK_SIZE];
   private final byte[] lightLevels = new byte[CHUNK_SIZE * CHUNK_SIZE];
   private final ClientWorld level;
@@ -25,6 +29,7 @@ public class MinimapChunk {
   private int maxY;
 
   private boolean compiled;
+  private boolean underground;
 
   public MinimapChunk(Chunk chunk) {
     this.blockColorProvider = Laby.references().blockColorProvider();
@@ -32,32 +37,35 @@ public class MinimapChunk {
     this.chunk = chunk;
   }
 
-  public void compile() {
-    if (this.compiled) {
+  public void compile(boolean underground) {
+    if (this.compiled && this.underground == underground) {
       return;
     }
+
+    this.underground = underground;
 
     ColorFormat format = ColorFormat.ARGB32;
     for (int x = 0; x < CHUNK_SIZE; x++) {
       for (int z = 0; z < CHUNK_SIZE; z++) {
 
-        BlockState blockState = this.getBlockState(x, z);
-        if (blockState == null) {
+        BlockState highestBlock = this.getBlockState(x, z, false);
+        BlockState block = this.getBlockState(x, z, true);
+        if (highestBlock == null || block == null) {
           this.setColor(x, z, 0xFF000000);
           continue;
         }
 
-        int baseColor = 0xFF000000 | this.getColor(format, blockState);
-        BlockState above = this.chunk.getBlockState(x, blockState.position().getY() + 1, z);
+        int baseColor = format.withAlpha(this.getColor(format, block), 255);
+        BlockState above = this.chunk.getBlockState(x, block.position().getY() + 1, z);
 
-        this.setHeight(x, z, blockState.position().getY() - (blockState.hasCollision() ? 0 : 1));
-        this.setLightLevel(x, z, above.getLightLevel(LightType.SKY), above.getLightLevel(LightType.BLOCK));
-        if (blockState.isWater()) {
-          BlockState blockStateUnderWater = this.getBlockStateUnderWater(blockState);
+        this.setHeight(x, z, highestBlock.position().getY() - (highestBlock.hasCollision() ? 0 : 1));
+        this.setLightLevel(x, z, above);
+        if (block.isWater()) {
+          BlockState blockStateUnderWater = this.getBlockBelow(block, BlockState::isWater);
 
           baseColor = format.pack(baseColor, 220);
 
-          int colorUnderWater = 0xFF000000 | this.getColor(format, blockStateUnderWater);
+          int colorUnderWater = format.withAlpha(this.getColor(format, blockStateUnderWater), 255);
           baseColor = ColorUtil.blendColors(colorUnderWater, baseColor);
           this.setHeight(x, z, blockStateUnderWater.position().getY());
         }
@@ -86,10 +94,17 @@ public class MinimapChunk {
     );
   }
 
-  private BlockState getBlockState(int x, int z) {
-    int y = this.chunk.getHeightBasedOnSection(64);
-    int minBuildHeight = this.level.getMinBuildHeight();
+  private BlockState getBlockState(int x, int z, boolean checkUnderground) {
+    int y;
+    if (checkUnderground) {
+      Entity cameraEntity = Laby.labyAPI().minecraft().getCameraEntity();
+      int entityY = MathHelper.floor(cameraEntity.getPosY());
+      y = this.underground ? entityY : this.chunk.getHeightBasedOnSection(64);
+    } else {
+      y = this.chunk.getHeightBasedOnSection(64);
+    }
 
+    int minBuildHeight = this.level.getMinBuildHeight();
     BlockState blockState = null;
     while (y > minBuildHeight) {
       blockState = this.chunk.getBlockState(x, y, z);
@@ -103,17 +118,21 @@ public class MinimapChunk {
     return blockState;
   }
 
-  private BlockState getBlockStateUnderWater(BlockState water) {
-    IntVector3 position = water.position();
+  private BlockState getBlockBelow(
+      BlockState state,
+      Function<BlockState, Boolean> filter
+  ) {
+    IntVector3 position = state.position();
     int x = position.getX() & 15;
     int y = position.getY();
     int z = position.getZ() & 15;
+
     int minBuildHeight = this.level.getMinBuildHeight();
 
     BlockState blockState = null;
     while (y > minBuildHeight) {
       blockState = this.chunk.getBlockState(x, y, z);
-      if (!blockState.isWater()) {
+      if (filter.apply(blockState)) {
         break;
       }
 
@@ -152,11 +171,24 @@ public class MinimapChunk {
   }
 
   private void setColor(int x, int z, int argb) {
-    this.colors[this.getIndex(x, z)] = argb;
+    int index = this.getIndex(x, z);
+    if (this.underground) {
+      this.undergroundColors[index] = argb;
+    } else {
+      this.colors[index] = argb;
+    }
   }
 
   public int getColor(int x, int z) {
-    return this.colors[this.getIndex(x, z)];
+    int index = this.getIndex(x, z);
+    return this.underground ? this.undergroundColors[index] : this.colors[index];
+  }
+
+  private void setLightLevel(int x, int z, BlockState state) {
+    this.setLightLevel(
+        x, z,
+        state.getLightLevel(LightType.SKY), state.getLightLevel(LightType.BLOCK)
+    );
   }
 
   private void setLightLevel(int x, int z, int skyLevel, int blockLevel) {

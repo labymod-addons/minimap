@@ -7,12 +7,12 @@ import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.map.MinimapCardinalType;
 import net.labymod.addons.minimap.api.map.MinimapCircle;
-import net.labymod.addons.minimap.api.map.MinimapDisplayType;
 import net.labymod.addons.minimap.map.MinimapTexture;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.GFXBridge;
+import net.labymod.api.client.gfx.pipeline.GFXRenderPipeline;
 import net.labymod.api.client.gfx.pipeline.pass.passes.StencilRenderPass;
 import net.labymod.api.client.gui.hud.binding.category.HudWidgetCategory;
 import net.labymod.api.client.gui.hud.hudwidget.HudWidget;
@@ -22,7 +22,6 @@ import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.configuration.loader.annotation.SpriteSlot;
 import net.labymod.api.util.math.MathHelper;
-import net.labymod.api.util.math.vector.FloatMatrix4;
 
 @SpriteSlot(size = 32)
 public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
@@ -97,11 +96,12 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     this.renderEvent.fill(stack, size, this.texture.getCurrentBounds(), this.circle);
     this.circle.init(this.config.displayType().get(), size, this.distanceToCorner);
 
-    GFXBridge gfx = this.labyAPI.gfxRenderPipeline().gfx();
+    GFXRenderPipeline renderPipeline = this.labyAPI.gfxRenderPipeline();
+    GFXBridge gfx = renderPipeline.gfx();
 
-    this.labyAPI.gfxRenderPipeline().renderToActivityTarget(target -> {
+    renderPipeline.renderToActivityTarget(target -> {
       gfx.enableStencil();
-      this.labyAPI.gfxRenderPipeline().clear(target);
+      renderPipeline.clear(target);
 
       this.stencilRenderPass.begin();
       this.config.displayType().get().stencil().render(stack, radius);
@@ -128,6 +128,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
       gfx.disableStencil();
     });
+    renderPipeline.clear(renderPipeline.getActivityRenderTarget());
 
     this.renderMapOutline(stack, size);
 

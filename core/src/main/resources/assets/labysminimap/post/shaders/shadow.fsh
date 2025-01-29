@@ -44,4 +44,5 @@ void main() {
   vec3 litColor = baseColor.rgb * lightIntensity;
 
   fragColor = vec4(litColor, baseColor.a) * getLighting();
+  //fragColor = baseColor;
 }

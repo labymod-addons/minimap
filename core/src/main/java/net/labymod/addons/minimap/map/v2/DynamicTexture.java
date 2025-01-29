@@ -42,7 +42,7 @@ public abstract class DynamicTexture {
     this.texture = new net.labymod.api.client.resources.texture.DynamicTexture(this.location, this.image);
     this.texture.setTextureFiltering(true, false);
     Laby.references().textureRepository().register(this.location, this.texture);
-    this.image().fillRect(0, 0, this.getWidth(), this.getHeight(), 0);
+    this.clearImage(0);
     this.updateTexture();
   }
 
@@ -74,6 +74,10 @@ public abstract class DynamicTexture {
 
   public Icon icon() {
     return this.icon;
+  }
+
+  public void clearImage(int clearColor) {
+    this.image().fillRect(0, 0,this.getWidth(), this.getHeight(), clearColor);
   }
 
   public int getWidth() {
