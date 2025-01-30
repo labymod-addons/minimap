@@ -1,12 +1,17 @@
 package net.labymod.addons.minimap.map.v2.renderer;
 
+import java.util.Collection;
 import net.labymod.addons.minimap.api.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.renderer.TileRenderer;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.Entity;
 import net.labymod.api.client.entity.player.Player;
+import net.labymod.api.client.render.font.ComponentRenderMeta;
+import net.labymod.api.client.render.font.ComponentRendererBuilder;
+import net.labymod.api.client.render.font.text.TextDrawMode;
 import net.labymod.api.client.render.matrix.Stack;
-import java.util.Collection;
+import net.labymod.api.util.Color;
+import net.labymod.api.util.math.MathHelper;
 
 public class EntityTileRenderer extends TileRenderer<Entity> {
 
@@ -34,6 +39,18 @@ public class EntityTileRenderer extends TileRenderer<Entity> {
         .pos(0, 0)
         .radius(SIZE * 1.25F)
         .color(-1)
+        .render(stack);
+
+    ComponentRendererBuilder builder = Laby.references().componentRenderer().builder();
+    ComponentRenderMeta meta = builder.text(entity.nameComponent()).pos(0, 1).scale(0.33F)
+        .centered(true)
+        .color(-1)
+        .drawMode(TextDrawMode.SEE_THROUGH)
+        .render(stack);
+
+    Laby.references().rectangleRenderer()
+        .pos(meta.getLeft() - 0.75F, meta.getTop() - 0.25F, meta.getRight() + 0.75F, meta.getBottom())
+        .color(Color.withAlpha(0, MathHelper.clamp(100, 0, 100)))
         .render(stack);
   }
 

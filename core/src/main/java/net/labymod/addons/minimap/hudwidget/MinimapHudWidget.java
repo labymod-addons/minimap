@@ -7,6 +7,7 @@ import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.map.MinimapCardinalType;
 import net.labymod.addons.minimap.api.map.MinimapCircle;
+import net.labymod.addons.minimap.api.map.MinimapDisplayType;
 import net.labymod.addons.minimap.map.MinimapTexture;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.api.Laby;
@@ -78,7 +79,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   public void render(
       Stack stack, MutableMouse mouse, float partialTicks, boolean isEditorContext, HudSize size) {
     if (!this.labyAPI.minecraft().isIngame()) {
-      this.renderMapOutline(stack, size);
+      this.renderMapOutline(stack, size, null);
       return;
     }
 
@@ -99,6 +100,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     GFXRenderPipeline renderPipeline = this.labyAPI.gfxRenderPipeline();
     GFXBridge gfx = renderPipeline.gfx();
 
+    this.renderMapOutline(stack, size, MinimapDisplayType.Stage.BEFORE_TEXTURE);
     renderPipeline.renderToActivityTarget(target -> {
       gfx.enableStencil();
       renderPipeline.clear(target);
@@ -130,7 +132,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     });
     renderPipeline.clear(renderPipeline.getActivityRenderTarget());
 
-    this.renderMapOutline(stack, size);
+    this.renderMapOutline(stack, size, MinimapDisplayType.Stage.AFTER_TEXTURE);
 
     if (this.config.cardinalType().get() != MinimapCardinalType.HIDDEN) {
       stack.push();
@@ -225,8 +227,13 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     gfx.restoreBlaze3DStates();
   }
 
-  private void renderMapOutline(Stack stack, HudSize size) {
-    this.config.displayType().get().icon().render(
+  private void renderMapOutline(Stack stack, HudSize size, MinimapDisplayType.Stage stage) {
+    MinimapDisplayType displayType = this.config.displayType().get();
+    if (stage != null && displayType.stage() != stage) {
+      return;
+    }
+
+    displayType.icon().render(
         stack,
         -MinimapHudWidgetConfig.BORDER_PADDING,
         -MinimapHudWidgetConfig.BORDER_PADDING,

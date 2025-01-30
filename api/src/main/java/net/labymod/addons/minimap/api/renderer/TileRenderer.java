@@ -1,5 +1,6 @@
 package net.labymod.addons.minimap.api.renderer;
 
+import java.util.Collection;
 import net.labymod.addons.minimap.api.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
@@ -8,7 +9,6 @@ import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.util.math.MathHelper;
 import org.jetbrains.annotations.NotNull;
-import java.util.Collection;
 
 public abstract class TileRenderer<T> {
 
