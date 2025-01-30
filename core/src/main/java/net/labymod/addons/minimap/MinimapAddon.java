@@ -1,5 +1,6 @@
 package net.labymod.addons.minimap;
 
+import javax.inject.Singleton;
 import net.labymod.addons.minimap.api.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.generated.ReferenceStorage;
@@ -13,7 +14,6 @@ import net.labymod.api.Laby;
 import net.labymod.api.addon.LabyAddon;
 import net.labymod.api.models.Implements;
 import net.labymod.api.models.addon.annotation.AddonMain;
-import javax.inject.Singleton;
 
 @AddonMain
 @Singleton
@@ -29,18 +29,19 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
   protected void enable() {
     MinimapAddon.references = this.referenceStorageAccessor();
 
-    Laby.references().hudWidgetRegistry().register(this.hudWidget = new MinimapHudWidget(this));
+    var references = Laby.references();
+    references.hudWidgetRegistry().register(this.hudWidget = new MinimapHudWidget(this));
 
     this.servers.init();
 
-    Laby.references().addonIntegrationService()
+    references.addonIntegrationService()
         .registerIntegration("labyswaypoints", WaypointsIntegration.class);
 
     MinimapConfigProvider configProvider = getReferences().minimapConfigProvider();
     this.registerListener(new MinimapListener(configProvider));
     this.registerListener(getReferences().tileRendererDispatcher());
 
-    Laby.references().controlEntryRegistry().registerEntry(false, ImGuiMinimapDebug::new);
+    references.controlEntryRegistry().registerEntry(false, ImGuiMinimapDebug::new);
   }
 
   @Override
