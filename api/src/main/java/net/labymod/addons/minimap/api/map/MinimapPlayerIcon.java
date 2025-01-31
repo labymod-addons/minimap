@@ -9,6 +9,7 @@ import net.labymod.api.util.Color;
 public enum MinimapPlayerIcon {
   TRIANGLE(Icon.texture(ThemeTextureLocation.of(Util.NAMESPACE, "icons/player_triangle", 16, 16))),
   CROSSHAIR(Icon.texture(ThemeTextureLocation.of(Util.NAMESPACE, "icons/player_crosshair", 16, 16))),
+  PLAYER_HEAD(null)
   ;
 
   private final Icon icon;

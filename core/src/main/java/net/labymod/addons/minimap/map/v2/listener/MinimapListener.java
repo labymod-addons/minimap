@@ -4,10 +4,11 @@ import net.labymod.addons.minimap.api.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
+import net.labymod.addons.minimap.api.map.MinimapPlayerIcon;
+import net.labymod.addons.minimap.util.RenderUtil;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
-import net.labymod.api.client.render.RenderPipeline;
-import net.labymod.api.client.render.font.ComponentRenderer;
+import net.labymod.api.client.entity.player.Player;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.util.math.MathHelper;
@@ -33,8 +34,6 @@ public class MinimapListener {
     float playerX = MathHelper.lerp(player.getPosX(), player.getPreviousPosX());
     float playerZ = MathHelper.lerp(player.getPosZ(), player.getPreviousPosZ());
 
-    RenderPipeline pipeline = Laby.labyAPI().renderPipeline();
-    ComponentRenderer componentRenderer = pipeline.componentRenderer();
     Stack stack = event.stack();
 
     float scale = this.configProvider.widgetConfig().tileSize().get() / 10F;
@@ -42,12 +41,21 @@ public class MinimapListener {
     float scaledRadius = radius / event.zoom();
 
 
-    this.renderClientPlayer(stack, playerX, playerZ, event.pixelLength(), player.getRotationHeadYaw(), radius, scale, scaledRadius);
+    this.renderClientPlayer(
+        stack,
+        player,
+        playerX, playerZ,
+        event.pixelLength(),
+        player.getRotationHeadYaw(),
+        radius,
+        scale, scaledRadius
+    );
   }
 
 
   private void renderClientPlayer(
       Stack stack,
+      Player player,
       float playerX, float playerZ,
       float pixelLength, float rotationHeadYaw,
       float radius,
@@ -85,7 +93,12 @@ public class MinimapListener {
     float size = 2.5F;
 
     MinimapHudWidgetConfig config = this.configProvider.widgetConfig();
-    config.playerIcon().get().render(stack, size, config.playerColor().get());
+    MinimapPlayerIcon playerIcon = config.playerIcon().get();
+    if (playerIcon == MinimapPlayerIcon.PLAYER_HEAD) {
+      RenderUtil.renderPlayerHead(stack, player);
+    } else {
+      playerIcon.render(stack, size, config.playerColor().get());
+    }
     stack.pop();
 
   }
