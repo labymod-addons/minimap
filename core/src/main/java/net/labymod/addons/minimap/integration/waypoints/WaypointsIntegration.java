@@ -4,11 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 import net.labymod.addons.minimap.MinimapAddon;
 import net.labymod.addons.waypoints.Waypoints;
+import net.labymod.addons.waypoints.event.RefreshWaypointsEvent;
 import net.labymod.addons.waypoints.waypoint.Waypoint;
 import net.labymod.addons.waypoints.waypoint.WaypointType;
 import net.labymod.api.Laby;
 import net.labymod.api.addon.integration.AddonIntegration;
 import net.labymod.api.client.component.Component;
+import net.labymod.api.event.Subscribe;
 import net.labymod.api.util.Color;
 import net.labymod.api.util.math.vector.FloatVector3;
 
@@ -32,7 +34,8 @@ public class WaypointsIntegration implements AddonIntegration {
     Laby.labyAPI().eventBus().unregisterListener(this);
   }
 
-  public void onRefreshWaypoints() {
+  @Subscribe
+  public void onRefreshWaypoints(RefreshWaypointsEvent event) {
     this.waypointContainers.clear();
     for (var visibleWaypoint : Waypoints.getReferences().waypointService().getVisibleWaypoints()) {
       this.waypointContainers.add(new WaypointContainer(visibleWaypoint));
