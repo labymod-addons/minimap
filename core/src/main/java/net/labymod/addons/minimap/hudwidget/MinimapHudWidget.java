@@ -106,7 +106,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       renderPipeline.clear(target);
 
       this.stencilRenderPass.begin();
-      this.config.displayType().get().stencil().render(stack, radius);
+      this.config.displayType().get().renderStencil(stack, radius);
       this.stencilRenderPass.end();
 
       // Render minimap

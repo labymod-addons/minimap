@@ -1,18 +1,19 @@
 package net.labymod.addons.minimap.api.map;
 
 import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
+import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.api.Laby;
 import net.labymod.api.client.gui.icon.Icon;
+import net.labymod.api.client.render.RenderPipeline;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.client.resources.ResourceLocation;
-import net.labymod.api.client.resources.texture.ThemeTextureLocation;
 import org.jetbrains.annotations.NotNull;
 
 public enum MinimapDisplayType {
   ROUND(
       Stage.AFTER_TEXTURE,
-      Icon.texture(ThemeTextureLocation.of("labysminimap:overlay/round")),
-      (stack, radius) -> Laby.labyAPI().renderPipeline().circleRenderer()
+      Icon.texture(Util.newThemeLocation("overlay/round")),
+      (stack, radius, renderPipeline) -> renderPipeline.circleRenderer()
           .pos(radius, radius)
           .radius(radius - MinimapHudWidgetConfig.BORDER_PADDING)
           .color(Integer.MAX_VALUE)
@@ -20,8 +21,8 @@ public enum MinimapDisplayType {
   ),
   SQUARE(
       Stage.AFTER_TEXTURE,
-      Icon.texture(ThemeTextureLocation.of("labysminimap:overlay/square")),
-      (stack, radius) -> Laby.labyAPI().renderPipeline().rectangleRenderer()
+      Icon.texture(Util.newThemeLocation("overlay/square")),
+      (stack, radius, renderPipeline) -> renderPipeline.rectangleRenderer()
           .pos(MinimapHudWidgetConfig.BORDER_PADDING, MinimapHudWidgetConfig.BORDER_PADDING)
           .size(radius * 2F - MinimapHudWidgetConfig.BORDER_PADDING * 2F)
           .color(Integer.MAX_VALUE)
@@ -30,7 +31,7 @@ public enum MinimapDisplayType {
   MINECRAFT_MAP_SQUARE(
       Stage.BEFORE_TEXTURE,
       Icon.texture(ResourceLocation.create("minecraft", "textures/map/map_background.png")),
-      (stack, radius) -> Laby.labyAPI().renderPipeline().rectangleRenderer()
+      (stack, radius, renderPipeline) -> renderPipeline.rectangleRenderer()
           .pos(MinimapHudWidgetConfig.BORDER_PADDING, MinimapHudWidgetConfig.BORDER_PADDING)
           .size(radius * 2F - MinimapHudWidgetConfig.BORDER_PADDING * 2F)
           .color(Integer.MAX_VALUE)
@@ -62,6 +63,11 @@ public enum MinimapDisplayType {
     return this.stencil;
   }
 
+  public void renderStencil(Stack stack, float radius) {
+    RenderPipeline renderPipeline = Laby.labyAPI().renderPipeline();
+    this.stencil.render(stack, radius, renderPipeline);
+  }
+
   public static enum Stage {
     BEFORE_TEXTURE,
     AFTER_TEXTURE
@@ -69,6 +75,6 @@ public enum MinimapDisplayType {
 
   public interface MinimapStencil {
 
-    void render(Stack stack, float radius);
+    void render(Stack stack, float radius, RenderPipeline renderPipeline);
   }
 }

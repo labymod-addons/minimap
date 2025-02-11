@@ -1,7 +1,7 @@
 rootProject.name = "minimap"
 
 pluginManagement {
-    val labyGradlePluginVersion = "0.5.8-SNAPSHOT"
+    val labyGradlePluginVersion = "0.5.8"
     buildscript {
         repositories {
             maven("https://dist.labymod.net/api/v1/maven/release/")

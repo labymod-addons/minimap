@@ -13,7 +13,8 @@
           "name": "Display",
           "entries": {
             "round": "Round",
-            "square": "Square"
+            "square": "Square",
+            "minecraftMapSquare": "Minecraft Map"
           }
         },
         "jumpBouncing": {
