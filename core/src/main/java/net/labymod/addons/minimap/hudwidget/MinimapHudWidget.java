@@ -8,6 +8,7 @@ import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.map.MinimapCardinalType;
 import net.labymod.addons.minimap.api.map.MinimapCircle;
 import net.labymod.addons.minimap.api.map.MinimapDisplayType;
+import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.map.MinimapTexture;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.api.Laby;
@@ -23,6 +24,7 @@ import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.configuration.loader.annotation.SpriteSlot;
 import net.labymod.api.util.math.MathHelper;
+import net.labymod.api.util.math.position.Position;
 
 @SpriteSlot(size = 32)
 public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
@@ -33,22 +35,23 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   private final MinimapCircle circle = new MinimapCircle();
 
-  private final MinimapRenderer minimapRenderer;
+  private final MinimapRenderer renderer;
+  private final StencilRenderPass stencilRenderPass = new StencilRenderPass();
+
   private MinimapTexture texture;
 
   private float distanceToCorner = 0;
   private float lastRadius = 0;
 
-  private final StencilRenderPass stencilRenderPass = new StencilRenderPass();
 
-  public MinimapHudWidget(MinimapAddon addon) {
+  public MinimapHudWidget(MinimapAddon addon, MinimapRenderer renderer) {
     super("minimap", MinimapHudWidgetConfig.class);
 
     this.bindCategory(HudWidgetCategory.INGAME);
 
     this.addon = addon;
 
-    this.minimapRenderer = new MinimapRenderer(() -> this.config);
+    this.renderer = renderer;
   }
 
   @Override
@@ -67,7 +70,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     this.texture = new MinimapTexture(this.addon, config);
     this.texture.init();
 
-    this.minimapRenderer.initialize();
+    this.renderer.initialize();
   }
 
   @Override
@@ -95,7 +98,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     }
 
     this.renderEvent.fill(stack, size, this.texture.getCurrentBounds(), this.circle);
-    this.circle.init(this.config.displayType().get(), size, this.distanceToCorner);
+    MinimapConfiguration configuration = this.configuration();
+    this.circle.init(configuration.displayType().get(), size, this.distanceToCorner);
 
     GFXRenderPipeline renderPipeline = this.labyAPI.gfxRenderPipeline();
     GFXBridge gfx = renderPipeline.gfx();
@@ -106,7 +110,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       renderPipeline.clear(target);
 
       this.stencilRenderPass.begin();
-      this.config.displayType().get().renderStencil(stack, radius);
+      configuration.displayType().get().renderStencil(stack, radius);
       this.stencilRenderPass.end();
 
       // Render minimap
@@ -134,7 +138,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     this.renderMapOutline(stack, size, MinimapDisplayType.Stage.AFTER_TEXTURE);
 
-    if (this.config.cardinalType().get() != MinimapCardinalType.HIDDEN) {
+    if (configuration.cardinalType().get() != MinimapCardinalType.HIDDEN) {
       stack.push();
       stack.translate(0F, 0F, 400.0F);
 
@@ -159,18 +163,22 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   }
 
   private void applyZoom(ClientPlayer player, Stack stack, HudSize size, boolean rotate) {
-    float addZoom = this.distanceToCorner / this.lastRadius + 0.3F;
+    double addZoom = this.distanceToCorner / this.lastRadius + 0.3D;
 
-    if (this.config.jumpBouncing().get()) {
-      addZoom += (player.getPreviousPosY() - player.getPosY()) / 20F;
+    Position position = player.position();
+    Position previousPosition = player.previousPosition();
+
+    MinimapConfiguration configuration = this.configuration();
+    if (configuration.jumpBouncing().get()) {
+      addZoom += (previousPosition.getY() - position.getY()) / 20.0D;
     }
 
-    if (this.config.autoZoom().get()) {
-      float distanceToFloor = (player.getPosY() - this.texture.getAnimatedHighestBlockY());
+    if (configuration.autoZoom().get()) {
+      double distanceToFloor = (position.getY() - this.texture.getAnimatedHighestBlockY());
       if (distanceToFloor < -70) {
         distanceToFloor = -70;
       }
-      addZoom -= (float) (distanceToFloor / (100D + distanceToFloor));
+      addZoom -= (distanceToFloor / (100D + distanceToFloor));
     }
 
     // Rotate and scale map
@@ -179,26 +187,29 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       stack.scale(-1, 1, 1);
       stack.rotate(player.getRotationHeadYaw(), 0F, 0F, 1F);
     }
-    stack.scale(addZoom, addZoom, 1F);
+    stack.scale((float) addZoom, (float) addZoom, 1F);
     stack.translate(-size.getActualWidth() / 2F, -size.getActualHeight() / 2F, 0F);
 
-    this.renderEvent.setZoom(addZoom);
+    this.renderEvent.setZoom((float) addZoom);
   }
 
   private void renderMapTexture(ClientPlayer player, Stack stack, HudSize size) {
-    MinimapBounds bounds = this.minimapRenderer.minimapBounds();
+    MinimapBounds bounds = this.renderer.minimapBounds();
     float mapMidX = bounds.getX1() + (bounds.getX2() - bounds.getX1()) / 2F;
     float mapMidZ = bounds.getZ1() + (bounds.getZ2() - bounds.getZ1()) / 2F;
 
-    float smoothX = MathHelper.lerp(player.getPosX(), player.getPreviousPosX());
-    float smoothZ = MathHelper.lerp(player.getPosZ(), player.getPreviousPosZ());
+    Position position = player.position();
+    Position previousPosition = player.previousPosition();
+    double smoothX = MathHelper.lerp(position.getX(), previousPosition.getX());
+    double smoothZ = MathHelper.lerp(position.getZ(), previousPosition.getZ());
 
     smoothX -= mapMidX;
     smoothZ -= mapMidZ;
 
-    float pixelLength = size.getActualWidth() / (this.config.zoom().get() * 10F) / 2F;
-    float offsetX = -pixelLength * smoothX;
-    float offsetZ = -pixelLength * smoothZ;
+    MinimapConfiguration configuration = this.configuration();
+    float pixelLength = size.getActualWidth() / (configuration.zoom().get() * 10F) / 2F;
+    double offsetX = -pixelLength * smoothX;
+    double offsetZ = -pixelLength * smoothZ;
 
     float pixelWidthX = -0.4F;
     float pixelWidthY = -0.4F;
@@ -216,7 +227,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
         0F
     );
 
-    this.minimapRenderer.render(
+    this.renderer.render(
         stack,
         0,
         0,
@@ -228,7 +239,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   }
 
   private void renderMapOutline(Stack stack, HudSize size, MinimapDisplayType.Stage stage) {
-    MinimapDisplayType displayType = this.config.displayType().get();
+    MinimapConfiguration configuration = this.configuration();
+    MinimapDisplayType displayType = configuration.displayType().get();
     if (stage != null && displayType.stage() != stage) {
       return;
     }
@@ -243,7 +255,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   }
 
   private void renderCardinals(ClientPlayer player, Stack stack) {
-    MinimapCardinalType type = this.config.cardinalType().get();
+    MinimapConfiguration configuration = this.configuration();
+    MinimapCardinalType type = configuration.cardinalType().get();
     boolean numbers = type == MinimapCardinalType.NUMBERS;
     String[] cardinals = numbers
         ? new String[]{"2", "3", "0", "1"}
@@ -267,4 +280,9 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       index++;
     }
   }
+
+  private MinimapConfiguration configuration() {
+    return this.renderer.configuration();
+  }
+
 }

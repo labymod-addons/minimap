@@ -1,5 +1,7 @@
 package net.labymod.addons.minimap.activity;
 
+import net.labymod.addons.minimap.activity.widget.MapWidget;
+import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.api.client.component.Component;
 import net.labymod.api.client.gui.screen.Parent;
 import net.labymod.api.client.gui.screen.activity.Link;
@@ -10,6 +12,12 @@ import net.labymod.api.client.gui.screen.widget.widgets.input.ButtonWidget;
 @Link("map.lss")
 public class MapActivity extends SimpleActivity {
 
+  private final MinimapRenderer minimapRenderer;
+
+  public MapActivity(MinimapRenderer minimapRenderer) {
+    this.minimapRenderer = minimapRenderer;
+  }
+
   @Override
   public void initialize(Parent parent) {
     super.initialize(parent);
@@ -19,5 +27,9 @@ public class MapActivity extends SimpleActivity {
     buttonWidget.addId("done");
     buttonWidget.setPressable(this::closeScreen);
     document.addChild(buttonWidget);
+
+    MapWidget mapWidget = new MapWidget(this.minimapRenderer);
+    mapWidget.addId("map");
+    document.addChild(mapWidget);
   }
 }

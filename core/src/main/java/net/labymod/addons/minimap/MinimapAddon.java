@@ -10,6 +10,7 @@ import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.debug.ImGuiMinimapDebug;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration;
+import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.addons.minimap.map.v2.listener.MinimapListener;
 import net.labymod.addons.minimap.server.MinimapServers;
 import net.labymod.api.Laby;
@@ -27,6 +28,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
   private final MinimapServers servers = new MinimapServers();
   private static ReferenceStorage references;
 
+  private MinimapRenderer minimapRenderer;
   private MinimapHudWidget hudWidget;
 
   @Override
@@ -34,7 +36,8 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     MinimapAddon.references = this.referenceStorageAccessor();
 
     var references = Laby.references();
-    references.hudWidgetRegistry().register(this.hudWidget = new MinimapHudWidget(this));
+    this.minimapRenderer = new MinimapRenderer(this::configuration);
+    references.hudWidgetRegistry().register(this.hudWidget = new MinimapHudWidget(this, this.minimapRenderer));
 
     this.servers.init();
 
@@ -50,7 +53,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
             Util.NAMESPACE + "-open-full-map",
             () -> Key.U,
             () -> Type.TOGGLE, pressed -> {
-              Laby.labyAPI().minecraft().minecraftWindow().displayScreen(new MapActivity());
+              Laby.labyAPI().minecraft().minecraftWindow().displayScreen(new MapActivity(this.minimapRenderer));
             }
         );
 

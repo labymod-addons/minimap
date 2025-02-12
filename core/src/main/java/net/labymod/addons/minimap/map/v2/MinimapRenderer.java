@@ -1,24 +1,28 @@
 package net.labymod.addons.minimap.map.v2;
 
-import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
+import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.api.Laby;
+import net.labymod.api.client.gfx.pipeline.GFXRenderPipeline;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.event.EventBus;
 import net.labymod.api.event.Phase;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.lifecycle.GameTickEvent;
-import java.util.function.Supplier;
 
 public final class MinimapRenderer {
 
+  private final Supplier<MinimapConfiguration> configuration;
   private final MinimapBounds minimapBounds = new MinimapBounds();
-  private DynamicTexture minimapTexture;
-  private DynamicTexture postEffectTexture;
+  private final DynamicTexture minimapTexture;
+  private final DynamicTexture postEffectTexture;
 
-  public MinimapRenderer(Supplier<MinimapHudWidgetConfig> config) {
+  public MinimapRenderer(Supplier<MinimapConfiguration> configuration) {
+    this.configuration = configuration;
     MinimapChunkStorage storage = new MinimapChunkStorage();
-    this.minimapTexture = new MinimapTexture(config, storage, this.minimapBounds);
+    this.minimapTexture = new MinimapTexture(configuration, storage, this.minimapBounds);
     this.postEffectTexture = new PostEffectTexture();
     EventBus eventBus = Laby.references().eventBus();
     eventBus.registerListener(this);
@@ -39,6 +43,19 @@ public final class MinimapRenderer {
     return this.minimapBounds;
   }
 
+  public void renderMinimap(BooleanSupplier allowed, Runnable renderer) {
+    if (!allowed.getAsBoolean()) {
+      return;
+    }
+
+    GFXRenderPipeline renderPipeline = Laby.references().gfxRenderPipeline();
+    renderPipeline.renderToActivityTarget(target -> {
+      renderPipeline.clear(target);
+      renderer.run();
+    });
+    renderPipeline.clear(renderPipeline.getActivityRenderTarget());
+  }
+
   public void render(Stack stack, float x, float y, float width, float height) {
     this.minimapTexture.render(stack, x, y, width, height);
     this.postEffectTexture.render(stack, x, y, width, height);
@@ -53,4 +70,9 @@ public final class MinimapRenderer {
     this.minimapTexture.initialize();
     this.postEffectTexture.initialize();
   }
+
+  public MinimapConfiguration configuration() {
+    return this.configuration.get();
+  }
+
 }

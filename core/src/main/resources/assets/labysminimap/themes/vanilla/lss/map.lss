@@ -1,5 +1,4 @@
 Document {
-  background-color: black;
 }
 
 .done {
@@ -7,4 +6,15 @@ Document {
   width: 200;
   left: 50%;
   bottom: 10;
+}
+
+.map {
+  border: 1 gray;
+
+  left: 50%;
+  top: 50%;
+  alignment-x: center;
+  alignment-y: center;
+  width: 256;
+  height: 256;
 }

@@ -1,9 +1,9 @@
 package net.labymod.addons.minimap.map.v2;
 
 import java.util.function.Supplier;
-import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.util.Util;
+import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.debug.MinimapDebugger;
 import net.labymod.addons.minimap.debug.MinimapDebugger.TextureInfo;
 import net.labymod.api.Laby;
@@ -26,6 +26,7 @@ import net.labymod.api.client.resources.texture.GameImage;
 import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.math.MathHelper;
+import net.labymod.api.util.math.position.Position;
 import net.labymod.api.util.math.vector.FloatMatrix4;
 import net.labymod.api.util.math.vector.FloatVector2;
 
@@ -37,7 +38,7 @@ public class MinimapTexture extends DynamicTexture {
   private static final FloatVector2 SUN_POSITION = new FloatVector2(0.9F, -1.0F);
   private static final int SKY_COLOR = ColorFormat.ARGB32.pack(142, 163, 255, 255);
 
-  private final Supplier<MinimapHudWidgetConfig> config;
+  private final Supplier<MinimapConfiguration> config;
   private final MinimapBounds minimapBounds;
   private final MinimapChunkStorage storage;
   private final HeightmapTexture heightmapTexture;
@@ -55,7 +56,7 @@ public class MinimapTexture extends DynamicTexture {
   private int lastMidChunkZ;
 
   public MinimapTexture(
-      Supplier<MinimapHudWidgetConfig> config,
+      Supplier<MinimapConfiguration> config,
       MinimapChunkStorage storage,
       MinimapBounds minimapBounds
   ) {
@@ -137,8 +138,9 @@ public class MinimapTexture extends DynamicTexture {
     int minBuildHeight = level.getMinBuildHeight();
     int maxBuildHeight = level.getMaxBuildHeight();
 
-    int midX = MathHelper.floor(player.getPosX());
-    int midZ = MathHelper.floor(player.getPosZ());
+    Position position = player.position();
+    int midX = MathHelper.floor(position.getX());
+    int midZ = MathHelper.floor(position.getZ());
 
     int zoom = this.config.get().zoom().get() * 10;
     int minX = midX - zoom;
@@ -149,7 +151,7 @@ public class MinimapTexture extends DynamicTexture {
     int midChunkX = midX >> 4;
     int midChunkZ = midZ >> 4;
 
-    boolean underground = (this.highestBlockY - (int) (player.getPosY())) > 10;
+    boolean underground = (this.highestBlockY - (int) (position.getY())) > 10;
 
     boolean changed = false;
     if ((this.lastMidChunkX != midChunkX && this.lastMidChunkZ != midChunkZ)
@@ -280,7 +282,7 @@ public class MinimapTexture extends DynamicTexture {
       Window window = Laby.labyAPI().minecraft().minecraftWindow();
 
       stack.push();
-      stack.translate(0, 0, -2000);
+      stack.translate(x, y, -2000);
       FloatMatrix4 position = stack.getProvider().getPosition();
 
       renderPipeline.matrixStorage().setModelViewMatrix(position, 4);
