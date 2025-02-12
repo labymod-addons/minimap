@@ -4,6 +4,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
+import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.api.Laby;
 import net.labymod.api.client.gfx.pipeline.GFXRenderPipeline;
 import net.labymod.api.client.render.matrix.Stack;
@@ -21,7 +22,7 @@ public final class MinimapRenderer {
 
   public MinimapRenderer(Supplier<MinimapConfiguration> configuration) {
     this.configuration = configuration;
-    MinimapChunkStorage storage = new MinimapChunkStorage();
+    ChunkDataStorage storage = new ChunkDataStorage();
     this.minimapTexture = new MinimapTexture(configuration, storage, this.minimapBounds);
     this.postEffectTexture = new PostEffectTexture();
     EventBus eventBus = Laby.references().eventBus();

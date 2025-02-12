@@ -33,6 +33,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
 
   @Override
   protected void enable() {
+    this.registerSettingCategory();
     MinimapAddon.references = this.referenceStorageAccessor();
 
     var references = Laby.references();

@@ -1,16 +1,13 @@
 package net.labymod.addons.minimap.data;
 
 import net.labymod.api.client.world.block.BlockState;
-import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.client.world.lighting.LightType;
 
 public abstract class ChunkData {
 
-  protected static final int CHUNK_SIZE = 16;
-  protected final Chunk chunk;
+  public static final int CHUNK_SIZE = 16;
 
-  protected ChunkData(Chunk chunk) {
-    this.chunk = chunk;
+  protected ChunkData() {
   }
 
   public abstract int getHeight(int x, int z);
@@ -45,13 +42,9 @@ public abstract class ChunkData {
 
   public abstract void setLightLevel(int x, int z, int combinedLightLevel);
 
-  public int getX() {
-    return this.chunk.getChunkX();
-  }
+  public abstract int getX();
 
-  public int getZ() {
-    return this.chunk.getChunkZ();
-  }
+  public abstract int getZ();
 
   protected int getIndex(int x, int z) {
     return x * CHUNK_SIZE + z;

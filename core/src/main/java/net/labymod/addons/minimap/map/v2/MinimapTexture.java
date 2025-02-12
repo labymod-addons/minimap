@@ -4,6 +4,8 @@ import java.util.function.Supplier;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
+import net.labymod.addons.minimap.data.ChunkData;
+import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.addons.minimap.debug.MinimapDebugger;
 import net.labymod.addons.minimap.debug.MinimapDebugger.TextureInfo;
 import net.labymod.api.Laby;
@@ -40,7 +42,7 @@ public class MinimapTexture extends DynamicTexture {
 
   private final Supplier<MinimapConfiguration> config;
   private final MinimapBounds minimapBounds;
-  private final MinimapChunkStorage storage;
+  private final ChunkDataStorage storage;
   private final HeightmapTexture heightmapTexture;
   private final LightmapTexture lightmapTexture;
 
@@ -57,7 +59,7 @@ public class MinimapTexture extends DynamicTexture {
 
   public MinimapTexture(
       Supplier<MinimapConfiguration> config,
-      MinimapChunkStorage storage,
+      ChunkDataStorage storage,
       MinimapBounds minimapBounds
   ) {
     super("minimap/level");
@@ -182,7 +184,7 @@ public class MinimapTexture extends DynamicTexture {
       this.lightmapTexture.clearImage(0xFF000000);
 
       this.forEach(minChunkX, minChunkZ, maxChunkX, maxChunkZ, (chunkX, chunkZ, chunk) -> {
-        chunk.compile(this.lastUnderground);
+        this.storage.compile(chunk);
 
         int offsetX = chunkX << 4;
         int offsetZ = chunkZ << 4;
@@ -240,7 +242,7 @@ public class MinimapTexture extends DynamicTexture {
   private void forEach(int minX, int minZ, int maxX, int maxZ, ChunkConsumer consumer) {
     for (int chunkX = minX; chunkX <= maxX; chunkX++) {
       for (int chunkZ = minZ; chunkZ <= maxZ; chunkZ++) {
-        MinimapChunk chunk = this.storage.getChunk(chunkX, chunkZ);
+        ChunkData chunk = this.storage.getChunk(chunkX, chunkZ);
         if (chunk == null) {
           continue;
         }
@@ -354,7 +356,7 @@ public class MinimapTexture extends DynamicTexture {
   @FunctionalInterface
   public interface ChunkConsumer {
 
-    void accept(int chunkX, int chunkZ, MinimapChunk chunk);
+    void accept(int chunkX, int chunkZ, ChunkData chunk);
 
   }
 }

@@ -1,5 +1,9 @@
-package net.labymod.addons.minimap.map.v2;
+package net.labymod.addons.minimap.data;
 
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import net.labymod.addons.minimap.data.compilation.CompilationService;
 import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.event.Subscribe;
@@ -13,16 +17,14 @@ import net.labymod.api.event.client.world.chunk.ChunkEvent.Type;
 import net.labymod.api.event.client.world.chunk.LightUpdateEvent;
 import net.labymod.api.util.logging.Logging;
 import net.labymod.api.util.math.vector.IntVector3;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
-public class MinimapChunkStorage {
+public class ChunkDataStorage {
 
   private static final Logging LOGGER = Logging.getLogger();
   private static final long BITS = 32L;
   private static final long MASK = 0xFFFFFFFFL;
-  private final Map<Long, MinimapChunk> chunks = new HashMap<>();
+  private final Map<Long, ChunkData> chunks = new HashMap<>();
+  private final CompilationService compilationService = new CompilationService();
   private boolean shouldProcess;
 
   @Subscribe
@@ -31,7 +33,7 @@ public class MinimapChunkStorage {
     if (type == Type.LOAD) {
       this.loadChunk(event.getChunk());
     } else if (type == Type.UNLOAD) {
-     // this.unloadChunk(event.getChunk());
+      // this.unloadChunk(event.getChunk());
     }
   }
 
@@ -47,9 +49,9 @@ public class MinimapChunkStorage {
 
   @Subscribe
   public void onBlockUpdate(BlockUpdateEvent event) {
-    MinimapChunk minimapChunk = this.chunks.get(this.getChunkId(event.getChunk()));
-    if (minimapChunk != null) {
-      minimapChunk.resetCompilation();
+    ChunkData data = this.chunks.get(this.getChunkId(event.getChunk()));
+    if (data != null) {
+      this.resetCompilation(data);
       this.setShouldProcess(true);
     }
   }
@@ -64,9 +66,9 @@ public class MinimapChunkStorage {
     int chunkX = x >> 4;
     int chunkZ = z >> 4;
 
-    MinimapChunk chunk = this.chunks.get(this.getChunkId(chunkX, chunkZ));
+    ChunkData chunk = this.chunks.get(this.getChunkId(chunkX, chunkZ));
     if (chunk != null) {
-      chunk.resetCompilation();
+      this.resetCompilation(chunk);
       this.setShouldProcess(true);
     }
   }
@@ -74,7 +76,7 @@ public class MinimapChunkStorage {
   @Subscribe
   public void onKey(KeyEvent event) {
     if (event.state() == State.PRESS && event.key() == Key.O) {
-      this.chunks.values().forEach(MinimapChunk::resetCompilation);
+      this.chunks.values().forEach(this::resetCompilation);
     }
   }
 
@@ -90,12 +92,12 @@ public class MinimapChunkStorage {
     this.setShouldProcess(false);
   }
 
-  public MinimapChunk getChunk(int x, int z) {
+  public ChunkData getChunk(int x, int z) {
     return this.chunks.get(this.getChunkId(x, z));
   }
 
   private void loadChunk(Chunk chunk) {
-    this.chunks.put(this.getChunkId(chunk), new MinimapChunk(chunk));
+    this.chunks.put(this.getChunkId(chunk), new GameChunkData(chunk));
     this.resetNeighboringChunks(chunk);
     this.setShouldProcess(true);
   }
@@ -116,14 +118,13 @@ public class MinimapChunkStorage {
           continue;
         }
 
-        MinimapChunk chunk = this.getChunk(x, z);
+        ChunkData chunk = this.getChunk(x, z);
         if (chunk != null) {
-          chunk.resetCompilation();
+          this.resetCompilation(chunk);
         }
       }
     }
   }
-
 
   private void unloadChunk(Chunk chunk) {
     this.chunks.remove(this.getChunkId(chunk));
@@ -136,7 +137,7 @@ public class MinimapChunkStorage {
 
   public int getMinX() {
     int x = Integer.MAX_VALUE;
-    for (MinimapChunk chunk : this.getChunks()) {
+    for (ChunkData chunk : this.getChunks()) {
       if (chunk.getX() < x) {
         x = chunk.getX();
       }
@@ -147,7 +148,7 @@ public class MinimapChunkStorage {
 
   public int getMinZ() {
     int z = Integer.MAX_VALUE;
-    for (MinimapChunk chunk : this.getChunks()) {
+    for (ChunkData chunk : this.getChunks()) {
       if (chunk.getZ() < z) {
         z = chunk.getZ();
       }
@@ -158,7 +159,7 @@ public class MinimapChunkStorage {
 
   public int getMaxX() {
     int x = Integer.MIN_VALUE;
-    for (MinimapChunk chunk : this.getChunks()) {
+    for (ChunkData chunk : this.getChunks()) {
       if (chunk.getX() > x) {
         x = chunk.getX();
       }
@@ -169,7 +170,7 @@ public class MinimapChunkStorage {
 
   public int getMaxZ() {
     int z = Integer.MIN_VALUE;
-    for (MinimapChunk chunk : this.getChunks()) {
+    for (ChunkData chunk : this.getChunks()) {
       if (chunk.getZ() > z) {
         z = chunk.getZ();
       }
@@ -178,7 +179,7 @@ public class MinimapChunkStorage {
     return z;
   }
 
-  public Collection<MinimapChunk> getChunks() {
+  public Collection<ChunkData> getChunks() {
     return this.chunks.values();
   }
 
@@ -190,4 +191,11 @@ public class MinimapChunkStorage {
     return chunkX & MASK | (chunkZ & MASK) << BITS;
   }
 
+  private void resetCompilation(ChunkData data) {
+    this.compilationService.resetCompilation(data);
+  }
+
+  public void compile(ChunkData data) {
+    this.compilationService.compile(data);
+  }
 }
