@@ -26,6 +26,8 @@ public abstract class ChunkData {
     return this.getLightLevel(LightType.SKY, x, z);
   }
 
+  public abstract int getLightLevel(int x, int z);
+
   public abstract int getLightLevel(LightType type, int x, int z);
 
   public void setLightLevel(int x, int z, BlockState blockState) {

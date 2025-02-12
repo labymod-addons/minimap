@@ -15,6 +15,7 @@ public class CompilationService {
   public CompilationService() {
     this.compilers = new ArrayList<>();
     this.registerCompiler(new GameChunkCompiler());
+    this.registerCompiler(new LocalChunkCompiler());
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})

@@ -1,9 +1,15 @@
 package net.labymod.addons.minimap.data;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.data.compilation.CompilationService;
+import net.labymod.addons.minimap.data.io.LocalChunkDataWriter;
+import net.labymod.api.Constants.Files;
+import net.labymod.api.Laby;
 import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.event.Subscribe;
@@ -11,10 +17,13 @@ import net.labymod.api.event.client.input.KeyEvent;
 import net.labymod.api.event.client.input.KeyEvent.State;
 import net.labymod.api.event.client.network.server.ServerDisconnectEvent;
 import net.labymod.api.event.client.network.server.ServerSwitchEvent;
+import net.labymod.api.event.client.world.WorldEnterEvent;
+import net.labymod.api.event.client.world.WorldLeaveEvent;
 import net.labymod.api.event.client.world.chunk.BlockUpdateEvent;
 import net.labymod.api.event.client.world.chunk.ChunkEvent;
 import net.labymod.api.event.client.world.chunk.ChunkEvent.Type;
 import net.labymod.api.event.client.world.chunk.LightUpdateEvent;
+import net.labymod.api.server.LocalWorld;
 import net.labymod.api.util.logging.Logging;
 import net.labymod.api.util.math.vector.IntVector3;
 
@@ -26,6 +35,10 @@ public class ChunkDataStorage {
   private final Map<Long, ChunkData> chunks = new HashMap<>();
   private final CompilationService compilationService = new CompilationService();
   private boolean shouldProcess;
+  private LocalChunkDataWriter writer;
+
+  public ChunkDataStorage() {
+  }
 
   @Subscribe
   public void onChunk(ChunkEvent event) {
@@ -33,7 +46,7 @@ public class ChunkDataStorage {
     if (type == Type.LOAD) {
       this.loadChunk(event.getChunk());
     } else if (type == Type.UNLOAD) {
-      // this.unloadChunk(event.getChunk());
+      this.unloadChunk(event.getChunk());
     }
   }
 
@@ -45,6 +58,31 @@ public class ChunkDataStorage {
   @Subscribe
   public void onServerDisconnect(ServerDisconnectEvent event) {
     this.chunks.clear();
+  }
+
+  @Subscribe
+  public void onWorldEnter(WorldEnterEvent event) {
+
+    LocalWorld localWorld = Laby.references().integratedServer().getLocalWorld();
+    if (localWorld == null) {
+      return;
+    }
+
+    Path destination = Files.LABYMOD_DIRECTORY.resolve(Util.NAMESPACE).resolve("caches").resolve(localWorld.folderName() + ".zip");
+    try{
+      this.writer = LocalChunkDataWriter.open(destination);
+    } catch (Exception exception) {
+      throw new IllegalStateException(exception);
+    }
+  }
+
+  @Subscribe
+  public void onWorldLeave(WorldLeaveEvent event) {
+    try {
+      this.writer.close();
+    } catch (Exception exception) {
+      throw new IllegalStateException(exception);
+    }
   }
 
   @Subscribe
@@ -127,7 +165,19 @@ public class ChunkDataStorage {
   }
 
   private void unloadChunk(Chunk chunk) {
-    this.chunks.remove(this.getChunkId(chunk));
+    ChunkData data = this.chunks.remove(this.getChunkId(chunk));
+    if (data != null) {
+
+      if (this.writer != null) {
+        System.out.println("Unloaded " + chunk.getChunkX() + "x" + chunk.getChunkZ() + "!");
+        try {
+          this.writer.write(data);
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }
+
+    }
     this.setShouldProcess(true);
   }
 

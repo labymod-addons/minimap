@@ -39,6 +39,11 @@ public class GameChunkData extends ChunkData {
   }
 
   @Override
+  public int getLightLevel(int x, int z) {
+    return this.lightLevels[this.getIndex(x, z)];
+  }
+
+  @Override
   public int getLightLevel(LightType type, int x, int z) {
     byte lightLevel = this.lightLevels[this.getIndex(x, z)];
     return switch (type) {
