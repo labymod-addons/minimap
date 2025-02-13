@@ -1,10 +1,15 @@
 package net.labymod.addons.minimap.data;
 
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import javax.imageio.ImageIO;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.data.compilation.CompilationService;
 import net.labymod.addons.minimap.data.io.LocalChunkDataWriter;
@@ -35,7 +40,7 @@ public class ChunkDataStorage {
   private final Map<Long, ChunkData> chunks = new HashMap<>();
   private final CompilationService compilationService = new CompilationService();
   private boolean shouldProcess;
-  private LocalChunkDataWriter writer;
+  private final Writer writer = new Writer();
 
   public ChunkDataStorage() {
   }
@@ -68,21 +73,68 @@ public class ChunkDataStorage {
       return;
     }
 
-    Path destination = Files.LABYMOD_DIRECTORY.resolve(Util.NAMESPACE).resolve("caches").resolve(localWorld.folderName() + ".zip");
-    try{
-      this.writer = LocalChunkDataWriter.open(destination);
-    } catch (Exception exception) {
+    Path cachesDirectory = Files.LABYMOD_DIRECTORY.resolve(Util.NAMESPACE).resolve("caches");
+    Path destination = cachesDirectory.resolve(localWorld.folderName());
+
+    this.writer.open(destination);
+  }
+
+  private void writeSavedData(Map<Long, ChunkData> chunkMap) {
+    Collection<ChunkData> chunks = chunkMap.values();
+    int minX = Integer.MAX_VALUE;
+    int minZ = Integer.MAX_VALUE;
+    int maxX = Integer.MIN_VALUE;
+    int maxZ = Integer.MIN_VALUE;
+
+    for (ChunkData chunk : chunks) {
+      if (chunk.getX() < minX) {
+        minX = chunk.getX();
+      }
+
+      if (chunk.getX() > maxX) {
+        maxX = chunk.getX();
+      }
+
+      if (chunk.getZ() < minZ) {
+        minZ = chunk.getZ();
+      }
+
+      if (chunk.getZ() > maxZ) {
+        maxZ = chunk.getZ();
+      }
+    }
+
+    int width = Math.abs(maxX - minX) * 16;
+    int height = Math.abs(maxZ - minZ) * 16;
+
+    BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+    for (int x = minX; x < maxX; x++) {
+      for (int z = minZ; z < maxZ; z++) {
+        long id = Util.getChunkId(x, z);
+        ChunkData chunkData = chunkMap.get(id);
+        if (chunkData != null) {
+          int xPos = (x - minX) * 16;
+          int yPos = (z - minZ) * 16;
+
+          for (int chunkX = 0; chunkX < 16; chunkX++) {
+            for (int chunkZ = 0; chunkZ < 16; chunkZ++) {
+              image.setRGB(xPos + chunkX, yPos + chunkZ, chunkData.getColor(chunkX, chunkZ));
+            }
+          }
+        }
+      }
+    }
+
+    try {
+      ImageIO.write(image, "png", new File("saved_data.png"));
+    } catch (IOException exception) {
       throw new IllegalStateException(exception);
     }
   }
 
   @Subscribe
   public void onWorldLeave(WorldLeaveEvent event) {
-    try {
-      this.writer.close();
-    } catch (Exception exception) {
-      throw new IllegalStateException(exception);
-    }
+    this.writer.close();
   }
 
   @Subscribe
@@ -167,16 +219,7 @@ public class ChunkDataStorage {
   private void unloadChunk(Chunk chunk) {
     ChunkData data = this.chunks.remove(this.getChunkId(chunk));
     if (data != null) {
-
-      if (this.writer != null) {
-        System.out.println("Unloaded " + chunk.getChunkX() + "x" + chunk.getChunkZ() + "!");
-        try {
-          this.writer.write(data);
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-      }
-
+      this.writer.write(data);
     }
     this.setShouldProcess(true);
   }
@@ -246,6 +289,57 @@ public class ChunkDataStorage {
   }
 
   public void compile(ChunkData data) {
-    this.compilationService.compile(data);
+    if (this.compilationService.compile(data)) {
+      this.writer.write(data);
+    }
   }
+
+  static class Writer {
+
+    private static final Logging LOGGER = Logging.getLogger();
+    private ExecutorService executorService;
+    private LocalChunkDataWriter writer;
+
+    public void open(Path destination) {
+      try {
+        this.writer = LocalChunkDataWriter.open(destination);
+        this.executorService = Executors.newSingleThreadExecutor();
+      } catch (IOException exception) {
+        LOGGER.error("Unable to open chunk data writer", exception);
+      }
+    }
+
+
+    public void write(ChunkData data) {
+      if (this.executorService != null) {
+        this.executorService.submit(() -> this._write(data));
+      }
+
+    }
+
+    private void _write(ChunkData data) {
+      if (this.writer != null) {
+        try {
+          this.writer.write(data);
+        } catch (IOException exception) {
+          LOGGER.error("Unable to write chunk data", exception);
+        }
+      }
+    }
+
+    public void close() {
+      try {
+        this.executorService.shutdown();
+        this.executorService.close();
+
+        if (this.writer != null) {
+          this.writer.close();
+        }
+      } catch (Exception exception) {
+        LOGGER.error("Unable to close chunk data writer", exception);
+      }
+    }
+
+  }
+
 }

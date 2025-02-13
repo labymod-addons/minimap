@@ -15,22 +15,25 @@ public class CompilationService {
   public CompilationService() {
     this.compilers = new ArrayList<>();
     this.registerCompiler(new GameChunkCompiler());
-    this.registerCompiler(new LocalChunkCompiler());
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  public void compile(ChunkData data) {
+  public boolean compile(ChunkData data) {
     long chunkId = this.getChunkId(data);
     if (this.compiled.containsKey(chunkId)) {
-      return;
+      return false;
     }
 
+    boolean compiled = false;
     for (ChunkCompiler compiler : this.compilers) {
       if (compiler.isCompatible(data)) {
         compiler.compile(data);
         this.compiled.put(chunkId, data);
+        compiled = true;
       }
     }
+
+    return compiled;
   }
 
   private void registerCompiler(ChunkCompiler<?> compiler) {
