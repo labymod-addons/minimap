@@ -6,14 +6,15 @@ import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.map.MinimapUpdateMethod;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
-import net.labymod.api.client.gfx.texture.GFXTextureFilter;
+import net.labymod.api.client.gfx.texture.TextureHandle.FilterMode;
 import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.resources.ResourceLocation;
+import net.labymod.api.client.resources.texture.DynamicTexture;
 import net.labymod.api.client.resources.texture.GameImage;
-import net.labymod.api.client.resources.texture.concurrent.RefreshableTexture;
 import net.labymod.api.event.Phase;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.render.GameRenderEvent;
+import net.labymod.api.util.math.position.Position;
 
 public class MinimapTexture {
 
@@ -28,7 +29,7 @@ public class MinimapTexture {
 
   private final MinimapBounds currentBounds = new MinimapBounds();
 
-  private RefreshableTexture texture;
+  private DynamicTexture texture;
 
   private float animatedHighestBlockY = 0F;
 
@@ -43,11 +44,11 @@ public class MinimapTexture {
       this.texture.release();
     }
 
-    this.texture = Laby.references().asynchronousTextureUploader().newRefreshableTexture(
-        GFXTextureFilter.NEAREST,
-        GFXTextureFilter.NEAREST
-    );
-    this.texture.bindTo(LOCATION);
+    this.texture = new DynamicTexture(LOCATION, GameImage.IMAGE_PROVIDER.createImage(16, 16));
+    this.texture.setFilter(FilterMode.NEAREST, false);
+    this.texture.upload();
+
+    Laby.references().textureRepository().register(LOCATION, this.texture);
 
     Laby.labyAPI().eventBus().registerListener(this);
   }
@@ -64,7 +65,7 @@ public class MinimapTexture {
 
   @Subscribe
   public void tick(GameRenderEvent event) {
-    if (event.phase() != Phase.POST || this.texture.wasReleased()) {
+    if (event.phase() != Phase.POST) {
       return;
     }
 
@@ -80,12 +81,19 @@ public class MinimapTexture {
       return;
     }
 
+    Position position = player.position();
+
     int zoom = this.config.zoom().get() * 10;
-    int x1 = (int) (player.getPosX() - zoom);
-    int z1 = (int) (player.getPosZ() - zoom);
-    int x2 = (int) (player.getPosX() + zoom);
-    int z2 = (int) (player.getPosZ() + zoom);
-    int depth = (int) player.getPosY();
+
+    double playerX = position.getX();
+    double playerY = position.getY();
+    double playerZ = position.getZ();
+
+    int x1 = (int) (playerX - zoom);
+    int z1 = (int) (playerZ - zoom);
+    int x2 = (int) (playerX + zoom);
+    int z2 = (int) (playerZ + zoom);
+    int depth = (int) playerY;
 
     MinimapUpdateMethod method = this.config.updateMethod()
         .getOrDefault(MinimapUpdateMethod.CHUNK_TRIGGER);
@@ -97,14 +105,14 @@ public class MinimapTexture {
           z1,
           x2,
           z2,
-          (int) player.getPosX(),
-          (int) player.getPosY(),
-          (int) player.getPosZ()
+          (int) playerX,
+          (int) playerY,
+          (int) playerZ
       );
 
-      this.texture.queueUpdate(image)
-          .thenAccept(v -> Laby.labyAPI().minecraft()
-              .executeNextTick(() -> this.currentBounds.update(x1, z1, x2, z2, depth)));
+      this.texture.setImageAndUpload(image);
+      Laby.labyAPI().minecraft()
+          .executeNextTick(() -> this.currentBounds.update(x1, z1, x2, z2, depth));
     }
 
     float highestBlockY = (this.generator.getHighestBlockY() / ROUND_DECIMALS) * ROUND_DECIMALS;

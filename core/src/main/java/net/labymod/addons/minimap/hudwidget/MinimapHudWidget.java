@@ -8,6 +8,7 @@ import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.map.MinimapCardinalType;
 import net.labymod.addons.minimap.api.map.MinimapCircle;
 import net.labymod.addons.minimap.map.MinimapTexture;
+import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.GFXBridge;
 import net.labymod.api.client.gfx.pipeline.pass.passes.StencilRenderPass;
@@ -18,7 +19,7 @@ import net.labymod.api.client.gui.mouse.MutableMouse;
 import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.configuration.loader.annotation.SpriteSlot;
-import net.labymod.api.util.math.MathHelper;
+import net.labymod.api.util.math.position.Position;
 
 @SpriteSlot(size = 32)
 public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
@@ -150,25 +151,27 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   private void applyZoom(ClientPlayer player, Stack stack, HudSize size, boolean rotate) {
     float addZoom = this.distanceToCorner / this.lastRadius + 0.3F;
 
+    Position position = player.position();
+    Position prevPosition = player.previousPosition();
     if (this.config.jumpBouncing().get()) {
-      addZoom += (player.getPreviousPosY() - player.getPosY()) / 20F;
+      addZoom += (prevPosition.getY() - position.getY()) / 20F;
     }
 
     if (this.config.autoZoom().get()) {
-      float distanceToFloor = (player.getPosY() - this.texture.getAnimatedHighestBlockY());
+      double distanceToFloor = (position.getY() - this.texture.getAnimatedHighestBlockY());
       if (distanceToFloor < -70) {
         distanceToFloor = -70;
       }
-      addZoom -= distanceToFloor / (100D + distanceToFloor);
+      addZoom -= (float) (distanceToFloor / (100D + distanceToFloor));
     }
 
     // Rotate and scale map
-    stack.translate(size.getWidth() / 2F, size.getHeight() / 2F, 0F);
+    stack.translate(size.getActualWidth() / 2F, size.getActualHeight() / 2F, 0F);
     if (rotate) {
       stack.rotate(-player.getRotationHeadYaw() + 180F, 0F, 0F, 1F);
     }
     stack.scale(addZoom, addZoom, 1F);
-    stack.translate(-size.getWidth() / 2F, -size.getHeight() / 2F, 0F);
+    stack.translate(-size.getActualWidth() / 2F, -size.getActualHeight() / 2F, 0F);
 
     this.renderEvent.setZoom(addZoom);
   }
@@ -183,15 +186,18 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     float mapMidX = bounds.getX1() + (bounds.getX2() - bounds.getX1()) / 2F;
     float mapMidZ = bounds.getZ1() + (bounds.getZ2() - bounds.getZ1()) / 2F;
 
-    float smoothX = MathHelper.lerp(player.getPosX(), player.getPreviousPosX());
-    float smoothZ = MathHelper.lerp(player.getPosZ(), player.getPreviousPosZ());
+    Position position = player.position();
+    Position prevPosition = player.previousPosition();
+    float partialTicks = Laby.labyAPI().minecraft().getPartialTicks();
+    double smoothX = position.lerpX(prevPosition,partialTicks);
+    double smoothZ = position.lerpZ(prevPosition,partialTicks);
 
     smoothX -= mapMidX;
     smoothZ -= mapMidZ;
 
-    float pixelLength = size.getWidth() / (this.config.zoom().get() * 10F) / 2F;
-    float offsetX = -pixelLength * smoothX;
-    float offsetZ = -pixelLength * smoothZ;
+    float pixelLength = size.getActualWidth() / (this.config.zoom().get() * 10F) / 2F;
+    float offsetX = (float) (-pixelLength * smoothX);
+    float offsetZ = (float) (-pixelLength * smoothZ);
 
     float pixelWidthX = -0.4F;
     float pixelWidthY = -0.4F;
@@ -202,8 +208,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
         stack,
         pixelWidthX + offsetX,
         pixelWidthY + offsetZ,
-        size.getWidth(),
-        size.getHeight()
+        size.getActualWidth(),
+        size.getActualHeight()
     );
   }
 
@@ -212,8 +218,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
         stack,
         -MinimapHudWidgetConfig.BORDER_PADDING,
         -MinimapHudWidgetConfig.BORDER_PADDING,
-        size.getWidth() + MinimapHudWidgetConfig.BORDER_PADDING * 2F,
-        size.getHeight() + MinimapHudWidgetConfig.BORDER_PADDING * 2F
+        size.getActualWidth() + MinimapHudWidgetConfig.BORDER_PADDING * 2F,
+        size.getActualHeight() + MinimapHudWidgetConfig.BORDER_PADDING * 2F
     );
   }
 

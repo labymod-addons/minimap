@@ -17,7 +17,8 @@ import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.util.Color;
 import net.labymod.api.util.math.MathHelper;
-import net.labymod.api.util.math.vector.FloatVector3;
+import net.labymod.api.util.math.position.Position;
+import net.labymod.api.util.math.vector.DoubleVector3;
 
 public class WaypointsIntegration implements AddonIntegration {
 
@@ -50,8 +51,13 @@ public class WaypointsIntegration implements AddonIntegration {
     if (player == null) {
       return;
     }
-    float playerX = MathHelper.lerp(player.getPosX(), player.getPreviousPosX());
-    float playerZ = MathHelper.lerp(player.getPosZ(), player.getPreviousPosZ());
+
+    Position position = player.position();
+    Position prevPosition = player.previousPosition();
+
+    float partialTicks = Laby.labyAPI().minecraft().getPartialTicks();
+    double playerX = position.lerpX(prevPosition, partialTicks);
+    double playerZ = position.lerpZ(prevPosition, partialTicks);
 
     RenderPipeline pipeline = Laby.labyAPI().renderPipeline();
     ComponentRenderer componentRenderer = pipeline.componentRenderer();
@@ -63,16 +69,16 @@ public class WaypointsIntegration implements AddonIntegration {
     float scaledRadius = radius / event.zoom();
 
     for (Waypoint waypoint : waypoints) {
-      FloatVector3 pos = waypoint.location();
+      DoubleVector3 pos = waypoint.position();
 
-      float pixelDistanceX = (playerX - pos.getX() - 0.5F) * event.pixelLength();
-      float pixelDistanceZ = (playerZ - pos.getZ() - 0.5F) * event.pixelLength();
+      double pixelDistanceX = (playerX - pos.getX() - 0.5F) * event.pixelLength();
+      double pixelDistanceZ = (playerZ - pos.getZ() - 0.5F) * event.pixelLength();
 
       float cos = MathHelper.cos(MathHelper.toRadiansFloat(-player.getRotationHeadYaw()));
       float sin = MathHelper.sin(MathHelper.toRadiansFloat(-player.getRotationHeadYaw()));
 
-      float rotX = cos * pixelDistanceX - sin * pixelDistanceZ;
-      float rotZ = sin * pixelDistanceX + cos * pixelDistanceZ;
+      double rotX = cos * pixelDistanceX - sin * pixelDistanceZ;
+      double rotZ = sin * pixelDistanceX + cos * pixelDistanceZ;
 
       if (rotX < -scaledRadius) {
         rotX = -scaledRadius;
