@@ -6,7 +6,7 @@ import net.labymod.addons.minimap.api.renderer.TileRenderer;
 import net.labymod.addons.minimap.util.RenderUtil;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.Player;
-import net.labymod.api.client.render.matrix.Stack;
+import net.labymod.api.client.gui.screen.ScreenContext;
 
 public class PlayerTileRenderer extends TileRenderer<Player> {
 
@@ -15,8 +15,8 @@ public class PlayerTileRenderer extends TileRenderer<Player> {
   }
 
   @Override
-  protected void renderTile(Stack stack, Player player) {
-    RenderUtil.renderPlayerHead(stack, player);
+  protected void renderTile(ScreenContext context, Player player) {
+    RenderUtil.renderPlayerHead(context, player);
   }
 
   @Override
@@ -26,12 +26,12 @@ public class PlayerTileRenderer extends TileRenderer<Player> {
 
   @Override
   protected float getTileX(Player player) {
-    return player.getPosX();
+    return (float) player.position().getX();
   }
 
   @Override
   protected float getTileZ(Player player) {
-    return player.getPosZ();
+    return (float) player.position().getZ();
   }
 
   @Override

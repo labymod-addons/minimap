@@ -13,13 +13,14 @@ import net.labymod.addons.minimap.map.MinimapTexture;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
-import net.labymod.api.client.gfx.GFXBridge;
-import net.labymod.api.client.gfx.pipeline.GFXRenderPipeline;
-import net.labymod.api.client.gfx.pipeline.pass.passes.StencilRenderPass;
+import net.labymod.api.client.gfx.pipeline.RenderAttributes;
+import net.labymod.api.client.gfx.pipeline.RenderAttributes.StencilMode;
+import net.labymod.api.client.gfx.pipeline.RenderAttributesStack;
 import net.labymod.api.client.gui.hud.binding.category.HudWidgetCategory;
 import net.labymod.api.client.gui.hud.hudwidget.HudWidget;
 import net.labymod.api.client.gui.hud.position.HudSize;
-import net.labymod.api.client.gui.mouse.MutableMouse;
+import net.labymod.api.client.gui.screen.ScreenContext;
+import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.configuration.loader.annotation.SpriteSlot;
@@ -36,7 +37,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   private final MinimapCircle circle = new MinimapCircle();
 
   private final MinimapRenderer renderer;
-  private final StencilRenderPass stencilRenderPass = new StencilRenderPass();
 
   private MinimapTexture texture;
 
@@ -78,11 +78,11 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     size.set(150F, 150F);
   }
 
+
   @Override
-  public void render(
-      Stack stack, MutableMouse mouse, float partialTicks, boolean isEditorContext, HudSize size) {
+  public void render(ScreenContext context, boolean isEditorContext, HudSize size) {
     if (!this.labyAPI.minecraft().isIngame()) {
-      this.renderMapOutline(stack, size, null);
+      this.renderMapOutline(context, size, null);
       return;
     }
 
@@ -97,72 +97,66 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       this.lastRadius = radius;
     }
 
-    this.renderEvent.fill(stack, size, this.texture.getCurrentBounds(), this.circle);
+    this.renderEvent.fill(context, size, this.texture.getCurrentBounds(), this.circle);
     MinimapConfiguration configuration = this.configuration();
     this.circle.init(configuration.displayType().get(), size, this.distanceToCorner);
 
-    GFXRenderPipeline renderPipeline = this.labyAPI.gfxRenderPipeline();
-    GFXBridge gfx = renderPipeline.gfx();
+    this.renderMapOutline(context, size, MinimapDisplayType.Stage.BEFORE_TEXTURE);
 
-    this.renderMapOutline(stack, size, MinimapDisplayType.Stage.BEFORE_TEXTURE);
-    renderPipeline.renderToActivityTarget(target -> {
-      gfx.enableStencil();
-      renderPipeline.clear(target);
+    RenderAttributesStack renderAttributesStack = Laby.references().renderEnvironmentContext().renderAttributesStack();
+    RenderAttributes renderAttributes = renderAttributesStack.pushAndGet();
+    renderAttributes.setStencilMode(StencilMode.WRITE_STENCIL);
+    configuration.displayType().get().renderStencil(context, radius);
+    renderAttributes.setStencilMode(StencilMode.WRITE_TO_STENCIL);
 
-      this.stencilRenderPass.begin();
-      configuration.displayType().get().renderStencil(stack, radius);
-      this.stencilRenderPass.end();
+    // Render minimap
+    if (this.addon.isMinimapAllowed()) {
+      context.pushStack();
 
-      // Render minimap
-      if (this.addon.isMinimapAllowed()) {
-        stack.push();
+      this.applyZoom(player, context, size, true);
+      this.renderMapTexture(player, context, size);
 
-        this.applyZoom(player, stack, size, true);
-        this.renderMapTexture(player, stack, size);
+      this.renderEvent.fireWithStage(Stage.ROTATED_STENCIL);
 
-        this.renderEvent.fireWithStage(Stage.ROTATED_STENCIL);
+      context.popStack();
+    }
 
-        stack.pop();
-      }
+    context.pushStack();
+    this.applyZoom(player, context, size, false);
+    this.renderEvent.fireWithStage(Stage.STRAIGHT_ZOOMED_STENCIL);
+    context.popStack();
 
-      stack.push();
-      this.applyZoom(player, stack, size, false);
-      this.renderEvent.fireWithStage(Stage.STRAIGHT_ZOOMED_STENCIL);
-      stack.pop();
+    this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL_STENCIL);
+    renderAttributesStack.pop();
 
-      this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL_STENCIL);
-
-      gfx.disableStencil();
-    });
-    renderPipeline.clear(renderPipeline.getActivityRenderTarget());
-
-    this.renderMapOutline(stack, size, MinimapDisplayType.Stage.AFTER_TEXTURE);
+    this.renderMapOutline(context, size, MinimapDisplayType.Stage.AFTER_TEXTURE);
 
     if (configuration.cardinalType().get() != MinimapCardinalType.HIDDEN) {
-      stack.push();
-      stack.translate(0F, 0F, 400.0F);
+      context.pushStack();
+      context.translate(0F, 0F, 400.0F);
 
-      this.renderCardinals(player, stack);
+      this.renderCardinals(player, context);
 
-      stack.pop();
+      context.popStack();
     }
 
     if (this.addon.isMinimapAllowed()) {
-      stack.push();
-      this.applyZoom(player, stack, size, true);
+      context.pushStack();
+      this.applyZoom(player, context, size, true);
       this.renderEvent.fireWithStage(Stage.ROTATED);
-      stack.pop();
+      context.popStack();
     }
 
-    stack.push();
-    this.applyZoom(player, stack, size, false);
+    context.pushStack();
+    this.applyZoom(player, context, size, false);
     this.renderEvent.fireWithStage(Stage.STRAIGHT_ZOOMED);
-    stack.pop();
+    context.popStack();
 
     this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL);
   }
 
-  private void applyZoom(ClientPlayer player, Stack stack, HudSize size, boolean rotate) {
+  private void applyZoom(ClientPlayer player, ScreenContext context, HudSize size, boolean rotate) {
+    Stack stack = context.stack();
     double addZoom = this.distanceToCorner / this.lastRadius + 0.3D;
 
     Position position = player.position();
@@ -193,7 +187,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     this.renderEvent.setZoom((float) addZoom);
   }
 
-  private void renderMapTexture(ClientPlayer player, Stack stack, HudSize size) {
+  private void renderMapTexture(ClientPlayer player, ScreenContext context, HudSize size) {
+    Stack stack = context.stack();
     MinimapBounds bounds = this.renderer.minimapBounds();
     float mapMidX = bounds.getX1() + (bounds.getX2() - bounds.getX1()) / 2F;
     float mapMidZ = bounds.getZ1() + (bounds.getZ2() - bounds.getZ1()) / 2F;
@@ -216,10 +211,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     this.renderEvent.setPixelLength(pixelLength);
 
-    GFXBridge gfx = Laby.gfx();
-    gfx.storeBlaze3DStates();
-    gfx.disableCull();
-
     stack.push();
     stack.translate(
         pixelWidthX + offsetX,
@@ -228,25 +219,25 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     );
 
     this.renderer.render(
-        stack,
+        context,
         0,
         0,
         size.getActualWidth(),
         size.getActualHeight()
     );
     stack.pop();
-    gfx.restoreBlaze3DStates();
   }
 
-  private void renderMapOutline(Stack stack, HudSize size, MinimapDisplayType.Stage stage) {
+  private void renderMapOutline(ScreenContext context, HudSize size,
+      MinimapDisplayType.Stage stage) {
     MinimapConfiguration configuration = this.configuration();
     MinimapDisplayType displayType = configuration.displayType().get();
     if (stage != null && displayType.stage() != stage) {
       return;
     }
 
-    displayType.icon().render(
-        stack,
+    context.canvas().submitIcon(
+        displayType.icon(),
         -MinimapHudWidgetConfig.BORDER_PADDING,
         -MinimapHudWidgetConfig.BORDER_PADDING,
         size.getActualWidth() + MinimapHudWidgetConfig.BORDER_PADDING * 2F,
@@ -254,7 +245,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     );
   }
 
-  private void renderCardinals(ClientPlayer player, Stack stack) {
+  private void renderCardinals(ClientPlayer player, ScreenContext context) {
     MinimapConfiguration configuration = this.configuration();
     MinimapCardinalType type = configuration.cardinalType().get();
     boolean numbers = type == MinimapCardinalType.NUMBERS;
@@ -270,11 +261,13 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       this.circle.calculate(f);
 
       if (numbers || index % 2 == 1 || type == MinimapCardinalType.EXTENDED) {
-        this.labyAPI.renderPipeline()
-            .textRenderer()
-            .pos(this.circle.getCircleX() - 2, this.circle.getCircleY() - 4)
-            .text(cardinal)
-            .render(stack);
+        context.canvas().submitText(
+            cardinal,
+            this.circle.getCircleX() - 2, this.circle.getCircleY() - 4,
+            -1,
+            1.0F,
+            TextFlags.SHADOW
+        );
       }
 
       index++;

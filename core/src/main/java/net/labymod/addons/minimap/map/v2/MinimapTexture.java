@@ -10,27 +10,29 @@ import net.labymod.addons.minimap.debug.MinimapDebugger;
 import net.labymod.addons.minimap.debug.MinimapDebugger.TextureInfo;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
-import net.labymod.api.client.gfx.GFXBridge;
-import net.labymod.api.client.gfx.pipeline.GFXRenderPipeline;
 import net.labymod.api.client.gfx.pipeline.post.CustomPostPassProcessor;
+import net.labymod.api.client.gfx.pipeline.post.PostPassData;
 import net.labymod.api.client.gfx.pipeline.post.PostProcessor;
 import net.labymod.api.client.gfx.pipeline.post.PostProcessorLoader;
-import net.labymod.api.client.gfx.shader.ShaderProgram;
 import net.labymod.api.client.gfx.shader.ShaderTextures;
-import net.labymod.api.client.gfx.shader.uniform.Uniform1F;
-import net.labymod.api.client.gfx.shader.uniform.Uniform3F;
-import net.labymod.api.client.gfx.shader.uniform.UniformSampler;
-import net.labymod.api.client.gfx.target.RenderTarget;
-import net.labymod.api.client.gfx.texture.TextureFilter;
-import net.labymod.api.client.gui.window.Window;
-import net.labymod.api.client.render.matrix.Stack;
+import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.resources.texture.GameImage;
 import net.labymod.api.client.world.ClientWorld;
+import net.labymod.api.laby3d.Laby3D;
+import net.labymod.api.laby3d.shaders.block.CustomPostProcessorUniformBlock;
 import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.position.Position;
-import net.labymod.api.util.math.vector.FloatMatrix4;
 import net.labymod.api.util.math.vector.FloatVector2;
+import net.labymod.laby3d.api.pipeline.pass.DrawRenderCommand;
+import net.labymod.laby3d.api.pipeline.target.RenderTarget;
+import net.labymod.laby3d.api.pipeline.target.RenderTargetDescription;
+import net.labymod.laby3d.api.pipeline.target.attachment.AttachmentType;
+import net.labymod.laby3d.api.pipeline.target.attachment.ClearValue;
+import net.labymod.laby3d.api.pipeline.target.attachment.RenderTargetAttachmentDescription;
+import net.labymod.laby3d.api.textures.DeviceTexture.Format;
+import net.labymod.laby3d.api.textures.SamplerDescription.Filter;
+import org.joml.Vector3f;
 
 public class MinimapTexture extends DynamicTexture {
 
@@ -45,6 +47,7 @@ public class MinimapTexture extends DynamicTexture {
   private final ChunkDataStorage storage;
   private final HeightmapTexture heightmapTexture;
   private final LightmapTexture lightmapTexture;
+  private final Laby3D laby3D;
 
   private final RenderTarget renderTarget;
   private PostProcessor postProcessor;
@@ -68,44 +71,42 @@ public class MinimapTexture extends DynamicTexture {
     this.minimapBounds = minimapBounds;
     this.heightmapTexture = new HeightmapTexture();
     this.lightmapTexture = new LightmapTexture();
+    this.laby3D = Laby.references().laby3D();
 
-    this.renderTarget = new RenderTarget();
-    this.renderTarget.addColorAttachment(0, TextureFilter.NEAREST);
-    this.renderTarget.setClearColor(0.0F, 0.0F, 0.0F, 0.0F);
-    this.renderTarget.resize(this.getWidth(), this.getHeight());
+    this.renderTarget = this.laby3D.renderDevice().createTarget(
+        () -> "Minimap Target",
+        RenderTargetDescription.builder()
+            .setSize(this.getWidth(), this.getHeight())
+            .addColorAttachment(RenderTargetAttachmentDescription.builder()
+                .setType(AttachmentType.COLOR)
+                .setFormat(Format.R8G8B8A8_UNORM)
+                .setClearValue(ClearValue.color(0.0F, 0.0F, 0.0F, 0.0F))
+                .setSamplerDescription(builder -> builder.setFilter(Filter.NEAREST))
+                .build())
+            .build()
+    );
     PostProcessorLoader.loadDynamic(this.renderTarget, Util.newDefaultNamespace("post/shadow.json"),
         processor -> {
           this.postProcessor = processor;
 
           this.postProcessor.setCustomPostPassProcessor(new CustomPostPassProcessor() {
             @Override
-            public void process(String name, ShaderProgram program, float time) {
-              UniformSampler diffuseSampler = program.getUniform("DiffuseSampler");
-              UniformSampler heightmapSampler = program.getUniform("HeightmapSampler");
-              UniformSampler lightmapSampler = program.getUniform("LightmapSampler");
-
-              GFXBridge gfx = Laby.gfx();
-              gfx.setActiveTexture(0);
+            public void process(PostPassData data, DrawRenderCommand command, float time) {
               MinimapTexture minimapTexture = MinimapTexture.this;
-              gfx.bindResourceLocation(minimapTexture.location());
-              gfx.setActiveTexture(1);
-              gfx.bindResourceLocation(minimapTexture.heightmapTexture.location());
+              ShaderTextures.setShaderTexture(0, minimapTexture.texture().deviceTextureView());
+              ShaderTextures.setShaderTexture(1,
+                  minimapTexture.heightmapTexture.texture().deviceTextureView());
+              ShaderTextures.setShaderTexture(2,
+                  minimapTexture.lightmapTexture.texture().deviceTextureView());
 
-              gfx.setActiveTexture(2);
-              gfx.bindResourceLocation(minimapTexture.lightmapTexture.location());
-
-              diffuseSampler.set(ShaderTextures.getShaderTexture(0));
-              heightmapSampler.set(ShaderTextures.getShaderTexture(1));
-              lightmapSampler.set(ShaderTextures.getShaderTexture(2));
-
-              Uniform3F sunPosition = program.getUniform("SunPosition");
-              sunPosition.set(SUN_POSITION.getX(), SUN_POSITION.getY(), 1F);
-
-              Uniform3F pixelSize = program.getUniform("PixelSize");
-              pixelSize.set(
-                  1.0F / minimapTexture.getWidth(),
-                  1.0F / minimapTexture.getHeight(),
-                  0F
+              CustomPostProcessorUniformBlock minimap = data.getBlock("Minimap");
+              minimap.getProperty("SunPosition").set(new Vector3f(SUN_POSITION.getX(), SUN_POSITION.getY(), 1F));
+              minimap.getProperty("PixelSize").set(
+                  new Vector3f(
+                      1.0F / minimapTexture.getWidth(),
+                      1.0F / minimapTexture.getHeight(),
+                      0F
+                  )
               );
 
               float timeOfDay = MinimapTexture.this.getTimeOfDay();
@@ -114,8 +115,7 @@ public class MinimapTexture extends DynamicTexture {
               normalizedDayTime = MathHelper.clamp(normalizedDayTime, 0.0F, 1.0F);
               normalizedDayTime = 1.0F - normalizedDayTime;
 
-              Uniform1F dayTime = program.getUniform("DayTime");
-              dayTime.set(normalizedDayTime);
+              minimap.getProperty("DayTime").set(normalizedDayTime);
             }
           });
         });
@@ -272,38 +272,8 @@ public class MinimapTexture extends DynamicTexture {
   }
 
   @Override
-  public void render(Stack stack, float x, float y, float width, float height) {
-    GFXRenderPipeline renderPipeline = Laby.references().gfxRenderPipeline();
-
-    GFXBridge gfx = Laby.gfx();
-    gfx.glPushDebugGroup(0, "PostProcessor");
-    this.postProcessor.process(1.0F);
-    gfx.glPopDebugGroup();
-
-    this.renderTarget.setProjectionSetter((projectionMatrix, width1, height1, near, far) -> {
-      Window window = Laby.labyAPI().minecraft().minecraftWindow();
-
-      stack.push();
-      stack.translate(x, y, -2000);
-      FloatMatrix4 position = stack.getProvider().getPosition();
-
-      renderPipeline.matrixStorage().setModelViewMatrix(position, 4);
-      stack.pop();
-
-      projectionMatrix.setOrthographic(
-          window.getScaledWidth(),
-          -window.getScaledHeight(),
-          near,
-          far
-      );
-    });
-
-    renderPipeline.renderToActivityTarget(
-        target -> this.renderTarget.render((int) width, (int) height, false));
-
-    // TODO(Christian)
-    RenderTarget target = renderPipeline.getActivityRenderTarget();
-    target.bind(true);
+  public void render(ScreenContext context, float x, float y, float width, float height) {
+    super.render(context, x, y, width, height);
   }
 
   @Override
@@ -329,7 +299,7 @@ public class MinimapTexture extends DynamicTexture {
     this.lightmapTexture.updateTexture();
 
     TextureInfo texture = MinimapDebugger.COLOR_MAP_TEXTURE;
-    texture.setId(this.getId());
+    //texture.setId(this.getId());
     texture.setSize(this.getWidth(), this.getHeight());
   }
 

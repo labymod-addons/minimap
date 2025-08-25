@@ -1,11 +1,10 @@
-import net.labymod.labygradle.common.extension.model.labymod.ReleaseChannel
+import net.labymod.labygradle.common.extension.model.labymod.ReleaseChannels
 
 plugins {
     id("net.labymod.labygradle")
     id("net.labymod.labygradle.addon")
 }
 
-val unsupportedVersions = arrayOf("1.8.9", "1.12.2", "1.16.5")
 val versions = providers.gradleProperty("net.labymod.minecraft-versions").get().split(";")
 
 group = "net.labymod.addons.minimap"
@@ -20,18 +19,9 @@ labyMod {
                 getByName("client") {
                     devLogin = true
                 }
-
-                create("clientRenderdoc") {
-                    parent = findByName("client")
-                    devLogin = true
-                    enabled = !unsupportedVersions.contains(versionId)
-                    ideaConfiguration = providers.environmentVariable("RENDERDOC").isPresent
-                    jvmArgs("-Dnet.labymod.debugging.renderdoc=true")
-                }
             }
         }
     }
-
     addonInfo {
         namespace = "labysminimap"
         displayName = "Laby's Minimap"
@@ -40,7 +30,7 @@ labyMod {
         minecraftVersion = "*"
         version = rootProject.version.toString()
         addon("labyswaypoints")
-        releaseChannel = ReleaseChannel.create("internal_4.3")
+        releaseChannel = ReleaseChannels.INTERNAL
     }
 }
 

@@ -23,7 +23,7 @@ public class HeightmapTexture extends DynamicTexture {
   public void updateTexture() {
     super.updateTexture();
     TextureInfo texture = MinimapDebugger.HEIGHTMAP_TEXTURE;
-    texture.setId(this.getId());
+    //texture.setId(this.getId());
     texture.setSize(this.getWidth(), this.getHeight());
   }
 }

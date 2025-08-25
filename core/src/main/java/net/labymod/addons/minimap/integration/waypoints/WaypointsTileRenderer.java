@@ -7,9 +7,10 @@ import net.labymod.addons.minimap.api.renderer.TileRenderer;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration.WaypointContainer;
 import net.labymod.addons.waypoints.WaypointTextures;
 import net.labymod.api.Laby;
-import net.labymod.api.client.render.draw.RectangleRenderer;
-import net.labymod.api.client.render.font.ComponentRenderMeta;
-import net.labymod.api.client.render.font.ComponentRenderer;
+import net.labymod.api.client.gfx.pipeline.renderer.text.FormattedTextLayout;
+import net.labymod.api.client.gui.screen.ScreenContext;
+import net.labymod.api.client.gui.screen.state.ScreenCanvas;
+import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.util.Color;
 import net.labymod.api.util.math.MathHelper;
@@ -17,6 +18,7 @@ import net.labymod.api.util.math.MathHelper;
 public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
 
   private final WaypointsIntegration integration;
+  private final FormattedTextLayout.Factory factory;
 
   public WaypointsTileRenderer(
       WaypointsIntegration integration,
@@ -24,14 +26,14 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
   ) {
     super(configProvider);
     this.integration = integration;
+    this.factory = Laby.references().formattedTextLayoutFactory();
   }
 
   @Override
-  protected void renderTile(Stack stack, WaypointContainer waypoint) {
+  protected void renderTile(ScreenContext context, WaypointContainer waypoint) {
+    Stack stack = context.stack();
+    ScreenCanvas canvas = context.canvas();
     float distance = this.getCurrentDistance();
-
-    ComponentRenderer componentRenderer = Laby.references().componentRenderer();
-    RectangleRenderer rectangleRenderer = Laby.references().rectangleRenderer();
 
     float maxDistance = 24;
     if (distance < maxDistance) {
@@ -42,26 +44,22 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
 
         stack.translate(0F, 0F, 1F);
 
-        ComponentRenderMeta meta = componentRenderer.builder()
-            .text(waypoint.title())
-            .pos(0, -8F - componentRenderer.height() * 0.33F)
-            .centered(true)
-            .scale(0.33F)
-            .color(Color.withAlpha(0xFFFFFF, alpha))
-            .render(stack);
+        float scale =  0.33F;
+        stack.scale(scale, scale, 1F);
 
-        stack.translate(0F, 0F, -1F);
-
-        rectangleRenderer
-            .pos(meta.getLeft() - 0.5F, meta.getTop(), meta.getRight() + 0.5F, meta.getBottom())
-            .color(Color.withAlpha(0, MathHelper.clamp(alpha, 0, 100)))
-            .render(stack);
+        canvas.submitComponent(
+            waypoint.title(),
+            0, -8F - (canvas.getLineHeight() * scale),
+            Color.withAlpha(0xFFFFFF, alpha),
+            Color.withAlpha(0x000000, MathHelper.clamp(alpha, 0, 100)),
+            TextFlags.SHADOW | TextFlags.CENTERED
+        );
       }
 
     }
 
-    WaypointTextures.MARKER_ICON.render(
-        stack,
+    canvas.submitIcon(
+        WaypointTextures.MARKER_ICON,
         -2.25F,
         -8F,
         4.5F,

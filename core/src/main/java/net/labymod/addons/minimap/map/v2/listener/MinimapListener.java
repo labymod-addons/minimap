@@ -9,6 +9,7 @@ import net.labymod.addons.minimap.util.RenderUtil;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.entity.player.Player;
+import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.util.math.MathHelper;
@@ -34,7 +35,7 @@ public class MinimapListener {
     float playerX = MathHelper.lerp(player.getPosX(), player.getPreviousPosX());
     float playerZ = MathHelper.lerp(player.getPosZ(), player.getPreviousPosZ());
 
-    Stack stack = event.stack();
+    ScreenContext context = event.context();
 
     float scale = this.configProvider.widgetConfig().tileSize().get() / 10F;
     float radius = event.size().getActualWidth() / 2F;
@@ -42,7 +43,7 @@ public class MinimapListener {
 
 
     this.renderClientPlayer(
-        stack,
+        context,
         player,
         playerX, playerZ,
         event.pixelLength(),
@@ -54,7 +55,7 @@ public class MinimapListener {
 
 
   private void renderClientPlayer(
-      Stack stack,
+      ScreenContext context,
       Player player,
       float playerX, float playerZ,
       float pixelLength, float rotationHeadYaw,
@@ -85,6 +86,7 @@ public class MinimapListener {
       rotZ = scaledRadius;
     }
 
+    Stack stack = context.stack();
     stack.push();
 
     stack.translate(rotX + radius, rotZ + radius, 0F);
@@ -95,9 +97,9 @@ public class MinimapListener {
     MinimapHudWidgetConfig config = this.configProvider.widgetConfig();
     MinimapPlayerIcon playerIcon = config.playerIcon().get();
     if (playerIcon == MinimapPlayerIcon.PLAYER_HEAD) {
-      RenderUtil.renderPlayerHead(stack, player);
+      RenderUtil.renderPlayerHead(context, player);
     } else {
-      playerIcon.render(stack, size, config.playerColor().get());
+      playerIcon.render(context, size, config.playerColor().get());
     }
     stack.pop();
 

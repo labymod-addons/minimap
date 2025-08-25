@@ -23,7 +23,7 @@ public class MapWidget extends SimpleWidget {
     this.renderer.renderMinimap(() -> true, () -> {
       Bounds bounds = this.bounds();
       this.renderer.render(
-          context.stack(),
+          context,
           bounds.getX(), bounds.getY(),
           bounds.getWidth(), bounds.getHeight()
       );

@@ -24,7 +24,7 @@ public class LightmapTexture extends DynamicTexture {
     super.updateTexture();
 
     TextureInfo texture = MinimapDebugger.LIGHTMAP_TEXTURE;
-    texture.setId(this.getId());
+    //texture.setId(this.getId());
     texture.setSize(this.getWidth(), this.getHeight());
   }
 }

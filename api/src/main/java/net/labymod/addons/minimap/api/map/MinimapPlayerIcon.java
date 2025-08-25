@@ -2,7 +2,7 @@ package net.labymod.addons.minimap.api.map;
 
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.api.client.gui.icon.Icon;
-import net.labymod.api.client.render.matrix.Stack;
+import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.resources.texture.ThemeTextureLocation;
 import net.labymod.api.util.Color;
 
@@ -18,8 +18,8 @@ public enum MinimapPlayerIcon {
     this.icon = icon;
   }
 
-  public void render(Stack stack, float size, Color color) {
+  public void render(ScreenContext context, float size, Color color) {
     float center = -size / 2;
-    this.icon.render(stack, center, center, size, false, color.get());
+    context.canvas().submitIcon(this.icon, center, center, size, size, false, color.get());
   }
 }

@@ -7,7 +7,7 @@ import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.api.Laby;
 import net.labymod.api.client.gfx.pipeline.GFXRenderPipeline;
-import net.labymod.api.client.render.matrix.Stack;
+import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.event.EventBus;
 import net.labymod.api.event.Phase;
 import net.labymod.api.event.Subscribe;
@@ -50,16 +50,12 @@ public final class MinimapRenderer {
     }
 
     GFXRenderPipeline renderPipeline = Laby.references().gfxRenderPipeline();
-    renderPipeline.renderToActivityTarget(target -> {
-      renderPipeline.clear(target);
-      renderer.run();
-    });
-    renderPipeline.clear(renderPipeline.getActivityRenderTarget());
+    renderPipeline.renderToActivityTarget(target -> renderer.run());
   }
 
-  public void render(Stack stack, float x, float y, float width, float height) {
-    this.minimapTexture.render(stack, x, y, width, height);
-    this.postEffectTexture.render(stack, x, y, width, height);
+  public void render(ScreenContext context, float x, float y, float width, float height) {
+    this.minimapTexture.render(context, x, y, width, height);
+    this.postEffectTexture.render(context, x, y, width, height);
   }
 
   public void resize(int newWidth, int newHeight) {

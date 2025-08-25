@@ -1,9 +1,10 @@
 package net.labymod.addons.minimap.map.v2;
 
+import net.labymod.addons.minimap.MinimapRenderStates;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.api.Laby;
-import net.labymod.api.client.gui.icon.Icon;
-import net.labymod.api.client.render.matrix.Stack;
+import net.labymod.api.client.gui.screen.ScreenContext;
+import net.labymod.api.client.gui.screen.state.states.GuiTextureSet;
 import net.labymod.api.client.resources.ResourceLocation;
 import net.labymod.api.client.resources.texture.GameImage;
 
@@ -12,7 +13,6 @@ public abstract class DynamicTexture {
   private static final int DEFAULT_WIDTH = 16 * 24;
   private static final int DEFAULT_HEIGHT = 16 * 24;
   private final ResourceLocation location;
-  private final Icon icon;
   private boolean initialized;
   private net.labymod.api.client.resources.texture.DynamicTexture texture;
   private GameImage image;
@@ -23,7 +23,6 @@ public abstract class DynamicTexture {
 
   public DynamicTexture(String path, int defaultWidth, int defaultHeight) {
     this.location = Util.newDefaultNamespace(path);
-    this.icon = Icon.texture(this.location);
     this.image = GameImage.IMAGE_PROVIDER.createImage(defaultWidth, defaultHeight);
   }
 
@@ -39,8 +38,10 @@ public abstract class DynamicTexture {
 
     this.initialized = true;
 
-    this.texture = new net.labymod.api.client.resources.texture.DynamicTexture(this.location, this.image);
-    this.texture.setTextureFiltering(true, false);
+    this.texture = new net.labymod.api.client.resources.texture.DynamicTexture(
+        this.location,
+        this.image
+    );
     Laby.references().textureRepository().register(this.location, this.texture);
     this.clearImage(0);
     this.updateTexture();
@@ -64,20 +65,22 @@ public abstract class DynamicTexture {
     return this.image;
   }
 
-  public void render(Stack stack, float x, float y, float width, float height) {
-    this.icon().render(stack, x, y, width, height);
+  public void render(ScreenContext context, float x, float y, float width, float height) {
+    context.canvas().submitGuiBlit(
+        MinimapRenderStates.GUI_TEXTURED,
+        GuiTextureSet.single(this.texture.deviceTextureView()),
+        x, y, width, height,
+        0.0F, 0.0F, 1.0F, 1.0F,
+        -1
+    );
   }
 
   public ResourceLocation location() {
     return this.location;
   }
 
-  public Icon icon() {
-    return this.icon;
-  }
-
   public void clearImage(int clearColor) {
-    this.image().fillRect(0, 0,this.getWidth(), this.getHeight(), clearColor);
+    this.image().fillRect(0, 0, this.getWidth(), this.getHeight(), clearColor);
   }
 
   public int getWidth() {
@@ -88,8 +91,7 @@ public abstract class DynamicTexture {
     return this.image.getHeight();
   }
 
-  public int getId() {
-    return this.texture.getTextureId();
+  public net.labymod.api.client.resources.texture.DynamicTexture texture() {
+    return this.texture;
   }
-
 }

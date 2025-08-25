@@ -6,8 +6,10 @@ import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
+import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.util.math.MathHelper;
+import net.labymod.api.util.math.position.Position;
 import org.jetbrains.annotations.NotNull;
 
 public abstract class TileRenderer<T> {
@@ -52,8 +54,10 @@ public abstract class TileRenderer<T> {
 
     this.clientPlayer = clientPlayer;
 
-    this.playerX = MathHelper.lerp(clientPlayer.getPosX(), clientPlayer.getPreviousPosX());
-    this.playerZ = MathHelper.lerp(clientPlayer.getPosZ(), clientPlayer.getPreviousPosZ());
+    Position position = clientPlayer.position();
+    Position previous = clientPlayer.previousPosition();
+    this.playerX = (float) position.lerpX(previous, Laby.labyAPI().minecraft().getPartialTicks());
+    this.playerZ = (float) position.lerpZ(previous, Laby.labyAPI().minecraft().getPartialTicks());
 
     this.scale = this.configProvider.widgetConfig().tileSize().get() / 10.0F;
     this.radius = event.size().getActualWidth() / 2.0F;
@@ -67,14 +71,14 @@ public abstract class TileRenderer<T> {
 
     this.pixelLength = event.pixelLength();
 
-    this.renderTiles(event.stack(), tiles);
+    this.renderTiles(event.context(), tiles);
   }
 
   protected boolean shouldRenderTile(T t) {
     return true;
   }
 
-  protected abstract void renderTile(Stack stack, T t);
+  protected abstract void renderTile(ScreenContext context, T t);
 
   protected abstract float getTileX(T t);
 
@@ -123,7 +127,7 @@ public abstract class TileRenderer<T> {
     return (float) Math.sqrt(this.getCurrentPixelDistanceX() * this.getCurrentPixelDistanceX() + this.getCurrentPixelDistanceZ() * this.getCurrentPixelDistanceZ());
   }
 
-  private void renderTiles(Stack stack, Collection<T> tiles) {
+  private void renderTiles(ScreenContext context, Collection<T> tiles) {
     for (T tile : tiles) {
       if (!this.shouldRenderTile(tile)) {
         continue;
@@ -152,11 +156,12 @@ public abstract class TileRenderer<T> {
         rotZ = scaledRadius;
       }
 
+      Stack stack = context.stack();
       stack.push();
       float radius = this.getRadius();
       stack.translate(rotX + radius, rotZ + radius, 0F);
 
-      this.renderTile(stack, tile);
+      this.renderTile(context, tile);
 
       stack.pop();
     }

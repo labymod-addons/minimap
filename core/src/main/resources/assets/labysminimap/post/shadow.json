@@ -1,34 +1,41 @@
 {
   "vertex": "labysminimap:post/shaders/shadow.vsh",
   "fragment": "labysminimap:post/shaders/shadow.fsh",
-  "uniforms": [
+  "samplers": [
     {
       "name": "DiffuseSampler",
-      "type": "sampler2D"
+      "index": 0
     },
     {
       "name": "HeightmapSampler",
-      "type": "sampler2D"
+      "index": 1
     },
     {
       "name": "LightmapSampler",
-      "type": "sampler2D"
-    },
+      "index": 2
+    }
+  ],
+  "uniformBlocks": [
     {
-      "name": "PixelSize",
-      "type": "vec3"
-    },
-    {
-      "name": "SunPosition",
-      "type": "vec3"
-    },
-    {
-      "name": "DayTime",
-      "type": "float"
-    },
-    {
-      "name": "ColorAdjustments",
-      "type": "vec4"
+      "name": "Minimap",
+      "uniforms": [
+        {
+          "name": "PixelSize",
+          "type": "vec3"
+        },
+        {
+          "name": "SunPosition",
+          "type": "vec3"
+        },
+        {
+          "name": "DayTime",
+          "type": "float"
+        },
+        {
+          "name": "ColorAdjustments",
+          "type": "vec4"
+        }
+      ]
     }
   ],
   "passes": [

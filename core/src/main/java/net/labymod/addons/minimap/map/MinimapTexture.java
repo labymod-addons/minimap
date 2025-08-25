@@ -7,13 +7,9 @@ import net.labymod.addons.minimap.api.map.MinimapUpdateMethod;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
-import net.labymod.api.client.gfx.GlConst;
-import net.labymod.api.client.gfx.texture.GFXTextureFilter;
-import net.labymod.api.client.gfx.texture.TextureFilter;
 import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.resources.ResourceLocation;
 import net.labymod.api.client.resources.texture.GameImage;
-import net.labymod.api.client.resources.texture.concurrent.RefreshableTexture;
 import net.labymod.api.client.world.effect.PotionEffect;
 import net.labymod.api.event.Phase;
 import net.labymod.api.event.Subscribe;
@@ -32,8 +28,6 @@ public class MinimapTexture {
 
   private final MinimapBounds currentBounds = new MinimapBounds();
 
-  private RefreshableTexture texture;
-
   private float animatedHighestBlockY = 0F;
 
   public MinimapTexture(MinimapAddon addon, MinimapHudWidgetConfig config) {
@@ -43,24 +37,10 @@ public class MinimapTexture {
   }
 
   public void init() {
-    if (this.texture != null) {
-      this.texture.release();
-    }
-
-    this.texture = Laby.references().asynchronousTextureUploader().newRefreshableTexture(
-        TextureFilter.NEAREST,
-        TextureFilter.NEAREST
-    );
-    this.texture.bindTo(LOCATION);
-
     Laby.labyAPI().eventBus().registerListener(this);
   }
 
   public void release() {
-    if (this.texture != null) {
-      this.texture.release();
-    }
-
     this.generator.reset();
 
     Laby.labyAPI().eventBus().unregisterListener(this);
@@ -68,7 +48,7 @@ public class MinimapTexture {
 
   @Subscribe
   public void tick(GameRenderEvent event) {
-    if (event.phase() != Phase.POST || this.texture.wasReleased()) {
+    if (event.phase() != Phase.POST) {
       return;
     }
 
@@ -115,10 +95,6 @@ public class MinimapTexture {
           (int) player.getPosZ(),
           hasBlindness
       );
-
-      this.texture.queueUpdate(image)
-          .thenAccept(v -> Laby.labyAPI().minecraft()
-              .executeNextTick(() -> this.currentBounds.update(x1, z1, x2, z2, depth)));
     }
 
     float highestBlockY = (this.generator.getHighestBlockY() / ROUND_DECIMALS) * ROUND_DECIMALS;
