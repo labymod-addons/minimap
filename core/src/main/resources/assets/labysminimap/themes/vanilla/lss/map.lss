@@ -18,3 +18,9 @@ Document {
   width: 256;
   height: 256;
 }
+
+Component {
+  left: 50%;
+  alignment-x: center;
+  bottom: 35;
+}

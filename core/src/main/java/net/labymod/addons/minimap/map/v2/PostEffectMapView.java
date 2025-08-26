@@ -1,9 +1,9 @@
 package net.labymod.addons.minimap.map.v2;
 
-public class PostEffectTexture extends DynamicTexture {
+public class PostEffectMapView extends MapView {
 
-  public PostEffectTexture() {
-    super("minimap/post_effect");
+  public PostEffectMapView(String suffix) {
+    super("minimap/post_effect_" + suffix);
   }
 
   @Override

@@ -1,43 +1,33 @@
 package net.labymod.addons.minimap.map.v2;
 
 import java.util.function.BooleanSupplier;
+import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
-import net.labymod.api.Laby;
-import net.labymod.api.client.gfx.pipeline.GFXRenderPipeline;
 import net.labymod.api.client.gui.screen.ScreenContext;
-import net.labymod.api.event.EventBus;
-import net.labymod.api.event.Phase;
-import net.labymod.api.event.Subscribe;
-import net.labymod.api.event.client.lifecycle.GameTickEvent;
 
 public final class MinimapRenderer {
 
   private final Supplier<MinimapConfiguration> configuration;
   private final MinimapBounds minimapBounds = new MinimapBounds();
-  private final DynamicTexture minimapTexture;
-  private final DynamicTexture postEffectTexture;
+  private final MiniMapView minimapView;
+  private final MapView postEffectTexture;
 
-  public MinimapRenderer(Supplier<MinimapConfiguration> configuration) {
+  public MinimapRenderer(Supplier<MinimapConfiguration> configuration, String suffix, ChunkDataStorage storage) {
     this.configuration = configuration;
-    ChunkDataStorage storage = new ChunkDataStorage();
-    this.minimapTexture = new MinimapTexture(configuration, storage, this.minimapBounds);
-    this.postEffectTexture = new PostEffectTexture();
-    EventBus eventBus = Laby.references().eventBus();
-    eventBus.registerListener(this);
-    eventBus.registerListener(storage);
+    this.minimapView = new MiniMapView(configuration, storage, this.minimapBounds, suffix);
+    this.postEffectTexture = new PostEffectMapView(suffix);
   }
 
-  @Subscribe
-  public void onTick(GameTickEvent event) {
-    if (event.phase() != Phase.POST) {
-      return;
-    }
-
-    this.minimapTexture.tick();
+  public void tick() {
+    this.minimapView.tick();
     this.postEffectTexture.tick();
+  }
+
+  public void setZoomSupplier(IntSupplier zoomSupplier) {
+    this.minimapView.setZoomSupplier(zoomSupplier);
   }
 
   public MinimapBounds minimapBounds() {
@@ -49,22 +39,21 @@ public final class MinimapRenderer {
       return;
     }
 
-    GFXRenderPipeline renderPipeline = Laby.references().gfxRenderPipeline();
-    renderPipeline.renderToActivityTarget(target -> renderer.run());
+    renderer.run();
   }
 
   public void render(ScreenContext context, float x, float y, float width, float height) {
-    this.minimapTexture.render(context, x, y, width, height);
+    this.minimapView.render(context, x, y, width, height);
     this.postEffectTexture.render(context, x, y, width, height);
   }
 
   public void resize(int newWidth, int newHeight) {
-    this.minimapTexture.resize(newWidth, newHeight);
+    this.minimapView.resize(newWidth, newHeight);
     this.postEffectTexture.resize(newWidth, newHeight);
   }
 
   public void initialize() {
-    this.minimapTexture.initialize();
+    this.minimapView.initialize();
     this.postEffectTexture.initialize();
   }
 

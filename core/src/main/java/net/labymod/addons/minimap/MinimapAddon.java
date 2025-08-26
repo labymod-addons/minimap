@@ -7,6 +7,7 @@ import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.generated.ReferenceStorage;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
+import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.addons.minimap.debug.ImGuiMinimapDebug;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration;
@@ -36,8 +37,11 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     this.registerSettingCategory();
     MinimapAddon.references = this.referenceStorageAccessor();
 
+    ChunkDataStorage storage = new ChunkDataStorage();
+    this.registerListener(storage);
+
     var references = Laby.references();
-    this.minimapRenderer = new MinimapRenderer(this::configuration);
+    this.minimapRenderer = new MinimapRenderer(this::configuration, "hud", storage);
     references.hudWidgetRegistry().register(this.hudWidget = new MinimapHudWidget(this, this.minimapRenderer));
 
     this.servers.init();
@@ -54,7 +58,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
             Util.NAMESPACE + "-open-full-map",
             () -> Key.U,
             () -> Type.TOGGLE, pressed -> {
-              Laby.labyAPI().minecraft().minecraftWindow().displayScreen(new MapActivity(this.minimapRenderer));
+              Laby.labyAPI().minecraft().minecraftWindow().displayScreen(new MapActivity(new MinimapRenderer(this::configuration, "activity", storage)));
             }
         );
 

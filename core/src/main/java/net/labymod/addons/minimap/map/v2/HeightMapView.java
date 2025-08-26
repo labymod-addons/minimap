@@ -3,10 +3,10 @@ package net.labymod.addons.minimap.map.v2;
 import net.labymod.addons.minimap.debug.MinimapDebugger;
 import net.labymod.addons.minimap.debug.MinimapDebugger.TextureInfo;
 
-public class LightmapTexture extends DynamicTexture {
+public class HeightMapView extends MapView {
 
-  public LightmapTexture() {
-    super("minimap/lightmap");
+  public HeightMapView(String suffix) {
+    super("minimap/heightmap_" + suffix);
   }
 
   @Override
@@ -22,8 +22,7 @@ public class LightmapTexture extends DynamicTexture {
   @Override
   public void updateTexture() {
     super.updateTexture();
-
-    TextureInfo texture = MinimapDebugger.LIGHTMAP_TEXTURE;
+    TextureInfo texture = MinimapDebugger.HEIGHTMAP_TEXTURE;
     //texture.setId(this.getId());
     texture.setSize(this.getWidth(), this.getHeight());
   }

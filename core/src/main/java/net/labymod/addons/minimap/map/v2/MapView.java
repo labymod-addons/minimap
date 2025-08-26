@@ -6,22 +6,23 @@ import net.labymod.api.Laby;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.state.states.GuiTextureSet;
 import net.labymod.api.client.resources.ResourceLocation;
+import net.labymod.api.client.resources.texture.DynamicTexture;
 import net.labymod.api.client.resources.texture.GameImage;
 
-public abstract class DynamicTexture {
+public abstract class MapView {
 
   private static final int DEFAULT_WIDTH = 16 * 24;
   private static final int DEFAULT_HEIGHT = 16 * 24;
   private final ResourceLocation location;
   private boolean initialized;
-  private net.labymod.api.client.resources.texture.DynamicTexture texture;
+  private DynamicTexture texture;
   private GameImage image;
 
-  public DynamicTexture(String path) {
+  public MapView(String path) {
     this(path, DEFAULT_WIDTH, DEFAULT_HEIGHT);
   }
 
-  public DynamicTexture(String path, int defaultWidth, int defaultHeight) {
+  public MapView(String path, int defaultWidth, int defaultHeight) {
     this.location = Util.newDefaultNamespace(path);
     this.image = GameImage.IMAGE_PROVIDER.createImage(defaultWidth, defaultHeight);
   }
@@ -38,7 +39,7 @@ public abstract class DynamicTexture {
 
     this.initialized = true;
 
-    this.texture = new net.labymod.api.client.resources.texture.DynamicTexture(
+    this.texture = new DynamicTexture(
         this.location,
         this.image
     );
@@ -91,7 +92,7 @@ public abstract class DynamicTexture {
     return this.image.getHeight();
   }
 
-  public net.labymod.api.client.resources.texture.DynamicTexture texture() {
+  public DynamicTexture texture() {
     return this.texture;
   }
 }

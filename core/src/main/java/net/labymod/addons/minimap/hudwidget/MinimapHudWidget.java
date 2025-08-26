@@ -154,6 +154,12 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL);
   }
 
+  @Override
+  public void onTick(boolean isEditorContext) {
+    super.onTick(isEditorContext);
+    this.renderer.tick();
+  }
+
   private void applyZoom(ClientPlayer player, ScreenContext context, HudSize size, boolean rotate) {
     Stack stack = context.stack();
     double addZoom = this.distanceToCorner / this.lastRadius + 0.3D;

@@ -1,5 +1,6 @@
 package net.labymod.addons.minimap.map.v2;
 
+import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import net.labymod.addons.minimap.MinimapRenderStates;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
@@ -35,7 +36,7 @@ import net.labymod.laby3d.api.textures.DeviceTexture.Format;
 import net.labymod.laby3d.api.textures.SamplerDescription.Filter;
 import org.joml.Vector3f;
 
-public class MinimapTexture extends DynamicTexture {
+public class MiniMapView extends MapView {
 
   private static final int CHUNK_X = 16;
   private static final int CHUNK_Z = 16;
@@ -46,11 +47,12 @@ public class MinimapTexture extends DynamicTexture {
   private final Supplier<MinimapConfiguration> config;
   private final MinimapBounds minimapBounds;
   private final ChunkDataStorage storage;
-  private final HeightmapTexture heightmapTexture;
-  private final LightmapTexture lightmapTexture;
+  private final HeightMapView heightmapView;
+  private final LightMapView lightmapView;
   private final Laby3D laby3D;
 
   private final RenderTarget renderTarget;
+  private IntSupplier zoomSupplier;
   private PostProcessor postProcessor;
 
   private DaylightPeriod currentPeriod = DaylightPeriod.DAYTIME;
@@ -60,22 +62,25 @@ public class MinimapTexture extends DynamicTexture {
   private boolean lastUnderground = false;
   private int lastMidChunkX;
   private int lastMidChunkZ;
+  private int lastZoom;
 
-  public MinimapTexture(
+  public MiniMapView(
       Supplier<MinimapConfiguration> config,
       ChunkDataStorage storage,
-      MinimapBounds minimapBounds
+      MinimapBounds minimapBounds,
+      String suffix
   ) {
-    super("minimap/level");
+    super("minimap/level_" + suffix);
     this.config = config;
+    this.zoomSupplier = () -> config.get().zoom().get();
     this.storage = storage;
     this.minimapBounds = minimapBounds;
-    this.heightmapTexture = new HeightmapTexture();
-    this.lightmapTexture = new LightmapTexture();
+    this.heightmapView = new HeightMapView(suffix);
+    this.lightmapView = new LightMapView(suffix);
     this.laby3D = Laby.references().laby3D();
 
     this.renderTarget = this.laby3D.renderDevice().createTarget(
-        () -> "Minimap Target",
+        () -> "Minimap Target " + suffix,
         RenderTargetDescription.builder()
             .setSize(this.getWidth(), this.getHeight())
             .addColorAttachment(RenderTargetAttachmentDescription.builder()
@@ -93,22 +98,22 @@ public class MinimapTexture extends DynamicTexture {
           this.postProcessor.setCustomPostPassProcessor(new CustomPostPassProcessor() {
             @Override
             public void process(PostPassData data, DrawRenderCommand command, float time) {
-              MinimapTexture minimapTexture = MinimapTexture.this;
-              command.setTexture(1, minimapTexture.texture().deviceTextureView());
-              command.setTexture(2, minimapTexture.heightmapTexture.texture().deviceTextureView());
-              command.setTexture(3, minimapTexture.lightmapTexture.texture().deviceTextureView());
+              MiniMapView minimapView = MiniMapView.this;
+              command.setTexture(1, minimapView.texture().deviceTextureView());
+              command.setTexture(2, minimapView.heightmapView.texture().deviceTextureView());
+              command.setTexture(3, minimapView.lightmapView.texture().deviceTextureView());
 
               CustomPostProcessorUniformBlock minimap = data.getBlock("Minimap");
               minimap.getProperty("SunPosition").set(new Vector3f(SUN_POSITION.getX(), SUN_POSITION.getY(), 1F));
               minimap.getProperty("PixelSize").set(
                   new Vector3f(
-                      1.0F / minimapTexture.getWidth(),
-                      1.0F / minimapTexture.getHeight(),
+                      1.0F / minimapView.getWidth(),
+                      1.0F / minimapView.getHeight(),
                       0F
                   )
               );
 
-              float timeOfDay = MinimapTexture.this.getTimeOfDay();
+              float timeOfDay = MiniMapView.this.getTimeOfDay();
               float normalizedDayTime = (float) (1.0F - (
                   Math.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F + 0.2F));
               normalizedDayTime = MathHelper.clamp(normalizedDayTime, 0.0F, 1.0F);
@@ -143,7 +148,7 @@ public class MinimapTexture extends DynamicTexture {
     int midX = MathHelper.floor(position.getX());
     int midZ = MathHelper.floor(position.getZ());
 
-    int zoom = this.config.get().zoom().get() * 10;
+    int zoom = this.zoomSupplier == null ? this.config.get().zoom().get() : this.zoomSupplier.getAsInt() * 10;
     int minX = midX - zoom;
     int minZ = midZ - zoom;
     int maxX = midX + zoom;
@@ -156,9 +161,11 @@ public class MinimapTexture extends DynamicTexture {
 
     boolean changed = false;
     if ((this.lastMidChunkX != midChunkX && this.lastMidChunkZ != midChunkZ)
-        || this.lastUnderground != underground) {
+        || this.lastUnderground != underground || this.lastZoom != zoom) {
       this.lastMidChunkX = midChunkX;
       this.lastMidChunkZ = midChunkZ;
+
+      this.lastZoom = zoom;
 
       this.lastUnderground = underground;
       this.highestBlockY = minBuildHeight;
@@ -179,8 +186,8 @@ public class MinimapTexture extends DynamicTexture {
       this.resize(maxX - minX, maxZ - minZ);
 
       this.clearImage(SKY_COLOR);
-      this.heightmapTexture.clearImage(0xFF000000);
-      this.lightmapTexture.clearImage(0xFF000000);
+      this.heightmapView.clearImage(0xFF000000);
+      this.lightmapView.clearImage(0xFF000000);
 
       this.forEach(minChunkX, minChunkZ, maxChunkX, maxChunkZ, (chunkX, chunkZ, chunk) -> {
         this.storage.compile(chunk);
@@ -203,7 +210,7 @@ public class MinimapTexture extends DynamicTexture {
 
               int heightmapColor = format.pack(normalized, normalized, normalized, 1.0F);
               this.image().setARGB(destX, destZ, tileColor);
-              this.heightmapTexture.image().setARGB(destX, destZ, heightmapColor);
+              this.heightmapView.image().setARGB(destX, destZ, heightmapColor);
 
               int blockLightLevel = chunk.getBlockLightLevel(pixelX, pixelZ);
 
@@ -211,7 +218,7 @@ public class MinimapTexture extends DynamicTexture {
 
               boolean noBlockLighting = normalizedLightLevel == 150;
 
-              this.lightmapTexture.image().setARGB(
+              this.lightmapView.image().setARGB(
                   destX, destZ,
                   format.pack(
                       noBlockLighting ? 0 : normalizedLightLevel,
@@ -236,6 +243,10 @@ public class MinimapTexture extends DynamicTexture {
         this.highestBlockY = chunk.getHeight(midInChunkX, midInChunkZ);
       }
     });
+  }
+
+  public void setZoomSupplier(IntSupplier zoomSupplier) {
+    this.zoomSupplier = zoomSupplier;
   }
 
   private void forEach(int minX, int minZ, int maxX, int maxZ, ChunkConsumer consumer) {
@@ -284,8 +295,8 @@ public class MinimapTexture extends DynamicTexture {
 
   @Override
   public void initialize() {
-    this.heightmapTexture.initialize();
-    this.lightmapTexture.initialize();
+    this.heightmapView.initialize();
+    this.lightmapView.initialize();
     super.initialize();
   }
 
@@ -294,15 +305,15 @@ public class MinimapTexture extends DynamicTexture {
     this.postProcessor.resize(newWidth, newHeight);
     this.renderTarget.resize(newWidth, newHeight);
     super.resize(newWidth, newHeight);
-    this.heightmapTexture.resize(newWidth, newHeight);
-    this.lightmapTexture.resize(newWidth, newHeight);
+    this.heightmapView.resize(newWidth, newHeight);
+    this.lightmapView.resize(newWidth, newHeight);
   }
 
   @Override
   public void updateTexture() {
     super.updateTexture();
-    this.heightmapTexture.updateTexture();
-    this.lightmapTexture.updateTexture();
+    this.heightmapView.updateTexture();
+    this.lightmapView.updateTexture();
 
     TextureInfo texture = MinimapDebugger.COLOR_MAP_TEXTURE;
     //texture.setId(this.getId());
