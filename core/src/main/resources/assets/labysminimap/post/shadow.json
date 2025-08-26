@@ -4,15 +4,15 @@
   "samplers": [
     {
       "name": "DiffuseSampler",
-      "index": 0
-    },
-    {
-      "name": "HeightmapSampler",
       "index": 1
     },
     {
-      "name": "LightmapSampler",
+      "name": "HeightmapSampler",
       "index": 2
+    },
+    {
+      "name": "LightmapSampler",
+      "index": 3
     }
   ],
   "uniformBlocks": [

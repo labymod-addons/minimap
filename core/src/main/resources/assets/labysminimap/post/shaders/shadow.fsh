@@ -1,12 +1,25 @@
 #version 150
 
-uniform sampler2D DiffuseSampler;
-uniform sampler2D HeightmapSampler;
-uniform sampler2D LightmapSampler;
-uniform vec2 DestinationSize;
+
+#l3d_import <labymod:shaders/include/post_processor.glsl>
+
+#ifdef UNIFORM_BLOCK
+layout(std140) uniform Minimap {
+  vec3 PixelSize;
+  vec3 SunPosition;
+  float DayTime;
+  vec4 ColorAdjustments;
+};
+#else
 uniform vec3 PixelSize;
 uniform vec3 SunPosition;
 uniform float DayTime;
+uniform vec4 ColorAdjustments;
+#endif
+
+uniform sampler2D DiffuseSampler;
+uniform sampler2D HeightmapSampler;
+uniform sampler2D LightmapSampler;
 
 in vec2 pos;
 

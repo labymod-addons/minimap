@@ -7,12 +7,14 @@ import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.addons.minimap.api.map.MinimapPlayerIcon;
 import net.labymod.addons.minimap.util.RenderUtil;
 import net.labymod.api.Laby;
+import net.labymod.api.client.Minecraft;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.entity.player.Player;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.util.math.MathHelper;
+import net.labymod.api.util.math.position.Position;
 
 public class MinimapListener {
 
@@ -28,12 +30,17 @@ public class MinimapListener {
       return;
     }
 
-    ClientPlayer player = Laby.labyAPI().minecraft().getClientPlayer();
+    Minecraft minecraft = Laby.labyAPI().minecraft();
+    ClientPlayer player = minecraft.getClientPlayer();
     if (player == null) {
       return;
     }
-    float playerX = MathHelper.lerp(player.getPosX(), player.getPreviousPosX());
-    float playerZ = MathHelper.lerp(player.getPosZ(), player.getPreviousPosZ());
+    Position position = player.position();
+    Position prevPosition = player.previousPosition();
+
+    float partialTicks = minecraft.getPartialTicks();
+    float playerX = (float) position.lerpX(prevPosition, partialTicks);
+    float playerZ = (float) position.lerpZ(prevPosition, partialTicks);
 
     ScreenContext context = event.context();
 

@@ -1,6 +1,7 @@
 package net.labymod.addons.minimap.map.v2;
 
 import java.util.function.Supplier;
+import net.labymod.addons.minimap.MinimapRenderStates;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
@@ -14,8 +15,8 @@ import net.labymod.api.client.gfx.pipeline.post.CustomPostPassProcessor;
 import net.labymod.api.client.gfx.pipeline.post.PostPassData;
 import net.labymod.api.client.gfx.pipeline.post.PostProcessor;
 import net.labymod.api.client.gfx.pipeline.post.PostProcessorLoader;
-import net.labymod.api.client.gfx.shader.ShaderTextures;
 import net.labymod.api.client.gui.screen.ScreenContext;
+import net.labymod.api.client.gui.screen.state.states.GuiTextureSet;
 import net.labymod.api.client.resources.texture.GameImage;
 import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.laby3d.Laby3D;
@@ -93,11 +94,9 @@ public class MinimapTexture extends DynamicTexture {
             @Override
             public void process(PostPassData data, DrawRenderCommand command, float time) {
               MinimapTexture minimapTexture = MinimapTexture.this;
-              ShaderTextures.setShaderTexture(0, minimapTexture.texture().deviceTextureView());
-              ShaderTextures.setShaderTexture(1,
-                  minimapTexture.heightmapTexture.texture().deviceTextureView());
-              ShaderTextures.setShaderTexture(2,
-                  minimapTexture.lightmapTexture.texture().deviceTextureView());
+              command.setTexture(1, minimapTexture.texture().deviceTextureView());
+              command.setTexture(2, minimapTexture.heightmapTexture.texture().deviceTextureView());
+              command.setTexture(3, minimapTexture.lightmapTexture.texture().deviceTextureView());
 
               CustomPostProcessorUniformBlock minimap = data.getBlock("Minimap");
               minimap.getProperty("SunPosition").set(new Vector3f(SUN_POSITION.getX(), SUN_POSITION.getY(), 1F));
@@ -273,7 +272,14 @@ public class MinimapTexture extends DynamicTexture {
 
   @Override
   public void render(ScreenContext context, float x, float y, float width, float height) {
-    super.render(context, x, y, width, height);
+    this.postProcessor.process(context.getTickDelta());
+    context.canvas().submitGuiBlit(
+        MinimapRenderStates.GUI_TEXTURED,
+        GuiTextureSet.single(this.renderTarget.findColorTexture(0)),
+        x, y, width, height,
+        0.0F, 0.0F, 1.0F, 1.0F,
+        -1
+    );
   }
 
   @Override

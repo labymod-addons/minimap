@@ -1,10 +1,9 @@
 #version 150
 
+#l3d_import <labymod:shaders/include/post_processor.glsl>
+
 in vec3 Position;
 in vec2 UV;
-
-uniform mat4 ProjectionMatrix;
-uniform vec2 DestinationSize;
 
 out vec2 pos;
 

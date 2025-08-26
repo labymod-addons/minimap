@@ -24,7 +24,6 @@ import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.configuration.loader.annotation.SpriteSlot;
-import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.position.Position;
 
 @SpriteSlot(size = 32)
@@ -178,8 +177,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     // Rotate and scale map
     stack.translate(size.getActualWidth() / 2F, size.getActualHeight() / 2F, 0F);
     if (rotate) {
-      stack.scale(-1, 1, 1);
-      stack.rotate(player.getRotationHeadYaw(), 0F, 0F, 1F);
+      stack.scale(-1, -1, 1);
+      stack.rotate(-player.getRotationHeadYaw(), 0F, 0F, 1F);
     }
     stack.scale((float) addZoom, (float) addZoom, 1F);
     stack.translate(-size.getActualWidth() / 2F, -size.getActualHeight() / 2F, 0F);
@@ -195,16 +194,16 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     Position position = player.position();
     Position previousPosition = player.previousPosition();
-    double smoothX = MathHelper.lerp(position.getX(), previousPosition.getX());
-    double smoothZ = MathHelper.lerp(position.getZ(), previousPosition.getZ());
+    double smoothX = position.lerpX(previousPosition, context.getTickDelta());
+    double smoothZ = position.lerpZ(previousPosition, context.getTickDelta());
 
     smoothX -= mapMidX;
     smoothZ -= mapMidZ;
 
     MinimapConfiguration configuration = this.configuration();
-    float pixelLength = size.getActualWidth() / (configuration.zoom().get() * 10F) / 2F;
+    float pixelLength = size.getActualWidth() / (configuration.zoom().get() * 10F) / 2;
     double offsetX = -pixelLength * smoothX;
-    double offsetZ = -pixelLength * smoothZ;
+    double offsetZ = pixelLength * smoothZ;
 
     float pixelWidthX = -0.4F;
     float pixelWidthY = -0.4F;
