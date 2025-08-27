@@ -3,16 +3,12 @@ package net.labymod.addons.minimap.data;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import javax.imageio.ImageIO;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.data.compilation.CompilationService;
-import net.labymod.addons.minimap.data.io.LocalChunkDataWriter;
 import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.event.Subscribe;
@@ -35,11 +31,9 @@ public class ChunkDataStorage {
   private static final long MASK = 0xFFFFFFFFL;
   private final Map<Long, ChunkData> chunks = new HashMap<>();
   private final CompilationService compilationService = new CompilationService();
-  private final ExecutorService chunkCompilerService;
   private boolean shouldProcess;
 
   public ChunkDataStorage() {
-    this.chunkCompilerService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() - 1);
   }
 
   @Subscribe
@@ -54,12 +48,12 @@ public class ChunkDataStorage {
 
   @Subscribe
   public void onServerSwitch(ServerSwitchEvent event) {
-    this.chunks.clear();
+    this.clearAll();
   }
 
   @Subscribe
   public void onServerDisconnect(ServerDisconnectEvent event) {
-    this.chunks.clear();
+    this.clearAll();
   }
 
   private void writeSavedData(Map<Long, ChunkData> chunkMap) {
@@ -148,6 +142,11 @@ public class ChunkDataStorage {
     }
   }
 
+  private void clearAll() {
+    this.chunks.clear();
+    this.setShouldProcess(true);
+  }
+
   public boolean isChunkLoaded(int x, int z) {
     return this.chunks.containsKey(this.getChunkId(x, z));
   }
@@ -199,10 +198,7 @@ public class ChunkDataStorage {
   }
 
   private void unloadChunk(Chunk chunk) {
-    ChunkData data = this.chunks.remove(this.getChunkId(chunk));
-    if (data != null) {
-      //this.writer.write(data);
-    }
+    this.chunks.remove(this.getChunkId(chunk));
     this.setShouldProcess(true);
   }
 
@@ -271,63 +267,13 @@ public class ChunkDataStorage {
   }
 
   public void compile(ChunkData data) {
-    this.chunkCompilerService.submit(() -> {
-      if (this.compilationService.compile(data)) {
-        //this.writer.write(data);
-      }
-    });
+    if (this.compilationService.compile(data)) {
+      //this.writer.write(data);
+    }
   }
 
   public void resetCompilations() {
     this.compilationService.resetCompilations();
-  }
-
-  static class Writer {
-
-    private static final Logging LOGGER = Logging.getLogger();
-    private ExecutorService executorService;
-    private LocalChunkDataWriter writer;
-
-    public void open(Path destination) {
-      try {
-        this.writer = LocalChunkDataWriter.open(destination);
-        this.executorService = Executors.newSingleThreadExecutor();
-      } catch (IOException exception) {
-        LOGGER.error("Unable to open chunk data writer", exception);
-      }
-    }
-
-
-    public void write(ChunkData data) {
-      if (this.executorService != null && !this.executorService.isTerminated()) {
-        this.executorService.submit(() -> this._write(data));
-      }
-
-    }
-
-    private void _write(ChunkData data) {
-      if (this.writer != null) {
-        try {
-          this.writer.write(data);
-        } catch (IOException exception) {
-          LOGGER.error("Unable to write chunk data", exception);
-        }
-      }
-    }
-
-    public void close() {
-      try {
-        this.executorService.shutdown();
-        this.executorService.close();
-
-        if (this.writer != null) {
-          this.writer.close();
-        }
-      } catch (Exception exception) {
-        LOGGER.error("Unable to close chunk data writer", exception);
-      }
-    }
-
   }
 
 }
