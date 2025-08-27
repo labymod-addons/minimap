@@ -50,7 +50,7 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
             highestBlock.position().getY() - (highestBlock.hasCollision() ? 0 : 1));
         data.setLightLevel(x, z, above);
         if (block.isWater()) {
-          BlockState blockStateUnderWater = this.getBlockBelow(chunk, block, BlockState::isWater);
+          BlockState blockStateUnderWater = this.getBlockBelow(chunk, block, state -> !state.isWater());
 
           baseColor = format.pack(baseColor, 220);
 
