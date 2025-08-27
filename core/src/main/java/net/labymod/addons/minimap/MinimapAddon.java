@@ -1,8 +1,8 @@
 package net.labymod.addons.minimap;
 
 import javax.inject.Singleton;
-import net.labymod.addons.minimap.api.MinimapConfigProvider;
-import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
+import net.labymod.addons.minimap.api.config.MinimapConfig;
+import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.generated.ReferenceStorage;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
@@ -71,12 +71,12 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     return this.servers.isCurrentlyAllowed();
   }
 
-  @Override
-  public MinimapHudWidgetConfig widgetConfig() {
-    return this.hudWidget.getConfig();
-  }
-
   public static ReferenceStorage getReferences() {
     return MinimapAddon.references;
+  }
+
+  @Override
+  public MinimapConfig config() {
+    return this.configuration();
   }
 }

@@ -1,7 +1,7 @@
 package net.labymod.addons.minimap.map.v2.renderer;
 
 import java.util.Collection;
-import net.labymod.addons.minimap.api.MinimapConfigProvider;
+import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.renderer.TileRenderer;
 import net.labymod.addons.minimap.util.RenderUtil;
 import net.labymod.api.Laby;

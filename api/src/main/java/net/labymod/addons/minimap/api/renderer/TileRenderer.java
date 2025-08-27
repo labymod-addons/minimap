@@ -1,7 +1,7 @@
 package net.labymod.addons.minimap.api.renderer;
 
 import java.util.Collection;
-import net.labymod.addons.minimap.api.MinimapConfigProvider;
+import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.api.Laby;
@@ -59,7 +59,7 @@ public abstract class TileRenderer<T> {
     this.playerX = (float) position.lerpX(previous, Laby.labyAPI().minecraft().getPartialTicks());
     this.playerZ = (float) position.lerpZ(previous, Laby.labyAPI().minecraft().getPartialTicks());
 
-    this.scale = this.configProvider.widgetConfig().tileSize().get() / 10.0F;
+    this.scale = this.configProvider.config().tileSize().get() / 10.0F;
     this.radius = event.size().getActualWidth() / 2.0F;
 
     this.scaledRadius = this.radius / event.zoom();

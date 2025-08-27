@@ -12,7 +12,7 @@ import net.labymod.api.addon.integration.AddonIntegration;
 import net.labymod.api.client.component.Component;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.util.Color;
-import net.labymod.api.util.math.vector.FloatVector3;
+import net.labymod.api.util.math.vector.DoubleVector3;
 
 public class WaypointsIntegration implements AddonIntegration {
 
@@ -46,10 +46,10 @@ public class WaypointsIntegration implements AddonIntegration {
     return this.waypointContainers;
   }
 
-  public record WaypointContainer(Waypoint waypoint, FloatVector3 position) {
+  public record WaypointContainer(Waypoint waypoint, DoubleVector3 position) {
 
     public WaypointContainer(Waypoint waypoint) {
-      this(waypoint, waypoint.location().copy());
+      this(waypoint, waypoint.position().copy());
     }
 
     public WaypointType type() {

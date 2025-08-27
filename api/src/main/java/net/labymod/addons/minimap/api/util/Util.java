@@ -6,9 +6,10 @@ import net.labymod.api.client.world.chunk.Chunk;
 
 public final class Util {
 
+  public static final String NAMESPACE = "labysminimap";
+  public static final float BORDER_PADDING = 5.0F;
   private static final long BITS = 32L;
   private static final long MASK = 0xFFFFFFFFL;
-  public static final String NAMESPACE = "labysminimap";
 
   public static ResourceLocation newDefaultNamespace(String path) {
     return ResourceLocation.create(NAMESPACE, path);

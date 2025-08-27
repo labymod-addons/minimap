@@ -1,7 +1,7 @@
 package net.labymod.addons.minimap.integration.waypoints;
 
 import java.util.Collection;
-import net.labymod.addons.minimap.api.MinimapConfigProvider;
+import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.addons.minimap.api.renderer.TileRenderer;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration.WaypointContainer;
@@ -73,12 +73,12 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
 
   @Override
   protected float getTileX(WaypointContainer waypoint) {
-    return waypoint.position().getX();
+    return (float) waypoint.position().getX();
   }
 
   @Override
   protected float getTileZ(WaypointContainer waypoint) {
-    return waypoint.position().getZ();
+    return (float) waypoint.position().getZ();
   }
 
   @Override

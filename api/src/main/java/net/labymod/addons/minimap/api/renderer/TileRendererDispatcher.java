@@ -1,8 +1,8 @@
 package net.labymod.addons.minimap.api.renderer;
 
-import net.labymod.addons.minimap.api.MinimapConfigProvider;
-import net.labymod.api.reference.annotation.Referenceable;
 import java.util.function.Function;
+import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
+import net.labymod.api.reference.annotation.Referenceable;
 
 @Referenceable
 public interface TileRendererDispatcher {

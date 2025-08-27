@@ -1,5 +1,6 @@
 package net.labymod.addons.minimap.config;
 
+import net.labymod.addons.minimap.api.config.MinimapConfig;
 import net.labymod.addons.minimap.api.map.MinimapCardinalType;
 import net.labymod.addons.minimap.api.map.MinimapDisplayType;
 import net.labymod.addons.minimap.api.map.MinimapPlayerIcon;
@@ -13,7 +14,7 @@ import net.labymod.api.configuration.loader.property.ConfigProperty;
 import net.labymod.api.configuration.settings.annotation.SettingSection;
 import net.labymod.api.util.Color;
 
-public class MinimapConfiguration extends AddonConfig {
+public class MinimapConfiguration extends AddonConfig implements MinimapConfig {
 
   @SwitchSetting
   private final ConfigProperty<Boolean> enabled = new ConfigProperty<>(true);
@@ -52,34 +53,42 @@ public class MinimapConfiguration extends AddonConfig {
     return this.enabled;
   }
 
+  @Override
   public ConfigProperty<MinimapDisplayType> displayType() {
     return this.displayType;
   }
 
+  @Override
   public ConfigProperty<Boolean> jumpBouncing() {
     return this.jumpBouncing;
   }
 
+  @Override
   public ConfigProperty<Boolean> autoZoom() {
     return this.autoZoom;
   }
 
+  @Override
   public ConfigProperty<Integer> zoom() {
     return this.zoom;
   }
 
+  @Override
   public ConfigProperty<Integer> tileSize() {
     return this.tileSize;
   }
 
+  @Override
   public ConfigProperty<MinimapCardinalType> cardinalType() {
     return this.cardinalType;
   }
 
+  @Override
   public ConfigProperty<MinimapPlayerIcon> playerIcon() {
     return this.playerIcon;
   }
 
+  @Override
   public ConfigProperty<Color> playerColor() {
     return this.playerColor;
   }

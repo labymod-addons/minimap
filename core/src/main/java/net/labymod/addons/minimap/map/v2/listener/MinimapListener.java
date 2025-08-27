@@ -1,7 +1,7 @@
 package net.labymod.addons.minimap.map.v2.listener;
 
-import net.labymod.addons.minimap.api.MinimapConfigProvider;
-import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
+import net.labymod.addons.minimap.api.config.MinimapConfig;
+import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.addons.minimap.api.map.MinimapPlayerIcon;
@@ -44,7 +44,7 @@ public class MinimapListener {
 
     ScreenContext context = event.context();
 
-    float scale = this.configProvider.widgetConfig().tileSize().get() / 10F;
+    float scale = this.configProvider.config().tileSize().get() / 10F;
     float radius = event.size().getActualWidth() / 2F;
     float scaledRadius = radius / event.zoom();
 
@@ -101,7 +101,7 @@ public class MinimapListener {
 
     float size = 2.5F;
 
-    MinimapHudWidgetConfig config = this.configProvider.widgetConfig();
+    MinimapConfig config = this.configProvider.config();
     MinimapPlayerIcon playerIcon = config.playerIcon().get();
     if (playerIcon == MinimapPlayerIcon.PLAYER_HEAD) {
       RenderUtil.renderPlayerHead(context, player);

@@ -4,58 +4,53 @@
       "name": "Laby's Minimap",
       "enabled": {
         "name": "Enabled"
-      }
-    },
-    "hudWidget": {
-      "minimap": {
-        "name": "Laby's Minimap",
-        "displayType": {
-          "name": "Display",
-          "entries": {
-            "round": "Round",
-            "square": "Square",
-            "minecraftMapSquare": "Minecraft Map"
-          }
-        },
-        "jumpBouncing": {
-          "name": "Jump bouncing"
-        },
-        "autoZoom": {
-          "name": "Auto zoom"
-        },
-        "zoom": {
-          "name": "Zoom"
-        },
-        "updateMethod": {
-          "name": "Update Method",
-          "entries": {
-            "blockTrigger": "While moving (Lower FPS)",
-            "chunkTrigger": "Enter new chunk"
-          }
-        },
-        "cardinalType": {
-          "name": "Cardinals",
-          "entries": {
-            "hidden": "Hidden",
-            "normal": "N, E, S, W",
-            "extended": "N, NE, E, SE, S, SW, W, NW",
-            "numbers": "0, 1, 2, 3"
-          }
-        },
-        "tileSize": {
-          "name": "Tile Size",
-          "description": "Size of the tiles (Player heads, Waypoints) on the Minimap"
-        },
-        "playerIcon":{
-          "name": "Player Icon"
-        },
-        "playerColor": {
-          "name": "Player Color"
-        },
-        "header": {
-          "player": {
-            "name": "Player"
-          }
+      },
+      "displayType": {
+        "name": "Display",
+        "entries": {
+          "round": "Round",
+          "square": "Square",
+          "minecraftMapSquare": "Minecraft Map"
+        }
+      },
+      "jumpBouncing": {
+        "name": "Jump bouncing"
+      },
+      "autoZoom": {
+        "name": "Auto zoom"
+      },
+      "zoom": {
+        "name": "Zoom"
+      },
+      "updateMethod": {
+        "name": "Update Method",
+        "entries": {
+          "blockTrigger": "While moving (Lower FPS)",
+          "chunkTrigger": "Enter new chunk"
+        }
+      },
+      "cardinalType": {
+        "name": "Cardinals",
+        "entries": {
+          "hidden": "Hidden",
+          "normal": "N, E, S, W",
+          "extended": "N, NE, E, SE, S, SW, W, NW",
+          "numbers": "0, 1, 2, 3"
+        }
+      },
+      "tileSize": {
+        "name": "Tile Size",
+        "description": "Size of the tiles (Player heads, Waypoints) on the Minimap"
+      },
+      "playerIcon": {
+        "name": "Player Icon"
+      },
+      "playerColor": {
+        "name": "Player Color"
+      },
+      "header": {
+        "player": {
+          "name": "Player"
         }
       }
     }

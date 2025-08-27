@@ -1,10 +1,10 @@
-package net.labymod.addons.minimap.api;
+package net.labymod.addons.minimap.api.config;
 
 import net.labymod.api.reference.annotation.Referenceable;
 
 @Referenceable
 public interface MinimapConfigProvider {
 
-  MinimapHudWidgetConfig widgetConfig();
+  MinimapConfig config();
 
 }

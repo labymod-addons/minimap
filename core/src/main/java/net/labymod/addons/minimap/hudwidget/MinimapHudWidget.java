@@ -1,13 +1,13 @@
 package net.labymod.addons.minimap.hudwidget;
 
 import net.labymod.addons.minimap.MinimapAddon;
-import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.map.MinimapCardinalType;
 import net.labymod.addons.minimap.api.map.MinimapCircle;
 import net.labymod.addons.minimap.api.map.MinimapDisplayType;
+import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.api.Laby;
@@ -17,6 +17,7 @@ import net.labymod.api.client.gfx.pipeline.RenderAttributes.StencilMode;
 import net.labymod.api.client.gfx.pipeline.RenderAttributesStack;
 import net.labymod.api.client.gui.hud.binding.category.HudWidgetCategory;
 import net.labymod.api.client.gui.hud.hudwidget.HudWidget;
+import net.labymod.api.client.gui.hud.hudwidget.HudWidgetConfig;
 import net.labymod.api.client.gui.hud.position.HudSize;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.state.TextFlags;
@@ -26,7 +27,7 @@ import net.labymod.api.configuration.loader.annotation.SpriteSlot;
 import net.labymod.api.util.math.position.Position;
 
 @SpriteSlot(size = 32)
-public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
+public class MinimapHudWidget extends HudWidget<HudWidgetConfig> {
 
   private final MinimapRenderEvent renderEvent = new MinimapRenderEvent();
 
@@ -41,7 +42,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
 
   public MinimapHudWidget(MinimapAddon addon, MinimapRenderer renderer) {
-    super("minimap", MinimapHudWidgetConfig.class);
+    super("minimap", HudWidgetConfig.class);
 
     this.bindCategory(HudWidgetCategory.INGAME);
 
@@ -56,7 +57,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   }
 
   @Override
-  public void load(MinimapHudWidgetConfig config) {
+  public void load(HudWidgetConfig config) {
     super.load(config);
 
     this.renderer.initialize();
@@ -225,10 +226,10 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     context.canvas().submitIcon(
         displayType.icon(),
-        -MinimapHudWidgetConfig.BORDER_PADDING,
-        -MinimapHudWidgetConfig.BORDER_PADDING,
-        size.getActualWidth() + MinimapHudWidgetConfig.BORDER_PADDING * 2F,
-        size.getActualHeight() + MinimapHudWidgetConfig.BORDER_PADDING * 2F
+        -Util.BORDER_PADDING,
+        -Util.BORDER_PADDING,
+        size.getActualWidth() + Util.BORDER_PADDING * 2F,
+        size.getActualHeight() + Util.BORDER_PADDING * 2F
     );
   }
 

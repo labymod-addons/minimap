@@ -1,15 +1,15 @@
 package net.labymod.addons.minimap.map.v2.renderer;
 
-import net.labymod.addons.minimap.api.MinimapConfigProvider;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
+import javax.inject.Singleton;
+import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
 import net.labymod.addons.minimap.api.renderer.TileRenderer;
 import net.labymod.addons.minimap.api.renderer.TileRendererDispatcher;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.models.Implements;
-import javax.inject.Singleton;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Function;
 
 @Singleton
 @Implements(TileRendererDispatcher.class)
