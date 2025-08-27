@@ -3,14 +3,16 @@ package net.labymod.addons.minimap.activity.widget;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.api.client.gui.lss.property.annotation.AutoWidget;
+import net.labymod.api.client.gui.mouse.Mouse;
 import net.labymod.api.client.gui.mouse.MutableMouse;
 import net.labymod.api.client.gui.screen.Parent;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
-import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.client.gui.screen.widget.SimpleWidget;
 import net.labymod.api.client.gui.screen.widget.attributes.bounds.Bounds;
 import net.labymod.api.util.math.MathHelper;
+import org.jetbrains.annotations.Nullable;
+import org.joml.Vector2f;
 
 @AutoWidget
 public class MapWidget extends SimpleWidget {
@@ -46,37 +48,41 @@ public class MapWidget extends SimpleWidget {
           pixelSize, pixelSize,
           -1
       );
-
-      float mapX = bounds.getX();
-      float mapY = bounds.getY();
-      float mapW = bounds.getWidth();
-      float mapH = bounds.getHeight();
-
-      float mx = mouse.getX();
-      float my = mouse.getY();
-
-      if (mx >= mapX && mx <= mapX + mapW && my >= mapY && my <= mapY + mapH) {
-        float u = (mx - mapX) / mapW;
-        float v = (my - mapY) / mapH;
-
-        MinimapBounds world = this.renderer.minimapBounds();
-
-        int minX = world.getX1();
-        int minZ = world.getZ1();
-        int maxX = world.getX2();
-        int maxZ = world.getZ2();
-
-        u = MathHelper.clamp(u, 0.0F, 1.0F);
-        v = MathHelper.clamp(v, 0.0F, 1.0F);
-
-        int worldX = minX + (int) Math.floor(u * (maxX - minX));
-        int worldZ = minZ + (int) Math.floor(v * (maxZ - minZ));
-
-        canvas.submitText("X: " + worldX + " Z: " + worldZ, mx + 4, my + 4, 0xFFFFFFFF, 1.0F, TextFlags.SHADOW);
-      }
-
-
     });
+  }
+
+  public @Nullable Vector2f resolveBlockCoordinates(Mouse mouse) {
+    Bounds bounds = this.bounds();
+
+    float mapX = bounds.getX();
+    float mapY = bounds.getY();
+    float mapW = bounds.getWidth();
+    float mapH = bounds.getHeight();
+
+    float mx = mouse.getX();
+    float my = mouse.getY();
+
+    if (mx >= mapX && mx <= mapX + mapW && my >= mapY && my <= mapY + mapH) {
+      float u = (mx - mapX) / mapW;
+      float v = (my - mapY) / mapH;
+
+      MinimapBounds world = this.renderer.minimapBounds();
+
+      int minX = world.getX1();
+      int minZ = world.getZ1();
+      int maxX = world.getX2();
+      int maxZ = world.getZ2();
+
+      u = MathHelper.clamp(u, 0.0F, 1.0F);
+      v = MathHelper.clamp(v, 0.0F, 1.0F);
+
+      int worldX = minX + (int) Math.floor(u * (maxX - minX));
+      int worldZ = minZ + (int) Math.floor(v * (maxZ - minZ));
+
+      return new Vector2f(worldX, worldZ);
+    }
+
+    return null;
   }
 
   @Override
