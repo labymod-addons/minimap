@@ -10,6 +10,7 @@ import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.addons.minimap.debug.MinimapDebugger;
 import net.labymod.addons.minimap.debug.MinimapDebugger.TextureInfo;
+import net.labymod.addons.minimap.util.PlayerUtil;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.pipeline.post.CustomPostPassProcessor;
@@ -26,6 +27,7 @@ import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.position.Position;
 import net.labymod.api.util.math.vector.FloatVector2;
+import net.labymod.laby3d.api.opengl.GlResource;
 import net.labymod.laby3d.api.pipeline.pass.DrawRenderCommand;
 import net.labymod.laby3d.api.pipeline.target.RenderTarget;
 import net.labymod.laby3d.api.pipeline.target.RenderTargetDescription;
@@ -57,12 +59,12 @@ public class MiniMapView extends MapView {
 
   private DaylightPeriod currentPeriod = DaylightPeriod.DAYTIME;
 
-  private int highestBlockY;
-
   private boolean lastUnderground = false;
   private int lastMidChunkX;
   private int lastMidChunkZ;
+  private int lastPlayerY;
   private int lastZoom;
+  private boolean changed = true;
 
   public MiniMapView(
       Supplier<MinimapConfiguration> config,
@@ -157,20 +159,9 @@ public class MiniMapView extends MapView {
     int midChunkX = midX >> 4;
     int midChunkZ = midZ >> 4;
 
-    boolean underground = (this.highestBlockY - (int) (position.getY())) > 10;
+    boolean underground = PlayerUtil.isPlayerUnderground(level, player, 10);
 
-    boolean changed = false;
-    if ((this.lastMidChunkX != midChunkX && this.lastMidChunkZ != midChunkZ)
-        || this.lastUnderground != underground || this.lastZoom != zoom) {
-      this.lastMidChunkX = midChunkX;
-      this.lastMidChunkZ = midChunkZ;
-
-      this.lastZoom = zoom;
-
-      this.lastUnderground = underground;
-      this.highestBlockY = minBuildHeight;
-      changed = true;
-    }
+    this.storage.setPlayerPosition(player.position(), this.lastUnderground);
 
     int minChunkX = minX >> 4;
     int minChunkZ = minZ >> 4;
@@ -178,11 +169,9 @@ public class MiniMapView extends MapView {
     int maxChunkX = maxX >> 4;
     int maxChunkZ = maxZ >> 4;
 
-    int midInChunkX = midX & 15;
-    int midInChunkZ = midZ & 15;
-
     ColorFormat format = ColorFormat.ARGB32;
-    if (changed || this.storage.shouldProcess()) {
+    if (this.changed || this.storage.shouldProcess()) {
+      this.changed = false;
       this.resize(maxX - minX, maxZ - minZ);
 
       this.clearImage(SKY_COLOR);
@@ -238,11 +227,24 @@ public class MiniMapView extends MapView {
       this.updateTexture();
     }
 
-    this.forEach(minChunkX, minChunkZ, maxChunkX, maxChunkZ, (chunkX, chunkZ, chunk) -> {
-      if (chunkX == midChunkX && chunkZ == midChunkZ) {
-        this.highestBlockY = chunk.getHeight(midInChunkX, midInChunkZ);
-      }
-    });
+    if ((this.lastMidChunkX != midChunkX && this.lastMidChunkZ != midChunkZ)
+        || this.lastUnderground != underground || this.lastZoom != zoom) {
+      this.lastMidChunkX = midChunkX;
+      this.lastMidChunkZ = midChunkZ;
+
+      this.lastZoom = zoom;
+
+      this.lastUnderground = underground;
+      this.changed = true;
+      this.storage.resetCompilations();
+    }
+
+    int midY = MathHelper.floor(player.position().getY());
+    if (this.lastUnderground && this.lastPlayerY != midY) {
+      this.lastPlayerY = midY;
+      this.changed = true;
+      this.storage.resetCompilations();
+    }
   }
 
   public void setZoomSupplier(IntSupplier zoomSupplier) {
@@ -316,7 +318,7 @@ public class MiniMapView extends MapView {
     this.lightmapView.updateTexture();
 
     TextureInfo texture = MinimapDebugger.COLOR_MAP_TEXTURE;
-    //texture.setId(this.getId());
+    texture.setId(((GlResource) this.texture().deviceTexture()).getId());
     texture.setSize(this.getWidth(), this.getHeight());
   }
 

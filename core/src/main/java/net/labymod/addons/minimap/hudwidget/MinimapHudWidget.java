@@ -9,7 +9,6 @@ import net.labymod.addons.minimap.api.map.MinimapCardinalType;
 import net.labymod.addons.minimap.api.map.MinimapCircle;
 import net.labymod.addons.minimap.api.map.MinimapDisplayType;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
-import net.labymod.addons.minimap.map.MinimapTexture;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
@@ -37,8 +36,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   private final MinimapRenderer renderer;
 
-  private MinimapTexture texture;
-
   private float distanceToCorner = 0;
   private float lastRadius = 0;
 
@@ -61,13 +58,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   @Override
   public void load(MinimapHudWidgetConfig config) {
     super.load(config);
-
-    if (this.texture != null) {
-      this.texture.release();
-    }
-
-    this.texture = new MinimapTexture(this.addon, config);
-    this.texture.init();
 
     this.renderer.initialize();
   }
@@ -96,7 +86,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       this.lastRadius = radius;
     }
 
-    this.renderEvent.fill(context, size, this.texture.getCurrentBounds(), this.circle);
+    this.renderEvent.fill(context, size, new MinimapBounds(), this.circle);
     MinimapConfiguration configuration = this.configuration();
     this.circle.init(configuration.displayType().get(), size, this.distanceToCorner);
 
@@ -170,14 +160,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     MinimapConfiguration configuration = this.configuration();
     if (configuration.jumpBouncing().get()) {
       addZoom += (previousPosition.getY() - position.getY()) / 20.0D;
-    }
-
-    if (configuration.autoZoom().get()) {
-      double distanceToFloor = (position.getY() - this.texture.getAnimatedHighestBlockY());
-      if (distanceToFloor < -70) {
-        distanceToFloor = -70;
-      }
-      addZoom -= (distanceToFloor / (100D + distanceToFloor));
     }
 
     // Rotate and scale map

@@ -13,8 +13,6 @@ import javax.imageio.ImageIO;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.data.compilation.CompilationService;
 import net.labymod.addons.minimap.data.io.LocalChunkDataWriter;
-import net.labymod.api.Constants.Files;
-import net.labymod.api.Laby;
 import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.event.Subscribe;
@@ -22,14 +20,12 @@ import net.labymod.api.event.client.input.KeyEvent;
 import net.labymod.api.event.client.input.KeyEvent.State;
 import net.labymod.api.event.client.network.server.ServerDisconnectEvent;
 import net.labymod.api.event.client.network.server.ServerSwitchEvent;
-import net.labymod.api.event.client.world.WorldEnterEvent;
-import net.labymod.api.event.client.world.WorldLeaveEvent;
 import net.labymod.api.event.client.world.chunk.BlockUpdateEvent;
 import net.labymod.api.event.client.world.chunk.ChunkEvent;
 import net.labymod.api.event.client.world.chunk.ChunkEvent.Type;
 import net.labymod.api.event.client.world.chunk.LightUpdateEvent;
-import net.labymod.api.server.LocalWorld;
 import net.labymod.api.util.logging.Logging;
+import net.labymod.api.util.math.position.Position;
 import net.labymod.api.util.math.vector.IntVector3;
 
 public class ChunkDataStorage {
@@ -39,10 +35,11 @@ public class ChunkDataStorage {
   private static final long MASK = 0xFFFFFFFFL;
   private final Map<Long, ChunkData> chunks = new HashMap<>();
   private final CompilationService compilationService = new CompilationService();
+  private final ExecutorService chunkCompilerService;
   private boolean shouldProcess;
-  private final Writer writer = new Writer();
 
   public ChunkDataStorage() {
+    this.chunkCompilerService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() - 1);
   }
 
   @Subscribe
@@ -63,20 +60,6 @@ public class ChunkDataStorage {
   @Subscribe
   public void onServerDisconnect(ServerDisconnectEvent event) {
     this.chunks.clear();
-  }
-
-  @Subscribe
-  public void onWorldEnter(WorldEnterEvent event) {
-
-    LocalWorld localWorld = Laby.references().integratedServer().getLocalWorld();
-    if (localWorld == null) {
-      return;
-    }
-
-    Path cachesDirectory = Files.LABYMOD_DIRECTORY.resolve(Util.NAMESPACE).resolve("caches");
-    Path destination = cachesDirectory.resolve(localWorld.folderName());
-
-    this.writer.open(destination);
   }
 
   private void writeSavedData(Map<Long, ChunkData> chunkMap) {
@@ -133,11 +116,6 @@ public class ChunkDataStorage {
   }
 
   @Subscribe
-  public void onWorldLeave(WorldLeaveEvent event) {
-    this.writer.close();
-  }
-
-  @Subscribe
   public void onBlockUpdate(BlockUpdateEvent event) {
     ChunkData data = this.chunks.get(this.getChunkId(event.getChunk()));
     if (data != null) {
@@ -172,6 +150,10 @@ public class ChunkDataStorage {
 
   public boolean isChunkLoaded(int x, int z) {
     return this.chunks.containsKey(this.getChunkId(x, z));
+  }
+
+  public void setPlayerPosition(Position position, boolean underground) {
+    this.compilationService.setPlayerPosition(position, underground);
   }
 
   public boolean shouldProcess() {
@@ -219,7 +201,7 @@ public class ChunkDataStorage {
   private void unloadChunk(Chunk chunk) {
     ChunkData data = this.chunks.remove(this.getChunkId(chunk));
     if (data != null) {
-      this.writer.write(data);
+      //this.writer.write(data);
     }
     this.setShouldProcess(true);
   }
@@ -289,9 +271,15 @@ public class ChunkDataStorage {
   }
 
   public void compile(ChunkData data) {
-    if (this.compilationService.compile(data)) {
-      this.writer.write(data);
-    }
+    this.chunkCompilerService.submit(() -> {
+      if (this.compilationService.compile(data)) {
+        //this.writer.write(data);
+      }
+    });
+  }
+
+  public void resetCompilations() {
+    this.compilationService.resetCompilations();
   }
 
   static class Writer {
@@ -311,7 +299,7 @@ public class ChunkDataStorage {
 
 
     public void write(ChunkData data) {
-      if (this.executorService != null) {
+      if (this.executorService != null && !this.executorService.isTerminated()) {
         this.executorService.submit(() -> this._write(data));
       }
 

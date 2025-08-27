@@ -1,11 +1,9 @@
 package net.labymod.addons.minimap;
 
 import javax.inject.Singleton;
-import net.labymod.addons.minimap.activity.MapActivity;
 import net.labymod.addons.minimap.api.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.generated.ReferenceStorage;
-import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.addons.minimap.debug.ImGuiMinimapDebug;
@@ -16,8 +14,6 @@ import net.labymod.addons.minimap.map.v2.listener.MinimapListener;
 import net.labymod.addons.minimap.server.MinimapServers;
 import net.labymod.api.Laby;
 import net.labymod.api.addon.LabyAddon;
-import net.labymod.api.client.gui.screen.key.HotkeyService.Type;
-import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.models.Implements;
 import net.labymod.api.models.addon.annotation.AddonMain;
 
@@ -53,6 +49,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     this.registerListener(new MinimapListener(configProvider));
     this.registerListener(getReferences().tileRendererDispatcher());
 
+    /*
     references.hotkeyService()
         .register(
             Util.NAMESPACE + "-open-full-map",
@@ -60,7 +57,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
             () -> Type.TOGGLE, pressed -> {
               Laby.labyAPI().minecraft().minecraftWindow().displayScreen(new MapActivity(new MinimapRenderer(this::configuration, "activity", storage)));
             }
-        );
+        );*/
 
     references.controlEntryRegistry().registerEntry(false, ImGuiMinimapDebug::new);
   }

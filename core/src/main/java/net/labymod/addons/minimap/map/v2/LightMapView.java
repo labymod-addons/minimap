@@ -2,6 +2,7 @@ package net.labymod.addons.minimap.map.v2;
 
 import net.labymod.addons.minimap.debug.MinimapDebugger;
 import net.labymod.addons.minimap.debug.MinimapDebugger.TextureInfo;
+import net.labymod.laby3d.api.opengl.GlResource;
 
 public class LightMapView extends MapView {
 
@@ -24,7 +25,7 @@ public class LightMapView extends MapView {
     super.updateTexture();
 
     TextureInfo texture = MinimapDebugger.LIGHTMAP_TEXTURE;
-    //texture.setId(this.getId());
+    texture.setId(((GlResource) this.texture().deviceTexture()).getId());
     texture.setSize(this.getWidth(), this.getHeight());
   }
 }

@@ -5,6 +5,7 @@ import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.data.GameChunkData;
 import net.labymod.api.Laby;
 import net.labymod.api.client.world.ClientWorld;
+import net.labymod.api.client.world.block.Block;
 import net.labymod.api.client.world.block.BlockColorProvider;
 import net.labymod.api.client.world.block.BlockState;
 import net.labymod.api.client.world.chunk.Chunk;
@@ -17,6 +18,10 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
 
   private final BlockColorProvider blockColorProvider;
   private final ClientWorld level;
+  private int playerX;
+  private int playerY;
+  private int playerZ;
+  private boolean underground;
 
   public GameChunkCompiler() {
     ReferenceStorage references = Laby.references();
@@ -31,37 +36,102 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
 
   @Override
   public void compile(GameChunkData data) {
-    Chunk chunk = data.getChunk();
-    ColorFormat format = ColorFormat.ARGB32;
+    this.compileChunk(data, this.playerY);
+  }
 
+  public void setPlayerPosition(int x, int y, int z, boolean underground) {
+    this.playerX = x;
+    this.playerY = y;
+    this.playerZ = z;
+    this.underground = underground;
+  }
+
+  private void compileChunk(GameChunkData data, int midY) {
+    ColorFormat format = ColorFormat.ARGB32;
     for (int x = 0; x < ChunkData.CHUNK_SIZE; x++) {
       for (int z = 0; z < ChunkData.CHUNK_SIZE; z++) {
-        BlockState highestBlock = this.getBlockState(chunk, x, z);
-        BlockState block = this.getBlockState(chunk, x, z);
-        if (highestBlock == null || block == null) {
-          data.setColor(x, z, 0xFF000000);
-          continue;
+        if (this.underground) {
+          this.compileUndergroundChunk(data, format, x, z);
+        } else {
+          this.compileOverworldChunk(data, format, x, z);
         }
-
-        int baseColor = format.withAlpha(this.getColor(format, block), 255);
-        BlockState above = chunk.getBlockState(x, block.position().getY() + 1, z);
-
-        data.setHeight(x, z,
-            highestBlock.position().getY() - (highestBlock.hasCollision() ? 0 : 1));
-        data.setLightLevel(x, z, above);
-        if (block.isWater()) {
-          BlockState blockStateUnderWater = this.getBlockBelow(chunk, block, state -> !state.isWater());
-
-          baseColor = format.pack(baseColor, 220);
-
-          int colorUnderWater = format.withAlpha(this.getColor(format, blockStateUnderWater), 255);
-          baseColor = ColorUtil.blendColors(colorUnderWater, baseColor);
-          data.setHeight(x, z, blockStateUnderWater.position().getY());
-        }
-
-        data.setColor(x, z, baseColor);
       }
     }
+  }
+
+  private void compileUndergroundChunk(GameChunkData data, ColorFormat format, int x, int z) {
+    data.setColor(x, z, 0xFF000000);
+    int depth = this.playerY;
+    Chunk chunk = data.getChunk();
+    BlockState[] heightArray = new BlockState[21];
+    int height = 1;
+    for (int s = 0; s > -20; s--) {
+      BlockState block = chunk.getBlockState(x, depth + s, z);
+      height--;
+      heightArray[s * -1] = block;
+      if (!block.block().isAir()) {
+        break;
+      }
+    }
+
+    for (int h = height; h < 3; h++) {
+      int blockY = depth + h;
+
+      BlockState state = h < 0 ? heightArray[h * -1] : chunk.getBlockState(x, blockY, z);
+
+      if (!state.block().isAir()) {
+
+        BlockState blockAbove = this.getBlockAbove(chunk, state);
+
+        Block block = blockAbove.block();
+        if (!block.isAir() && !blockAbove.isFluid()) {
+          data.setColor(x, z, 0xFF000000);
+        } else {
+          data.setColor(x, z, format.withAlpha(this.getColor(format, state), 255));
+          data.setLightLevel(x, z, blockAbove);
+          data.setHeight(x, z, blockY);
+        }
+
+      }
+    }
+  }
+
+  private void compileOverworldChunk(
+      GameChunkData data,
+      ColorFormat format,
+      int x, int z
+  ) {
+    Chunk chunk = data.getChunk();
+    BlockState highestBlock = this.getBlockState(chunk, x, z);
+    BlockState block = this.getBlockState(chunk, x, z);
+    if (highestBlock == null || block == null) {
+      data.setColor(x, z, 0xFF000000);
+      return;
+    }
+
+    int baseColor = format.withAlpha(this.getColor(format, block), 255);
+    BlockState above = this.getBlockAbove(chunk, block);
+
+    data.setHeight(
+        x, z,
+        highestBlock.position().getY() - (highestBlock.hasCollision() ? 0 : 1)
+    );
+    data.setLightLevel(x, z, above);
+    if (block.isWater()) {
+      BlockState blockStateUnderWater = this.getBlockBelow(
+          chunk,
+          block,
+          state -> !state.isWater()
+      );
+
+      baseColor = format.pack(baseColor, 220);
+
+      int colorUnderWater = format.withAlpha(this.getColor(format, blockStateUnderWater), 255);
+      baseColor = ColorUtil.blendColors(colorUnderWater, baseColor);
+      data.setHeight(x, z, blockStateUnderWater.position().getY());
+    }
+
+    data.setColor(x, z, baseColor);
   }
 
   private int getColor(ColorFormat format, BlockState state) {
@@ -121,6 +191,24 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
     }
 
     return blockState;
+  }
+
+  private BlockState getBlockBelow(Chunk chunk, BlockState state) {
+    IntVector3 position = state.position();
+    int x = position.getX() & 15;
+    int y = position.getY();
+    int z = position.getZ() & 15;
+
+    return chunk.getBlockState(x, y - 1, z);
+  }
+
+  private BlockState getBlockAbove(Chunk chunk, BlockState state) {
+    IntVector3 position = state.position();
+    int x = position.getX() & 15;
+    int y = position.getY();
+    int z = position.getZ() & 15;
+
+    return chunk.getBlockState(x, y + 1, z);
   }
 
 }

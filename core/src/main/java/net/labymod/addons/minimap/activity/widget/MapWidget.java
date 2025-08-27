@@ -29,26 +29,49 @@ public class MapWidget extends SimpleWidget {
     super.renderWidget(context);
     this.renderer.setZoomSupplier(() -> this.zoom);
 
-    this.renderer.renderMinimap(() -> true, () -> {
-      Bounds bounds = this.bounds();
+    this.renderer.renderMinimap(
+        () -> true,
+        () -> {
+          Bounds bounds = this.bounds();
 
-      this.renderer.render(
-          context,
-          bounds.getX(), bounds.getY(),
-          bounds.getWidth(), bounds.getHeight()
-      );
+          // Widget area in screen pixels
+          float mapX = bounds.getX();
+          float mapY = bounds.getY();
+          float mapW = Math.max(bounds.getWidth(), 1f);
+          float mapH = Math.max(bounds.getHeight(), 1f);
 
-      MutableMouse mouse = context.mouse();
+          MinimapBounds world = this.renderer.minimapBounds();
+          int worldSpanX = Math.max(world.getX2() - world.getX1(), 1);
+          int worldSpanZ = Math.max(world.getZ2() - world.getZ1(), 1);
 
-      ScreenCanvas canvas = context.canvas();
-      float pixelSize = 2;
-      float halfPixelSize = pixelSize / 2F;
-      canvas.submitRelativeRect(
-          mouse.getX() - halfPixelSize, mouse.getY() - halfPixelSize,
-          pixelSize, pixelSize,
-          -1
-      );
-    });
+          float texelW = Math.max(1f, (float) Math.floor(mapW / worldSpanX));
+          float texelH = Math.max(1f, (float) Math.floor(mapH / worldSpanZ));
+
+          this.renderer.render(
+              context,
+              bounds.getX(), bounds.getY(),
+              bounds.getWidth(), bounds.getHeight()
+          );
+
+          MutableMouse mouse = context.mouse();
+
+          ScreenCanvas canvas = context.canvas();
+
+          // Snap the mouse to the texel grid
+          int gridX = (int) Math.floor((mouse.getX() - mapX) / texelW);
+          int gridY = (int) Math.floor((mouse.getY() - mapY) / texelH);
+
+          // Convert back to screen position, locked to texel grid
+          float snappedX = mapX + gridX * texelW;
+          float snappedY = mapY + gridY * texelH;
+
+          canvas.submitRelativeRect(
+              snappedX, snappedY,
+              texelW, texelH,
+              0x80FFFFFF
+          );
+        }
+    );
   }
 
   public @Nullable Vector2f resolveBlockCoordinates(Mouse mouse) {
