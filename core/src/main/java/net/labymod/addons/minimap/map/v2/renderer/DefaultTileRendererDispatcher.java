@@ -23,7 +23,7 @@ public class DefaultTileRendererDispatcher implements TileRendererDispatcher {
     this.renderers = new ArrayList<>();
 
     this.register(PlayerTileRenderer::new);
-    this.register(EntityTileRenderer::new);
+    //this.register(EntityTileRenderer::new);
   }
 
   @Subscribe
