@@ -28,9 +28,6 @@ public class MinimapConfiguration extends AddonConfig implements MinimapConfig {
   @SwitchSetting
   private final ConfigProperty<Boolean> jumpBouncing = ConfigProperty.create(false);
 
-  @SwitchSetting
-  private final ConfigProperty<Boolean> autoZoom = ConfigProperty.create(false);
-
   @SliderSetting(min = 2, max = 30)
   private final ConfigProperty<Integer> zoom = ConfigProperty.create(12);
 
@@ -61,11 +58,6 @@ public class MinimapConfiguration extends AddonConfig implements MinimapConfig {
   @Override
   public ConfigProperty<Boolean> jumpBouncing() {
     return this.jumpBouncing;
-  }
-
-  @Override
-  public ConfigProperty<Boolean> autoZoom() {
-    return this.autoZoom;
   }
 
   @Override

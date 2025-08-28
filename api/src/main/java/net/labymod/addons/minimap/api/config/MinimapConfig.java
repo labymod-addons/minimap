@@ -12,8 +12,6 @@ public interface MinimapConfig {
 
   ConfigProperty<Boolean> jumpBouncing();
 
-  ConfigProperty<Boolean> autoZoom();
-
   ConfigProperty<Integer> zoom();
 
   ConfigProperty<Integer> tileSize();

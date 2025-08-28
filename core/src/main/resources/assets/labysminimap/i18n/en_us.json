@@ -16,9 +16,6 @@
       "jumpBouncing": {
         "name": "Jump bouncing"
       },
-      "autoZoom": {
-        "name": "Auto zoom"
-      },
       "zoom": {
         "name": "Zoom"
       },
