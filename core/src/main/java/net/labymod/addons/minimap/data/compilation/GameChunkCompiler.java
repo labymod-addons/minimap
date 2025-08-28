@@ -1,6 +1,8 @@
 package net.labymod.addons.minimap.data.compilation;
 
 import java.util.function.Function;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.data.GameChunkData;
 import net.labymod.api.Laby;
@@ -36,17 +38,6 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
 
   @Override
   public void compile(GameChunkData data) {
-    this.compileChunk(data, this.playerY);
-  }
-
-  public void setPlayerPosition(int x, int y, int z, boolean underground) {
-    this.playerX = x;
-    this.playerY = y;
-    this.playerZ = z;
-    this.underground = underground;
-  }
-
-  private void compileChunk(GameChunkData data, int midY) {
     ColorFormat format = ColorFormat.ARGB32;
     for (int x = 0; x < ChunkData.CHUNK_SIZE; x++) {
       for (int z = 0; z < ChunkData.CHUNK_SIZE; z++) {
@@ -59,41 +50,71 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
     }
   }
 
+  public void setPlayerPosition(int x, int y, int z, boolean underground) {
+    this.playerX = x;
+    this.playerY = y;
+    this.playerZ = z;
+    this.underground = underground;
+  }
+
   private void compileUndergroundChunk(GameChunkData data, ColorFormat format, int x, int z) {
+    // Fallback/clear
     data.setColor(x, z, 0xFF000000);
-    int depth = this.playerY;
-    Chunk chunk = data.getChunk();
-    BlockState[] heightArray = new BlockState[21];
-    int height = 1;
-    for (int s = 0; s > -20; s--) {
-      BlockState block = chunk.getBlockState(x, depth + s, z);
-      height--;
-      heightArray[s * -1] = block;
-      if (!block.block().isAir()) {
-        break;
-      }
+
+    final Chunk chunk = data.getChunk();
+    final int depth = this.playerY;
+
+    final int minBuildHeight = this.level.getMinBuildHeight();
+    final int minScanY = Math.max(minBuildHeight, depth - 20);
+    final int maxScanY = depth + 2;
+
+    // 1) Probe downward from depth to find first non-air within [-20 .. 0]
+    int startY = depth;
+    BlockState state = chunk.getBlockState(x, startY, z);
+    while (startY > minScanY && (state == null || state.block().isAir())) {
+      startY--;
+      state = chunk.getBlockState(x, startY, z);
+    }
+    // Clamp if we went below window, and ensure we have the state for startY
+    if (startY < minScanY) {
+      startY = minScanY;
+      state = chunk.getBlockState(x, startY, z);
     }
 
-    for (int h = height; h < 3; h++) {
-      int blockY = depth + h;
+    // 2) Single upward pass with rolling window: (state, above)
+    BlockState above = chunk.getBlockState(x, startY + 1, z);
 
-      BlockState state = h < 0 ? heightArray[h * -1] : chunk.getBlockState(x, blockY, z);
-
-      if (!state.block().isAir()) {
-
-        BlockState blockAbove = this.getBlockAbove(chunk, state);
-
-        Block block = blockAbove.block();
-        if (!block.isAir() && !blockAbove.isFluid()) {
-          data.setColor(x, z, 0xFF000000);
-        } else {
-          data.setColor(x, z, format.withAlpha(this.getColor(format, state), 255));
-          data.setLightLevel(x, z, blockAbove);
-          data.setHeight(x, z, blockY);
+    for (int y = startY; y <= maxScanY; y++) {
+      // If current block is solid (non-air), decide rendering using "above"
+      if (state != null && !state.block().isAir()) {
+        if (above != null) {
+          Block aboveBlock = above.block();
+          if (!aboveBlock.isAir() && !above.isFluid()) {
+            // Non-fluid solid ceiling directly above -> keep black and stop
+            data.setColor(x, z, 0xFF000000);
+            return;
+          }
         }
-
+        final int blockY = y;
+        final BlockState blockAbove = above;
+        this.compileChunkColor(
+            data,
+            format,
+            x, z,
+            state,
+            () -> blockY,
+            () -> blockAbove
+        );
+        return;
       }
+
+      // Advance window: move up one, fetch next "above" only once
+      final int nextY = y + 1;
+      state = above;
+      above = (nextY + 1 <= maxScanY + 1) ? chunk.getBlockState(x, nextY + 1, z) : null;
     }
+
+    // Nothing renderable found in the scan window; keep default color
   }
 
   private void compileOverworldChunk(
@@ -109,17 +130,50 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
       return;
     }
 
-    int baseColor = format.withAlpha(this.getColor(format, block), 255);
     BlockState above = this.getBlockAbove(chunk, block);
+    this.compileChunkColor(
+            data,
+            format,
+            x, z,
+            block,
+            () -> highestBlock.position().getY() - (highestBlock.hasCollision() ? 0 : 1),
+            () -> above
+        );
+  }
 
-    data.setHeight(
+  private void compileChunkColor(
+      GameChunkData data,
+      ColorFormat format,
+      int x, int z,
+      BlockState block,
+      IntSupplier defaultHeight,
+      Supplier<BlockState> lightLevelGetter
+  ) {
+    this.compileChunkColor(
+        data,
+        format,
         x, z,
-        highestBlock.position().getY() - (highestBlock.hasCollision() ? 0 : 1)
+        block,
+        defaultHeight.getAsInt(),
+        lightLevelGetter.get()
     );
-    data.setLightLevel(x, z, above);
+  }
+
+  private void compileChunkColor(
+      GameChunkData data,
+      ColorFormat format,
+      int x, int z,
+      BlockState block,
+      int defaultHeight,
+      BlockState lightLevelState
+  ) {
+    int baseColor = this.getBaseColor(format, block);
+
+    data.setHeight(x, z, defaultHeight);
+    data.setLightLevel(x, z, lightLevelState);
     if (block.isWater()) {
       BlockState blockStateUnderWater = this.getBlockBelow(
-          chunk,
+          data.getChunk(),
           block,
           state -> !state.isWater()
       );
@@ -132,6 +186,10 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
     }
 
     data.setColor(x, z, baseColor);
+  }
+
+  private int getBaseColor(ColorFormat format, BlockState state) {
+    return format.withAlpha(this.getColor(format, state), 255);
   }
 
   private int getColor(ColorFormat format, BlockState state) {
