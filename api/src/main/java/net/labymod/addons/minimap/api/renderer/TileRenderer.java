@@ -4,6 +4,7 @@ import java.util.Collection;
 import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
+import net.labymod.addons.minimap.api.map.MinimapDisplayType;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gui.screen.ScreenContext;
@@ -111,7 +112,7 @@ public abstract class TileRenderer<T> {
     return this.radius;
   }
 
-  protected boolean shouldRender(MinimapRenderEvent.Stage stage) {
+  protected boolean shouldRender(Stage stage) {
     return stage == Stage.STRAIGHT_ZOOMED_STENCIL;
   }
 
@@ -139,21 +140,36 @@ public abstract class TileRenderer<T> {
       float rotX = this.headRotationCos * this.currentPixelDistanceX - this.headRotationSin * this.currentPixelDistanceZ;
       float rotZ = this.headRotationSin * this.currentPixelDistanceX + this.headRotationCos * this.currentPixelDistanceZ;
 
-      float scaledRadius = this.getScaledRadius();
-      if (rotX < -scaledRadius) {
-        rotX = -scaledRadius;
-      }
+      float maxRadius = this.getScaledRadius();
 
-      if (rotZ < -scaledRadius) {
-        rotZ = -scaledRadius;
-      }
+      MinimapDisplayType displayType = this.configProvider.config().displayType().get();
+      switch (displayType) {
+        case ROUND -> {
+          // Clamp to circular boundary
+          float dist = (float) Math.sqrt(rotX * rotX + rotZ * rotZ);
+          if (dist > maxRadius && dist > 0.0001F) {
+            float scale = maxRadius / dist;
+            rotX *= scale;
+            rotZ *= scale;
+          }
+        }
+        case SQUARE, MINECRAFT_MAP_SQUARE -> {
+          if (rotX < -maxRadius) {
+            rotX = -maxRadius;
+          }
+          if (rotZ < -maxRadius) {
+            rotZ = -maxRadius;
+          }
 
-      if (rotX > scaledRadius) {
-        rotX = scaledRadius;
-      }
+          if (rotX > maxRadius) {
+            rotX = maxRadius;
+          }
 
-      if (rotZ > scaledRadius) {
-        rotZ = scaledRadius;
+          if (rotZ > maxRadius) {
+            rotZ = maxRadius;
+          }
+        }
+        default -> throw new IllegalStateException("Unexpected value: " + displayType);
       }
 
       Stack stack = context.stack();

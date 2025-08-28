@@ -10,6 +10,7 @@ import net.labymod.addons.waypoints.waypoint.WaypointType;
 import net.labymod.api.Laby;
 import net.labymod.api.addon.integration.AddonIntegration;
 import net.labymod.api.client.component.Component;
+import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.util.Color;
 import net.labymod.api.util.math.vector.DoubleVector3;
@@ -37,7 +38,7 @@ public class WaypointsIntegration implements AddonIntegration {
   @Subscribe
   public void onRefreshWaypoints(RefreshWaypointsEvent event) {
     this.waypointContainers.clear();
-    for (var visibleWaypoint : Waypoints.getReferences().waypointService().getVisibleWaypoints()) {
+    for (var visibleWaypoint : Waypoints.references().waypointService().getVisible()) {
       this.waypointContainers.add(new WaypointContainer(visibleWaypoint));
     }
   }
@@ -58,6 +59,10 @@ public class WaypointsIntegration implements AddonIntegration {
 
     public Color color() {
       return this.waypoint.color();
+    }
+
+    public Icon icon() {
+      return this.waypoint.meta().icon();
     }
 
     public Component title() {

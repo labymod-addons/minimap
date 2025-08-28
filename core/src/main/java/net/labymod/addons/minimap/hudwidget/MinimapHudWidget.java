@@ -122,12 +122,7 @@ public class MinimapHudWidget extends HudWidget<HudWidgetConfig> {
     this.renderMapOutline(context, size, MinimapDisplayType.Stage.AFTER_TEXTURE);
 
     if (configuration.cardinalType().get() != MinimapCardinalType.HIDDEN) {
-      context.pushStack();
-      context.translate(0F, 0F, 400.0F);
-
       this.renderCardinals(player, context);
-
-      context.popStack();
     }
 
     if (this.addon.isMinimapAllowed()) {
