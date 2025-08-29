@@ -5,6 +5,7 @@ import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
 import net.labymod.addons.minimap.api.renderer.TileRenderer;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration.WaypointContainer;
+import net.labymod.addons.minimap.util.RenderUtil;
 import net.labymod.api.Laby;
 import net.labymod.api.client.gfx.pipeline.renderer.text.FormattedTextLayout;
 import net.labymod.api.client.gui.icon.Icon;
@@ -12,6 +13,7 @@ import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.util.Color;
+import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.math.MathHelper;
 
 public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
@@ -53,6 +55,21 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
     }
 
     Icon icon = waypoint.icon();
+    context.pushStack();
+    context.translate(RenderUtil.SHADOW_OFFSET, RenderUtil.SHADOW_OFFSET, 0.0F);
+
+    canvas.submitIcon(
+        icon,
+        -6.5F / 2.0F,
+        -16 / 2.0F,
+        16.0F / 2.0F,
+        16.0F / 2.0F,
+        false,
+        ColorFormat.ARGB32.mul(waypoint.color().get(), RenderUtil.SHADOW_SCALE, RenderUtil.SHADOW_SCALE, RenderUtil.SHADOW_SCALE, 1.0F)
+    );
+
+    context.popStack();
+
     canvas.submitIcon(
         icon,
         -6.5F / 2.0F,
@@ -62,8 +79,6 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
         false,
         waypoint.color().get()
     );
-
-
   }
 
   @Override
