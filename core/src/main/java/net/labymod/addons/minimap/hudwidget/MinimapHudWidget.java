@@ -9,6 +9,7 @@ import net.labymod.addons.minimap.api.map.MinimapCircle;
 import net.labymod.addons.minimap.api.map.MinimapDisplayType;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
+import net.labymod.addons.minimap.hudwidget.MinimapHudWidget.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
@@ -22,12 +23,15 @@ import net.labymod.api.client.gui.hud.position.HudSize;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
+import net.labymod.api.client.gui.screen.widget.widgets.input.ButtonWidget.ButtonSetting;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.configuration.loader.annotation.SpriteSlot;
+import net.labymod.api.configuration.settings.Setting;
+import net.labymod.api.util.MethodOrder;
 import net.labymod.api.util.math.position.Position;
 
 @SpriteSlot(size = 32)
-public class MinimapHudWidget extends HudWidget<HudWidgetConfig> {
+public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   private final MinimapRenderEvent renderEvent = new MinimapRenderEvent();
 
@@ -42,7 +46,7 @@ public class MinimapHudWidget extends HudWidget<HudWidgetConfig> {
 
 
   public MinimapHudWidget(MinimapAddon addon, MinimapRenderer renderer) {
-    super("minimap", HudWidgetConfig.class);
+    super("minimap", MinimapHudWidgetConfig.class);
 
     this.bindCategory(HudWidgetCategory.INGAME);
 
@@ -57,7 +61,7 @@ public class MinimapHudWidget extends HudWidget<HudWidgetConfig> {
   }
 
   @Override
-  public void load(HudWidgetConfig config) {
+  public void load(MinimapHudWidgetConfig config) {
     super.load(config);
 
     this.renderer.initialize();
@@ -67,7 +71,6 @@ public class MinimapHudWidget extends HudWidget<HudWidgetConfig> {
   public void updateSize(HudWidgetWidget widget, boolean isEditorContext, HudSize size) {
     size.set(150F, 150F);
   }
-
 
   @Override
   public void render(ScreenContext context, boolean isEditorContext, HudSize size) {
@@ -266,4 +269,18 @@ public class MinimapHudWidget extends HudWidget<HudWidgetConfig> {
     return this.renderer.configuration();
   }
 
+  public static class MinimapHudWidgetConfig extends HudWidgetConfig {
+
+    // TODO (Christian) [dev/next]: Fix
+    @MethodOrder(after = "verticalOrientation")
+    @ButtonSetting
+    public void openSettings() {
+      Setting setting = Laby.labyAPI().coreSettingRegistry().getById(Util.NAMESPACE);
+      if (setting != null) {
+        Laby.labyAPI().showSetting(setting);
+      }
+    }
+
+  }
+  
 }
