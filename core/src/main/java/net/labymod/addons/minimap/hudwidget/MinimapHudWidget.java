@@ -81,6 +81,10 @@ public class MinimapHudWidget extends HudWidget<HudWidgetConfig> {
       return;
     }
 
+    context.pushStack();
+    context.translate(size.getActualWidth() / 2F, size.getActualHeight() / 2F, 0F);
+    context.scale(0.95F,0.95F, 1F);
+    context.translate(-size.getActualWidth() / 2F, -size.getActualHeight() / 2F, 0F);
     float radius = size.getActualWidth() / 2F;
     if (this.lastRadius != radius) {
       this.distanceToCorner = (float) Math.sqrt(radius * radius + radius * radius);
@@ -138,6 +142,7 @@ public class MinimapHudWidget extends HudWidget<HudWidgetConfig> {
     context.popStack();
 
     this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL);
+    context.popStack();
   }
 
   @Override
