@@ -19,7 +19,11 @@ public enum MinimapPlayerIcon {
   }
 
   public void render(ScreenContext context, float size, Color color) {
+    this.render(context, size, color.get());
+  }
+
+  public void render(ScreenContext context, float size, int color) {
     float center = -size / 2;
-    context.canvas().submitIcon(this.icon, center, center, size, size, false, color.get());
+    context.canvas().submitIcon(this.icon, center, center, size, size, false, color);
   }
 }
