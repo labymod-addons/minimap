@@ -143,33 +143,30 @@ public abstract class TileRenderer<T> {
       float maxRadius = this.getScaledRadius();
 
       MinimapDisplayType displayType = this.configProvider.hudWidgetConfig().displayType().get();
-      switch (displayType) {
-        case ROUND -> {
-          // Clamp to circular boundary
-          float dist = (float) Math.sqrt(rotX * rotX + rotZ * rotZ);
-          if (dist > maxRadius && dist > 0.0001F) {
-            float scale = maxRadius / dist;
-            rotX *= scale;
-            rotZ *= scale;
-          }
-        }
-        case SQUARE, MINECRAFT_MAP_SQUARE -> {
-          if (rotX < -maxRadius) {
-            rotX = -maxRadius;
-          }
-          if (rotZ < -maxRadius) {
-            rotZ = -maxRadius;
-          }
 
-          if (rotX > maxRadius) {
-            rotX = maxRadius;
-          }
-
-          if (rotZ > maxRadius) {
-            rotZ = maxRadius;
-          }
+      if (displayType.isCircle()) {
+        // Clamp to circular boundary
+        float dist = (float) Math.sqrt(rotX * rotX + rotZ * rotZ);
+        if (dist > maxRadius && dist > 0.0001F) {
+          float scale = maxRadius / dist;
+          rotX *= scale;
+          rotZ *= scale;
         }
-        default -> throw new IllegalStateException("Unexpected value: " + displayType);
+      } else {
+        if (rotX < -maxRadius) {
+          rotX = -maxRadius;
+        }
+        if (rotZ < -maxRadius) {
+          rotZ = -maxRadius;
+        }
+
+        if (rotX > maxRadius) {
+          rotX = maxRadius;
+        }
+
+        if (rotZ > maxRadius) {
+          rotZ = maxRadius;
+        }
       }
 
       Stack stack = context.stack();

@@ -16,7 +16,20 @@ public enum MinimapDisplayType {
             radius - Util.BORDER_PADDING,
             Integer.MAX_VALUE
         );
-      }
+      },
+      true
+  ),
+  ROUND_FUTURE(
+      Stage.AFTER_TEXTURE,
+      Icon.texture(Util.newThemeLocation("overlay/round_future")),
+      (context, radius) -> {
+        context.canvas().submitCircle(
+            radius, radius,
+            radius - Util.BORDER_PADDING,
+            Integer.MAX_VALUE
+        );
+      },
+      true
   ),
   SQUARE(
       Stage.AFTER_TEXTURE,
@@ -46,11 +59,17 @@ public enum MinimapDisplayType {
   private final Stage stage;
   private final Icon icon;
   private final MinimapStencil stencil;
+  private final boolean circle;
 
   MinimapDisplayType(Stage stage, Icon icon, MinimapStencil stencil) {
+    this(stage, icon, stencil, false);
+  }
+
+  MinimapDisplayType(Stage stage, Icon icon, MinimapStencil stencil, boolean circle) {
     this.stage = stage;
     this.icon = icon;
     this.stencil = stencil;
+    this.circle = circle;
   }
 
   @NotNull
@@ -66,6 +85,10 @@ public enum MinimapDisplayType {
   @NotNull
   public MinimapStencil stencil() {
     return this.stencil;
+  }
+
+  public boolean isCircle() {
+    return this.circle;
   }
 
   public void renderStencil(ScreenContext context, float radius) {
