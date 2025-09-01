@@ -45,7 +45,7 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
             waypoint.title(),
             0, -8F - (canvas.getLineHeight() * scale),
             Color.withAlpha(0xFFFFFF, alpha),
-            Color.withAlpha(0xFF0000, MathHelper.clamp(alpha, 0, 100)),
+            Color.withAlpha(0x000000, MathHelper.clamp(alpha, 0, 100)),
             scale,
             TextFlags.SHADOW | TextFlags.CENTERED
         );
