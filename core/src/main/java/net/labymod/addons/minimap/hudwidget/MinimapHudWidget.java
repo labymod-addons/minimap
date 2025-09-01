@@ -21,6 +21,7 @@ import net.labymod.api.client.gui.hud.hudwidget.HudWidget;
 import net.labymod.api.client.gui.hud.hudwidget.HudWidgetConfig;
 import net.labymod.api.client.gui.hud.position.HudSize;
 import net.labymod.api.client.gui.screen.ScreenContext;
+import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
 import net.labymod.api.client.gui.screen.widget.widgets.input.SliderWidget.SliderSetting;
@@ -33,10 +34,15 @@ import net.labymod.api.configuration.loader.annotation.SpriteSlot;
 import net.labymod.api.configuration.loader.property.ConfigProperty;
 import net.labymod.api.configuration.settings.annotation.SettingSection;
 import net.labymod.api.util.Color;
+import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.position.Position;
 
 @SpriteSlot(size = 32)
 public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
+
+  private static final float DEFAULT_MINIMAP_WIDTH = 150.0F;
+  private static final float DEFAULT_MINIMAP_HEIGHT = 150.0F;
+  private static final float DEFAULT_TEXT_LINE_HEIGHT = 10.0F;
 
   private final MinimapRenderEvent renderEvent = new MinimapRenderEvent();
 
@@ -74,13 +80,24 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   @Override
   public void updateSize(HudWidgetWidget widget, boolean isEditorContext, HudSize size) {
-    size.set(150F, 150F);
+    size.set(DEFAULT_MINIMAP_WIDTH, DEFAULT_MINIMAP_HEIGHT);
+    if (this.config.showCoordinates().get()) {
+      size.set(DEFAULT_MINIMAP_WIDTH, DEFAULT_MINIMAP_HEIGHT + DEFAULT_TEXT_LINE_HEIGHT);
+    }
+
   }
 
   @Override
   public void render(ScreenContext context, boolean isEditorContext, HudSize size) {
+    HudSize newHudSize = size;
+    boolean showCoordinates = this.config.showCoordinates().get();
+    if (showCoordinates) {
+      newHudSize = newHudSize.copy();
+      newHudSize.setHeight(newHudSize.getActualHeight() - DEFAULT_TEXT_LINE_HEIGHT);
+    }
+
     if (!this.labyAPI.minecraft().isIngame()) {
-      this.renderMapOutline(context, size, null);
+      this.renderMapOutline(context, newHudSize, null);
       return;
     }
 
@@ -89,21 +106,42 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       return;
     }
 
+    Position position = player.position();
+
+    ScreenCanvas canvas = context.canvas();
+    if (showCoordinates) {
+      String coordinatesText = "X: "
+          + MathHelper.floor(position.getX())
+          + " Y: "
+          + MathHelper.floor(position.getY())
+          + " Z: "
+          + MathHelper.floor(position.getZ());
+      canvas.submitText(
+          coordinatesText,
+          newHudSize.getActualWidth() / 2.0F,
+          newHudSize.getActualHeight(),
+          -1,
+          1.0F,
+          TextFlags.SHADOW | TextFlags.CENTERED
+      );
+    }
+
+
     context.pushStack();
-    context.translate(size.getActualWidth() / 2F, size.getActualHeight() / 2F, 0F);
+    context.translate(newHudSize.getActualWidth() / 2F, newHudSize.getActualHeight() / 2F, 0F);
     context.scale(0.95F,0.95F, 1F);
-    context.translate(-size.getActualWidth() / 2F, -size.getActualHeight() / 2F, 0F);
-    float radius = size.getActualWidth() / 2F;
+    context.translate(-newHudSize.getActualWidth() / 2F, -newHudSize.getActualHeight() / 2F, 0F);
+    float radius = newHudSize.getActualWidth() / 2F;
     if (this.lastRadius != radius) {
       this.distanceToCorner = (float) Math.sqrt(radius * radius + radius * radius);
       this.lastRadius = radius;
     }
 
-    this.renderEvent.fill(context, size, new MinimapBounds(), this.circle);
+    this.renderEvent.fill(context, newHudSize, new MinimapBounds(), this.circle);
     var configuration = this.configuration();
-    this.circle.init(configuration.displayType().get(), size, this.distanceToCorner);
+    this.circle.init(configuration.displayType().get(), newHudSize, this.distanceToCorner);
 
-    this.renderMapOutline(context, size, MinimapDisplayType.Stage.BEFORE_TEXTURE);
+    this.renderMapOutline(context, newHudSize, MinimapDisplayType.Stage.BEFORE_TEXTURE);
 
     RenderAttributesStack renderAttributesStack = Laby.references().renderEnvironmentContext().renderAttributesStack();
     RenderAttributes renderAttributes = renderAttributesStack.pushAndGet();
@@ -115,8 +153,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     if (this.addon.isMinimapAllowed()) {
       context.pushStack();
 
-      this.applyZoom(player, context, size, true);
-      this.renderMapTexture(player, context, size);
+      this.applyZoom(player, context, newHudSize, true);
+      this.renderMapTexture(player, context, newHudSize);
 
       this.renderEvent.fireWithStage(Stage.ROTATED_STENCIL);
 
@@ -124,14 +162,14 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     }
 
     context.pushStack();
-    this.applyZoom(player, context, size, false);
+    this.applyZoom(player, context, newHudSize, false);
     this.renderEvent.fireWithStage(Stage.STRAIGHT_ZOOMED_STENCIL);
     context.popStack();
 
     this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL_STENCIL);
     renderAttributesStack.pop();
 
-    this.renderMapOutline(context, size, MinimapDisplayType.Stage.AFTER_TEXTURE);
+    this.renderMapOutline(context, newHudSize, MinimapDisplayType.Stage.AFTER_TEXTURE);
 
     if (configuration.cardinalType().get() != MinimapCardinalType.HIDDEN) {
       this.renderCardinals(player, context);
@@ -139,13 +177,13 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     if (this.addon.isMinimapAllowed()) {
       context.pushStack();
-      this.applyZoom(player, context, size, true);
+      this.applyZoom(player, context, newHudSize, true);
       this.renderEvent.fireWithStage(Stage.ROTATED);
       context.popStack();
     }
 
     context.pushStack();
-    this.applyZoom(player, context, size, false);
+    this.applyZoom(player, context, newHudSize, false);
     this.renderEvent.fireWithStage(Stage.STRAIGHT_ZOOMED);
     context.popStack();
 
@@ -294,6 +332,9 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     @DropdownEntryTranslationPrefix(Util.NAMESPACE + ".hudWidget.minimap.cardinalType.entries")
     private final ConfigProperty<MinimapCardinalType> cardinalType = ConfigProperty.create(MinimapCardinalType.NORMAL);
 
+    @SwitchSetting
+    private final ConfigProperty<Boolean> showCoordinates = ConfigProperty.create(false);
+
     @SettingSection("tiles")
     @SliderSetting(min = 4, max = 16)
     private final ConfigProperty<Integer> tileSize = ConfigProperty.create(12);
@@ -325,6 +366,10 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     @Override
     public ConfigProperty<Integer> zoom() {
       return this.zoom;
+    }
+
+    public ConfigProperty<Boolean> showCoordinates() {
+      return this.showCoordinates;
     }
 
     @Override

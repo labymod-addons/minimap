@@ -40,6 +40,9 @@
             "numbers": "0, 1, 2, 3"
           }
         },
+        "showCoordinates": {
+          "name": "Show Coordinates"
+        },
         "tileSize": {
           "name": "Tile Size",
           "description": "Size of the tiles (Player heads, Waypoints) on the Minimap"
