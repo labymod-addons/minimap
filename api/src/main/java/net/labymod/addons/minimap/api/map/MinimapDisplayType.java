@@ -19,13 +19,25 @@ public enum MinimapDisplayType {
       },
       true
   ),
-  ROUND_FUTURE(
+  ROUND_FUTURE_WIDE(
       Stage.AFTER_TEXTURE,
-      Icon.texture(Util.newThemeLocation("overlay/round_future")),
+      Icon.texture(Util.newThemeLocation("overlay/round_future_wide")),
       (context, radius) -> {
         context.canvas().submitCircle(
             radius, radius,
             radius - Util.BORDER_PADDING,
+            Integer.MAX_VALUE
+        );
+      },
+      true
+  ),
+  ROUND_FUTURE_THIN(
+      Stage.AFTER_TEXTURE,
+      Icon.texture(Util.newThemeLocation("overlay/round_future_thin")),
+      (context, radius) -> {
+        context.canvas().submitCircle(
+            radius, radius,
+            radius - Util.BORDER_PADDING + 1,
             Integer.MAX_VALUE
         );
       },

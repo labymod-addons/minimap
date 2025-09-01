@@ -319,7 +319,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.displayType.entries")
     @DropdownSetting
     private final ConfigProperty<MinimapDisplayType> displayType = ConfigProperty.createEnum(
-        MinimapDisplayType.ROUND
+        MinimapDisplayType.ROUND_FUTURE_THIN
     );
 
     @SwitchSetting

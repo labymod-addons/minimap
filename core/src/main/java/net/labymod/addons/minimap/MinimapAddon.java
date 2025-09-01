@@ -16,6 +16,7 @@ import net.labymod.api.Laby;
 import net.labymod.api.addon.LabyAddon;
 import net.labymod.api.models.Implements;
 import net.labymod.api.models.addon.annotation.AddonMain;
+import net.labymod.laby3d.api.util.Util;
 
 @AddonMain
 @Singleton
@@ -30,6 +31,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
 
   @Override
   protected void enable() {
+    Util.NATIVE_BOUNDS_CHECK_ENABLED = true;
     this.registerSettingCategory();
     MinimapAddon.references = this.referenceStorageAccessor();
 

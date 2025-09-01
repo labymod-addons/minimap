@@ -13,7 +13,8 @@
           "name": "Display",
           "entries": {
             "round": "Round",
-            "roundFuture": "Round Future",
+            "roundFutureWide": "Round Future Wide",
+            "roundFutureThin": "Round Future Thin",
             "square": "Square",
             "minecraftMapSquare": "Minecraft Map"
           }
