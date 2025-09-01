@@ -126,10 +126,9 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       );
     }
 
-
     context.pushStack();
     context.translate(newHudSize.getActualWidth() / 2F, newHudSize.getActualHeight() / 2F, 0F);
-    context.scale(0.95F,0.95F, 1F);
+    context.scale(Util.MINIMAP_SCALE, Util.MINIMAP_SCALE, 1F);
     context.translate(-newHudSize.getActualWidth() / 2F, -newHudSize.getActualHeight() / 2F, 0F);
     float radius = newHudSize.getActualWidth() / 2F;
     if (this.lastRadius != radius) {
@@ -143,7 +142,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     this.renderMapOutline(context, newHudSize, MinimapDisplayType.Stage.BEFORE_TEXTURE);
 
-    RenderAttributesStack renderAttributesStack = Laby.references().renderEnvironmentContext().renderAttributesStack();
+    RenderAttributesStack renderAttributesStack = Laby.references().renderEnvironmentContext()
+        .renderAttributesStack();
     RenderAttributes renderAttributes = renderAttributesStack.pushAndGet();
     renderAttributes.setStencilMode(StencilMode.WRITE_STENCIL);
     configuration.displayType().get().renderStencil(context, radius);
@@ -330,7 +330,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     @DropdownSetting
     @DropdownEntryTranslationPrefix(Util.NAMESPACE + ".hudWidget.minimap.cardinalType.entries")
-    private final ConfigProperty<MinimapCardinalType> cardinalType = ConfigProperty.create(MinimapCardinalType.NORMAL);
+    private final ConfigProperty<MinimapCardinalType> cardinalType = ConfigProperty.create(
+        MinimapCardinalType.NORMAL);
 
     @SwitchSetting
     private final ConfigProperty<Boolean> showCoordinates = ConfigProperty.create(false);
@@ -348,10 +349,11 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     @SettingSection("player")
     @DropdownSetting
-    private final ConfigProperty<MinimapPlayerIcon> playerIcon = ConfigProperty.create(MinimapPlayerIcon.TRIANGLE);
+    private final ConfigProperty<MinimapPlayerIcon> playerIcon = ConfigProperty.create(
+        MinimapPlayerIcon.TRIANGLE);
 
     @ColorPickerSetting(alpha = true, chroma = true)
-    private final ConfigProperty<Color> playerColor  = ConfigProperty.create(Color.WHITE);
+    private final ConfigProperty<Color> playerColor = ConfigProperty.create(Color.WHITE);
 
     @Override
     public ConfigProperty<MinimapDisplayType> displayType() {
@@ -407,5 +409,5 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       return this.playerColor;
     }
   }
-  
+
 }
