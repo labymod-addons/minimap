@@ -2,22 +2,19 @@ package net.labymod.addons.minimap.map.v2;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
-import java.util.function.Supplier;
+import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
-import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.api.client.gui.screen.ScreenContext;
 
 public final class MinimapRenderer {
 
-  private final Supplier<MinimapConfiguration> configuration;
   private final MinimapBounds minimapBounds = new MinimapBounds();
   private final MiniMapView minimapView;
   private final MapView postEffectTexture;
 
-  public MinimapRenderer(Supplier<MinimapConfiguration> configuration, String suffix, ChunkDataStorage storage) {
-    this.configuration = configuration;
-    this.minimapView = new MiniMapView(configuration, storage, this.minimapBounds, suffix);
+  public MinimapRenderer(MinimapConfigProvider configProvider, String suffix, ChunkDataStorage storage) {
+    this.minimapView = new MiniMapView(configProvider, storage, this.minimapBounds, suffix);
     this.postEffectTexture = new PostEffectMapView(suffix);
   }
 
@@ -56,9 +53,4 @@ public final class MinimapRenderer {
     this.minimapView.initialize();
     this.postEffectTexture.initialize();
   }
-
-  public MinimapConfiguration configuration() {
-    return this.configuration.get();
-  }
-
 }

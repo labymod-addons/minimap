@@ -1,11 +1,10 @@
 package net.labymod.addons.minimap.map.v2;
 
 import java.util.function.IntSupplier;
-import java.util.function.Supplier;
 import net.labymod.addons.minimap.MinimapRenderStates;
+import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.util.Util;
-import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.addons.minimap.debug.MinimapDebugger;
@@ -46,7 +45,7 @@ public class MiniMapView extends MapView {
   private static final FloatVector2 SUN_POSITION = new FloatVector2(0.9F, -1.0F);
   private static final int SKY_COLOR = ColorFormat.ARGB32.pack(142, 163, 255, 255);
 
-  private final Supplier<MinimapConfiguration> config;
+  private final MinimapConfigProvider configProvider;
   private final MinimapBounds minimapBounds;
   private final ChunkDataStorage storage;
   private final HeightMapView heightmapView;
@@ -67,14 +66,14 @@ public class MiniMapView extends MapView {
   private boolean changed = true;
 
   public MiniMapView(
-      Supplier<MinimapConfiguration> config,
+      MinimapConfigProvider configProvider,
       ChunkDataStorage storage,
       MinimapBounds minimapBounds,
       String suffix
   ) {
     super("minimap/level_" + suffix);
-    this.config = config;
-    this.zoomSupplier = () -> config.get().zoom().get();
+    this.configProvider = configProvider;
+    this.zoomSupplier = () -> configProvider.hudWidgetConfig().zoom().get();
     this.storage = storage;
     this.minimapBounds = minimapBounds;
     this.heightmapView = new HeightMapView(suffix);
@@ -150,7 +149,7 @@ public class MiniMapView extends MapView {
     int midX = MathHelper.floor(position.getX());
     int midZ = MathHelper.floor(position.getZ());
 
-    int zoom = this.zoomSupplier == null ? this.config.get().zoom().get() : this.zoomSupplier.getAsInt() * 10;
+    int zoom = this.zoomSupplier == null ? this.configProvider.hudWidgetConfig().zoom().get() : this.zoomSupplier.getAsInt() * 10;
     int minX = midX - zoom;
     int minZ = midZ - zoom;
     int maxX = midX + zoom;

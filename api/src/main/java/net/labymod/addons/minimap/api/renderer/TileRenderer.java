@@ -60,7 +60,7 @@ public abstract class TileRenderer<T> {
     this.playerX = (float) position.lerpX(previous, Laby.labyAPI().minecraft().getPartialTicks());
     this.playerZ = (float) position.lerpZ(previous, Laby.labyAPI().minecraft().getPartialTicks());
 
-    this.scale = this.configProvider.config().tileSize().get() / 10.0F;
+    this.scale = this.configProvider.hudWidgetConfig().tileSize().get() / 10.0F;
     this.radius = event.size().getActualWidth() / 2.0F;
 
     this.scaledRadius = this.radius / event.zoom();
@@ -142,7 +142,7 @@ public abstract class TileRenderer<T> {
 
       float maxRadius = this.getScaledRadius();
 
-      MinimapDisplayType displayType = this.configProvider.config().displayType().get();
+      MinimapDisplayType displayType = this.configProvider.hudWidgetConfig().displayType().get();
       switch (displayType) {
         case ROUND -> {
           // Clamp to circular boundary

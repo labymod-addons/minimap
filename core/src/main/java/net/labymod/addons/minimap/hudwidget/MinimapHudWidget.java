@@ -7,8 +7,8 @@ import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.map.MinimapCardinalType;
 import net.labymod.addons.minimap.api.map.MinimapCircle;
 import net.labymod.addons.minimap.api.map.MinimapDisplayType;
+import net.labymod.addons.minimap.api.map.MinimapPlayerIcon;
 import net.labymod.addons.minimap.api.util.Util;
-import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.api.Laby;
@@ -23,11 +23,16 @@ import net.labymod.api.client.gui.hud.position.HudSize;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
-import net.labymod.api.client.gui.screen.widget.widgets.input.ButtonWidget.ButtonSetting;
+import net.labymod.api.client.gui.screen.widget.widgets.input.SliderWidget.SliderSetting;
+import net.labymod.api.client.gui.screen.widget.widgets.input.SwitchWidget.SwitchSetting;
+import net.labymod.api.client.gui.screen.widget.widgets.input.color.ColorPickerWidget.ColorPickerSetting;
+import net.labymod.api.client.gui.screen.widget.widgets.input.dropdown.DropdownWidget.DropdownEntryTranslationPrefix;
+import net.labymod.api.client.gui.screen.widget.widgets.input.dropdown.DropdownWidget.DropdownSetting;
 import net.labymod.api.client.render.matrix.Stack;
 import net.labymod.api.configuration.loader.annotation.SpriteSlot;
-import net.labymod.api.configuration.settings.Setting;
-import net.labymod.api.util.MethodOrder;
+import net.labymod.api.configuration.loader.property.ConfigProperty;
+import net.labymod.api.configuration.settings.annotation.SettingSection;
+import net.labymod.api.util.Color;
 import net.labymod.api.util.math.position.Position;
 
 @SpriteSlot(size = 32)
@@ -95,7 +100,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     }
 
     this.renderEvent.fill(context, size, new MinimapBounds(), this.circle);
-    MinimapConfiguration configuration = this.configuration();
+    var configuration = this.configuration();
     this.circle.init(configuration.displayType().get(), size, this.distanceToCorner);
 
     this.renderMapOutline(context, size, MinimapDisplayType.Stage.BEFORE_TEXTURE);
@@ -161,7 +166,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     Position position = player.position();
     Position previousPosition = player.previousPosition();
 
-    MinimapConfiguration configuration = this.configuration();
+    var configuration = this.configuration();
     if (configuration.jumpBouncing().get()) {
       addZoom += (previousPosition.getY() - position.getY()) / 20.0D;
     }
@@ -192,7 +197,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     smoothX -= mapMidX;
     smoothZ -= mapMidZ;
 
-    MinimapConfiguration configuration = this.configuration();
+    var configuration = this.configuration();
     float pixelLength = size.getActualWidth() / (configuration.zoom().get() * 10F) / 2;
     double offsetX = -pixelLength * smoothX;
     double offsetZ = pixelLength * smoothZ;
@@ -221,7 +226,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   private void renderMapOutline(ScreenContext context, HudSize size,
       MinimapDisplayType.Stage stage) {
-    MinimapConfiguration configuration = this.configuration();
+    var configuration = this.configuration();
     MinimapDisplayType displayType = configuration.displayType().get();
     if (stage != null && displayType.stage() != stage) {
       return;
@@ -237,7 +242,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   }
 
   private void renderCardinals(ClientPlayer player, ScreenContext context) {
-    MinimapConfiguration configuration = this.configuration();
+    var configuration = this.configuration();
     MinimapCardinalType type = configuration.cardinalType().get();
     boolean numbers = type == MinimapCardinalType.NUMBERS;
     String[] cardinals = numbers
@@ -265,22 +270,74 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     }
   }
 
-  private MinimapConfiguration configuration() {
-    return this.renderer.configuration();
+  private MinimapHudWidgetConfig configuration() {
+    return this.getConfig();
   }
 
-  public static class MinimapHudWidgetConfig extends HudWidgetConfig {
+  public static class MinimapHudWidgetConfig
+      extends HudWidgetConfig
+      implements net.labymod.addons.minimap.api.config.MinimapHudWidgetConfig {
 
-    // TODO (Christian) [dev/next]: Fix
-    @MethodOrder(after = "verticalOrientation")
-    @ButtonSetting
-    public void openSettings() {
-      Setting setting = Laby.labyAPI().coreSettingRegistry().getById(Util.NAMESPACE);
-      if (setting != null) {
-        Laby.labyAPI().showSetting(setting);
-      }
+    @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.displayType.entries")
+    @DropdownSetting
+    private final ConfigProperty<MinimapDisplayType> displayType = ConfigProperty.createEnum(
+        MinimapDisplayType.ROUND
+    );
+
+    @SwitchSetting
+    private final ConfigProperty<Boolean> jumpBouncing = ConfigProperty.create(false);
+
+    @SliderSetting(min = 2, max = 30)
+    private final ConfigProperty<Integer> zoom = ConfigProperty.create(12);
+
+    @SliderSetting(min = 2, max = 30)
+    private final ConfigProperty<Integer> tileSize = ConfigProperty.create(12);
+
+    @DropdownSetting
+    @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.cardinalType.entries")
+    private final ConfigProperty<MinimapCardinalType> cardinalType = ConfigProperty.create(MinimapCardinalType.NORMAL);
+
+    @SettingSection("player")
+    @DropdownSetting
+    private final ConfigProperty<MinimapPlayerIcon> playerIcon = ConfigProperty.create(MinimapPlayerIcon.TRIANGLE);
+
+    @ColorPickerSetting(alpha = true, chroma = true)
+    private final ConfigProperty<Color> playerColor  = ConfigProperty.create(Color.WHITE);
+
+    @Override
+    public ConfigProperty<MinimapDisplayType> displayType() {
+      return this.displayType;
     }
 
+    @Override
+    public ConfigProperty<Boolean> jumpBouncing() {
+      return this.jumpBouncing;
+    }
+
+    @Override
+    public ConfigProperty<Integer> zoom() {
+      return this.zoom;
+    }
+
+    @Override
+    public ConfigProperty<Integer> tileSize() {
+      return this.tileSize;
+    }
+
+    @Override
+    public ConfigProperty<MinimapCardinalType> cardinalType() {
+      return this.cardinalType;
+    }
+
+    @Override
+    public ConfigProperty<MinimapPlayerIcon> playerIcon() {
+      return this.playerIcon;
+    }
+
+    @Override
+    public ConfigProperty<Color> playerColor() {
+      return this.playerColor;
+    }
   }
   
 }

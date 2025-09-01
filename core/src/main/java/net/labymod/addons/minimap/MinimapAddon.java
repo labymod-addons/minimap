@@ -3,6 +3,7 @@ package net.labymod.addons.minimap;
 import javax.inject.Singleton;
 import net.labymod.addons.minimap.api.config.MinimapConfig;
 import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
+import net.labymod.addons.minimap.api.config.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.generated.ReferenceStorage;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
@@ -37,7 +38,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     this.registerListener(storage);
 
     var references = Laby.references();
-    this.minimapRenderer = new MinimapRenderer(this::configuration, "hud", storage);
+    this.minimapRenderer = new MinimapRenderer(this, "hud", storage);
     references.hudWidgetRegistry().register(this.hudWidget = new MinimapHudWidget(this, this.minimapRenderer));
 
     this.servers.init();
@@ -78,5 +79,10 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
   @Override
   public MinimapConfig config() {
     return this.configuration();
+  }
+
+  @Override
+  public MinimapHudWidgetConfig hudWidgetConfig() {
+    return this.hudWidget.getConfig();
   }
 }

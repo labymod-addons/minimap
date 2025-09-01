@@ -7,4 +7,6 @@ public interface MinimapConfigProvider {
 
   MinimapConfig config();
 
+  MinimapHudWidgetConfig hudWidgetConfig();
+
 }
