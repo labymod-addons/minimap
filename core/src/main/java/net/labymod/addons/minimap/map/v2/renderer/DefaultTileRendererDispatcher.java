@@ -29,7 +29,9 @@ public class DefaultTileRendererDispatcher implements TileRendererDispatcher {
   @Subscribe
   public void onRender(MinimapRenderEvent event) {
     for (TileRenderer<?> renderer : this.renderers) {
-      renderer.renderTile(event);
+      if (renderer.isEnabled()) {
+        renderer.renderTile(event);
+      }
     }
   }
 

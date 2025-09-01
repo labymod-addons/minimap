@@ -82,6 +82,11 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
   }
 
   @Override
+  public boolean isEnabled() {
+    return this.configProvider().hudWidgetConfig().showWaypoints().get();
+  }
+
+  @Override
   protected float getTileX(WaypointContainer waypoint) {
     return (float) waypoint.position().getX();
   }

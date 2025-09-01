@@ -290,12 +290,20 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     @SliderSetting(min = 2, max = 30)
     private final ConfigProperty<Integer> zoom = ConfigProperty.create(12);
 
-    @SliderSetting(min = 2, max = 30)
+    @DropdownSetting
+    @DropdownEntryTranslationPrefix(Util.NAMESPACE + ".hudWidget.minimap.cardinalType.entries")
+    private final ConfigProperty<MinimapCardinalType> cardinalType = ConfigProperty.create(MinimapCardinalType.NORMAL);
+
+    @SettingSection("tiles")
+    @SliderSetting(min = 4, max = 16)
     private final ConfigProperty<Integer> tileSize = ConfigProperty.create(12);
 
-    @DropdownSetting
-    @DropdownEntryTranslationPrefix("labysminimap.hudWidget.minimap.cardinalType.entries")
-    private final ConfigProperty<MinimapCardinalType> cardinalType = ConfigProperty.create(MinimapCardinalType.NORMAL);
+    @SwitchSetting
+    private final ConfigProperty<Boolean> showOwnPlayer = ConfigProperty.create(true);
+    @SwitchSetting
+    private final ConfigProperty<Boolean> showPlayers = ConfigProperty.create(true);
+    @SwitchSetting
+    private final ConfigProperty<Boolean> showWaypoints = ConfigProperty.create(true);
 
     @SettingSection("player")
     @DropdownSetting
@@ -322,6 +330,21 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     @Override
     public ConfigProperty<Integer> tileSize() {
       return this.tileSize;
+    }
+
+    @Override
+    public ConfigProperty<Boolean> showOwnPlayer() {
+      return this.showOwnPlayer;
+    }
+
+    @Override
+    public ConfigProperty<Boolean> showPlayers() {
+      return this.showPlayers;
+    }
+
+    @Override
+    public ConfigProperty<Boolean> showWaypoints() {
+      return this.showWaypoints;
     }
 
     @Override

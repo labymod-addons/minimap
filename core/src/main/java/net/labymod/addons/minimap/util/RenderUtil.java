@@ -10,7 +10,7 @@ public class RenderUtil {
   public static final float SHADOW_OFFSET = 0.5F;
   public static final float SHADOW_SCALE = 0.25F;
   public static final int SHADOW_COLOR = ColorFormat.ARGB32.mul(
-      0xFF000000,
+      0xFFffffff,
       SHADOW_SCALE,
       SHADOW_SCALE,
       SHADOW_SCALE,

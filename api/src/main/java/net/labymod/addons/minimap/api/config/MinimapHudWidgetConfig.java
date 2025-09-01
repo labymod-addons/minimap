@@ -16,6 +16,12 @@ public interface MinimapHudWidgetConfig {
 
   ConfigProperty<Integer> tileSize();
 
+  ConfigProperty<Boolean> showOwnPlayer();
+
+  ConfigProperty<Boolean> showPlayers();
+
+  ConfigProperty<Boolean> showWaypoints();
+
   ConfigProperty<MinimapCardinalType> cardinalType();
 
   ConfigProperty<MinimapPlayerIcon> playerIcon();

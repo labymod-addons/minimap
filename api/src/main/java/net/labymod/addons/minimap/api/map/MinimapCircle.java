@@ -19,6 +19,7 @@ public class MinimapCircle {
 
   public void calculate(double radians) {
     float radius = this.size.getActualWidth() / 2F;
+    radius *= 0.95F;
 
     boolean circle = this.displayType.isCircle();
 

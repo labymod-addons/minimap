@@ -75,6 +75,10 @@ public abstract class TileRenderer<T> {
     this.renderTiles(event.context(), tiles);
   }
 
+  public boolean isEnabled() {
+    return true;
+  }
+
   protected boolean shouldRenderTile(T t) {
     return true;
   }
@@ -128,6 +132,10 @@ public abstract class TileRenderer<T> {
     return (float) Math.sqrt(this.getCurrentPixelDistanceX() * this.getCurrentPixelDistanceX() + this.getCurrentPixelDistanceZ() * this.getCurrentPixelDistanceZ());
   }
 
+  protected MinimapConfigProvider configProvider() {
+    return this.configProvider;
+  }
+
   private void renderTiles(ScreenContext context, Collection<T> tiles) {
     for (T tile : tiles) {
       if (!this.shouldRenderTile(tile)) {
@@ -173,6 +181,7 @@ public abstract class TileRenderer<T> {
       stack.push();
       float radius = this.getRadius();
       stack.translate(rotX + radius, rotZ + radius, 0F);
+      stack.scale(this.getScale(), this.getScale(), 1F);
 
       this.renderTile(context, tile);
 

@@ -11,7 +11,6 @@ import net.labymod.addons.minimap.debug.ImGuiMinimapDebug;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
-import net.labymod.addons.minimap.map.v2.listener.MinimapListener;
 import net.labymod.addons.minimap.server.MinimapServers;
 import net.labymod.api.Laby;
 import net.labymod.api.addon.LabyAddon;
@@ -46,8 +45,6 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     references.addonIntegrationService()
         .registerIntegration("labyswaypoints", WaypointsIntegration.class);
 
-    MinimapConfigProvider configProvider = getReferences().minimapConfigProvider();
-    this.registerListener(new MinimapListener(configProvider));
     this.registerListener(getReferences().tileRendererDispatcher());
 
     /*

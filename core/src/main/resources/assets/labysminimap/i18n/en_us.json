@@ -13,6 +13,7 @@
           "name": "Display",
           "entries": {
             "round": "Round",
+            "roundFuture": "Round Future",
             "square": "Square",
             "minecraftMapSquare": "Minecraft Map"
           }
@@ -43,15 +44,27 @@
           "name": "Tile Size",
           "description": "Size of the tiles (Player heads, Waypoints) on the Minimap"
         },
+        "showOwnPlayer": {
+          "name": "Show Own Player"
+        },
+        "showPlayers": {
+          "name": "Show Players"
+        },
+        "showWaypoints": {
+          "name": "Show Waypoints"
+        },
         "playerIcon": {
-          "name": "Player Icon"
+          "name": "Icon"
         },
         "playerColor": {
-          "name": "Player Color"
+          "name": "Color"
         },
         "header": {
           "player": {
-            "name": "Player"
+            "name": "Own Player"
+          },
+          "tiles": {
+            "name": "Tiles"
           }
         }
       }
