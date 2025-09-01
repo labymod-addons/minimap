@@ -57,12 +57,12 @@ public class EntityTileRenderer extends TileRenderer<Entity> {
 
   @Override
   protected float getTileX(Entity entity) {
-    return entity.getPosX();
+    return (float) entity.position().getX();
   }
 
   @Override
   protected float getTileZ(Entity entity) {
-    return entity.getPosZ();
+    return (float) entity.position().getZ();
   }
 
   @Override
