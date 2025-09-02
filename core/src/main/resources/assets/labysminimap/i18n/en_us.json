@@ -13,8 +13,14 @@
           "name": "Display",
           "entries": {
             "round": "Round",
+            "roundClassic": "Round Classic",
             "roundFutureWide": "Round Future Wide",
             "roundFutureThin": "Round Future Thin",
+            "roundSimpleChrome": "Round Simple Chrome",
+            "roundSimpleMetal": "Round Simple Metal",
+            "roundMetalGold": "Round Metal Gold",
+            "roundWood": "Round Wood",
+            "squareParchment": "Square Parchment",
             "square": "Square",
             "minecraftMapSquare": "Minecraft Map"
           }
