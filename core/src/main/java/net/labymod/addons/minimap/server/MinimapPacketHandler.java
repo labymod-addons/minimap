@@ -1,6 +1,8 @@
 package net.labymod.addons.minimap.server;
 
-import net.labymod.serverapi.protocol.packet.PacketHandler;
+import java.util.UUID;
+import net.labymod.serverapi.api.packet.PacketHandler;
+import org.jetbrains.annotations.NotNull;
 
 public class MinimapPacketHandler implements PacketHandler<MinimapPacket> {
 
@@ -11,7 +13,7 @@ public class MinimapPacketHandler implements PacketHandler<MinimapPacket> {
   }
 
   @Override
-  public void handle(MinimapPacket packet) {
+  public void handle(@NotNull UUID sender, @NotNull MinimapPacket packet) {
     this.servers.setCurrentlyAllowed(packet.isAllowed());
   }
 }

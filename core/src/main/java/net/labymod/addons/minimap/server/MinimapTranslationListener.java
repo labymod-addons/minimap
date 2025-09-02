@@ -2,28 +2,24 @@ package net.labymod.addons.minimap.server;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import net.labymod.serverapi.protocol.packet.Packet;
-import net.labymod.serverapi.protocol.packet.protocol.AddonProtocol;
-import net.labymod.serverapi.protocol.packet.protocol.neo.translation.AbstractLabyMod3PayloadTranslationListener;
-import net.labymod.serverapi.protocol.payload.identifier.PayloadChannelIdentifier;
+import net.labymod.api.serverapi.KeyedTranslationListener;
+import net.labymod.serverapi.api.packet.Packet;
 
-public class MinimapTranslationListener extends AbstractLabyMod3PayloadTranslationListener {
+public class MinimapTranslationListener extends KeyedTranslationListener {
 
-  private final AddonProtocol protocol;
+  private static final String ADDONS_KEY = "addons";
 
-  public MinimapTranslationListener(AddonProtocol protocol) {
-    super(protocol, "addons");
-
-    this.protocol = protocol;
+  protected MinimapTranslationListener() {
+    super(ADDONS_KEY);
   }
 
   @Override
-  public byte[] translateIncomingPayload(JsonElement messageContent) {
-    if (!messageContent.isJsonObject()) {
+  protected Packet translateIncomingMessage(JsonElement element) {
+    if (!element.isJsonObject()) {
       return null;
     }
 
-    JsonObject object = messageContent.getAsJsonObject();
+    JsonObject object = element.getAsJsonObject();
     if (!object.has("minimap")) {
       return null;
     }
@@ -35,12 +31,11 @@ public class MinimapTranslationListener extends AbstractLabyMod3PayloadTranslati
     packet.setAllowed(!minimap.has("allowed") || minimap.get("allowed").getAsBoolean());
     packet.setFairplay(!minimap.has("fairplay") || minimap.get("fairplay").getAsBoolean());
 
-    return this.writePacketBinary(packet);
+    return packet;
   }
 
   @Override
-  public <T extends Packet> byte[] translateOutgoingPayload(T packet) {
-    return new byte[0];
+  protected JsonElement translateOutgoingMessage(Packet packet) {
+    return null;
   }
-
 }

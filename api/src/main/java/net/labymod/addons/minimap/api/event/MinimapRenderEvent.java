@@ -4,12 +4,12 @@ import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.map.MinimapCircle;
 import net.labymod.api.Laby;
 import net.labymod.api.client.gui.hud.position.HudSize;
-import net.labymod.api.client.render.matrix.Stack;
+import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.event.Event;
 
 public class MinimapRenderEvent implements Event {
 
-  private Stack stack;
+  private ScreenContext context;
   private HudSize size;
   private MinimapBounds currentBounds;
   private MinimapCircle circle;
@@ -18,8 +18,8 @@ public class MinimapRenderEvent implements Event {
 
   private Stage stage;
 
-  public void fill(Stack stack, HudSize size, MinimapBounds currentBounds, MinimapCircle circle) {
-    this.stack = stack;
+  public void fill(ScreenContext context, HudSize size, MinimapBounds currentBounds, MinimapCircle circle) {
+    this.context = context;
     this.size = size;
     this.currentBounds = currentBounds;
     this.circle = circle;
@@ -39,8 +39,8 @@ public class MinimapRenderEvent implements Event {
     Laby.fireEvent(this);
   }
 
-  public Stack stack() {
-    return this.stack;
+  public ScreenContext context() {
+    return this.context;
   }
 
   public HudSize size() {

@@ -1,0 +1,192 @@
+package net.labymod.addons.minimap.api.renderer;
+
+import java.util.Collection;
+import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
+import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
+import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
+import net.labymod.addons.minimap.api.map.MinimapDisplayType;
+import net.labymod.api.Laby;
+import net.labymod.api.client.entity.player.ClientPlayer;
+import net.labymod.api.client.gui.screen.ScreenContext;
+import net.labymod.api.client.render.matrix.Stack;
+import net.labymod.api.util.math.MathHelper;
+import net.labymod.api.util.math.position.Position;
+import org.jetbrains.annotations.NotNull;
+
+public abstract class TileRenderer<T> {
+
+  private final MinimapConfigProvider configProvider;
+
+  private ClientPlayer clientPlayer;
+  private float playerX;
+  private float playerZ;
+
+  private float scale;
+  private float scaledRadius;
+
+  private float radius;
+
+  private float headRotationCos;
+  private float headRotationSin;
+
+  private float pixelLength;
+
+  private float currentPixelDistanceX;
+  private float currentPixelDistanceZ;
+
+  protected TileRenderer(MinimapConfigProvider configProvider) {
+    this.configProvider = configProvider;
+  }
+
+  public final void renderTile(MinimapRenderEvent event) {
+    if (!this.shouldRender(event.stage())) {
+      return;
+    }
+
+    ClientPlayer clientPlayer = Laby.labyAPI().minecraft().getClientPlayer();
+    if (clientPlayer == null) {
+      return;
+    }
+
+    Collection<T> tiles = this.getTiles();
+    if (tiles.isEmpty()) {
+      return;
+    }
+
+    this.clientPlayer = clientPlayer;
+
+    Position position = clientPlayer.position();
+    Position previous = clientPlayer.previousPosition();
+    this.playerX = (float) position.lerpX(previous, Laby.labyAPI().minecraft().getPartialTicks());
+    this.playerZ = (float) position.lerpZ(previous, Laby.labyAPI().minecraft().getPartialTicks());
+
+    this.scale = this.configProvider.hudWidgetConfig().tileSize().get() / 10.0F;
+    this.radius = event.size().getActualWidth() / 2.0F;
+
+    this.scaledRadius = this.radius / event.zoom();
+
+    float headRotationAngle = -clientPlayer.getRotationHeadYaw();
+
+    this.headRotationCos = MathHelper.cos(MathHelper.toRadiansFloat(headRotationAngle));
+    this.headRotationSin = MathHelper.sin(MathHelper.toRadiansFloat(headRotationAngle));
+
+    this.pixelLength = event.pixelLength();
+
+    this.renderTiles(event.context(), tiles);
+  }
+
+  public boolean isEnabled() {
+    return true;
+  }
+
+  protected boolean shouldRenderTile(T t) {
+    return true;
+  }
+
+  protected abstract void renderTile(ScreenContext context, T t);
+
+  protected abstract float getTileX(T t);
+
+  protected abstract float getTileZ(T t);
+
+  protected abstract Collection<T> getTiles();
+
+  @NotNull
+  protected ClientPlayer clientPlayer() {
+    return this.clientPlayer;
+  }
+
+  protected float getPlayerX() {
+    return this.playerX;
+  }
+
+  protected float getPlayerZ() {
+    return this.playerZ;
+  }
+
+  protected float getScale() {
+    return this.scale;
+  }
+
+  protected float getScaledRadius() {
+    return this.scaledRadius;
+  }
+
+  protected float getRadius() {
+    return this.radius;
+  }
+
+  protected boolean shouldRender(Stage stage) {
+    return stage == Stage.STRAIGHT_ZOOMED_STENCIL;
+  }
+
+  protected float getCurrentPixelDistanceX() {
+    return this.currentPixelDistanceX;
+  }
+
+  protected float getCurrentPixelDistanceZ() {
+    return this.currentPixelDistanceZ;
+  }
+
+  protected float getCurrentDistance() {
+    return (float) Math.sqrt(this.getCurrentPixelDistanceX() * this.getCurrentPixelDistanceX() + this.getCurrentPixelDistanceZ() * this.getCurrentPixelDistanceZ());
+  }
+
+  protected MinimapConfigProvider configProvider() {
+    return this.configProvider;
+  }
+
+  private void renderTiles(ScreenContext context, Collection<T> tiles) {
+    for (T tile : tiles) {
+      if (!this.shouldRenderTile(tile)) {
+        continue;
+      }
+
+      this.currentPixelDistanceX = (this.playerX - this.getTileX(tile)) * this.pixelLength;
+      this.currentPixelDistanceZ = (this.playerZ - this.getTileZ(tile)) * this.pixelLength;
+
+      float rotX = this.headRotationCos * this.currentPixelDistanceX - this.headRotationSin * this.currentPixelDistanceZ;
+      float rotZ = this.headRotationSin * this.currentPixelDistanceX + this.headRotationCos * this.currentPixelDistanceZ;
+
+      float maxRadius = this.getScaledRadius();
+
+      MinimapDisplayType displayType = this.configProvider.hudWidgetConfig().displayType().get();
+
+      if (displayType.isCircle()) {
+        // Clamp to circular boundary
+        float dist = (float) Math.sqrt(rotX * rotX + rotZ * rotZ);
+        if (dist > maxRadius && dist > 0.0001F) {
+          float scale = maxRadius / dist;
+          rotX *= scale;
+          rotZ *= scale;
+        }
+      } else {
+        if (rotX < -maxRadius) {
+          rotX = -maxRadius;
+        }
+        if (rotZ < -maxRadius) {
+          rotZ = -maxRadius;
+        }
+
+        if (rotX > maxRadius) {
+          rotX = maxRadius;
+        }
+
+        if (rotZ > maxRadius) {
+          rotZ = maxRadius;
+        }
+      }
+
+      Stack stack = context.stack();
+      stack.push();
+      float radius = this.getRadius();
+      stack.translate(rotX + radius, rotZ + radius, 0F);
+      stack.scale(this.getScale(), this.getScale(), 1F);
+
+      this.renderTile(context, tile);
+
+      stack.pop();
+    }
+  }
+
+}

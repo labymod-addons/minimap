@@ -8,19 +8,19 @@
     },
     "hudWidget": {
       "minimap": {
-        "name": "Laby's Minimap",
+        "name": "Minimap",
         "displayType": {
           "name": "Display",
           "entries": {
             "round": "Round",
-            "square": "Square"
+            "roundFutureWide": "Round Future Wide",
+            "roundFutureThin": "Round Future Thin",
+            "square": "Square",
+            "minecraftMapSquare": "Minecraft Map"
           }
         },
         "jumpBouncing": {
           "name": "Jump bouncing"
-        },
-        "autoZoom": {
-          "name": "Auto zoom"
         },
         "zoom": {
           "name": "Zoom"
@@ -41,9 +41,35 @@
             "numbers": "0, 1, 2, 3"
           }
         },
+        "showCoordinates": {
+          "name": "Show Coordinates"
+        },
         "tileSize": {
           "name": "Tile Size",
           "description": "Size of the tiles (Player heads, Waypoints) on the Minimap"
+        },
+        "showOwnPlayer": {
+          "name": "Show Own Player"
+        },
+        "showPlayers": {
+          "name": "Show Players"
+        },
+        "showWaypoints": {
+          "name": "Show Waypoints"
+        },
+        "playerIcon": {
+          "name": "Icon"
+        },
+        "playerColor": {
+          "name": "Color"
+        },
+        "header": {
+          "player": {
+            "name": "Own Player"
+          },
+          "tiles": {
+            "name": "Tiles"
+          }
         }
       }
     }

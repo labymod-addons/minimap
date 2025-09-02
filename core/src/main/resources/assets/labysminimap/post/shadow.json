@@ -1,0 +1,48 @@
+{
+  "vertex": "labysminimap:post/shaders/shadow.vsh",
+  "fragment": "labysminimap:post/shaders/shadow.fsh",
+  "samplers": [
+    {
+      "name": "DiffuseSampler",
+      "index": 1
+    },
+    {
+      "name": "HeightmapSampler",
+      "index": 2
+    },
+    {
+      "name": "LightmapSampler",
+      "index": 3
+    }
+  ],
+  "uniformBlocks": [
+    {
+      "name": "Minimap",
+      "uniforms": [
+        {
+          "name": "PixelSize",
+          "type": "vec3"
+        },
+        {
+          "name": "SunPosition",
+          "type": "vec3"
+        },
+        {
+          "name": "DayTime",
+          "type": "float"
+        },
+        {
+          "name": "ColorAdjustments",
+          "type": "vec4"
+        }
+      ]
+    }
+  ],
+  "passes": [
+    {
+      "name": "main",
+      "sourceTarget": "minecraft:main",
+      "destinationTarget": "minecraft:main"
+    }
+  ]
+}

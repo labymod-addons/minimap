@@ -22,7 +22,6 @@ labyMod {
             }
         }
     }
-
     addonInfo {
         namespace = "labysminimap"
         displayName = "Laby's Minimap"

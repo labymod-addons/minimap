@@ -1,11 +1,26 @@
 package net.labymod.addons.minimap.server;
 
-import net.labymod.serverapi.protocol.packet.Packet;
+import net.labymod.serverapi.api.packet.Packet;
+import net.labymod.serverapi.api.payload.io.PayloadReader;
+import net.labymod.serverapi.api.payload.io.PayloadWriter;
+import org.jetbrains.annotations.NotNull;
 
 public class MinimapPacket implements Packet {
 
   private boolean allowed;
   private boolean fairplay;
+
+  @Override
+  public void read(@NotNull PayloadReader reader) {
+    this.setAllowed(reader.readBoolean());
+    this.setFairplay(reader.readBoolean());
+  }
+
+  @Override
+  public void write(@NotNull PayloadWriter writer) {
+    writer.writeBoolean(this.isAllowed());
+    writer.writeBoolean(this.isFairplay());
+  }
 
   public boolean isAllowed() {
     return this.allowed;
