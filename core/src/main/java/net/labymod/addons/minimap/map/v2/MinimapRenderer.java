@@ -324,7 +324,6 @@ public final class MinimapRenderer {
   }
 
   private void forEach(int minX, int minZ, int maxX, int maxZ, ChunkConsumer consumer) {
-    int updates = 0;
     for (int chunkX = minX; chunkX <= maxX; chunkX++) {
       for (int chunkZ = minZ; chunkZ <= maxZ; chunkZ++) {
         ChunkData chunk = this.storage.getChunk(chunkX, chunkZ);
@@ -333,11 +332,8 @@ public final class MinimapRenderer {
         }
 
         consumer.accept(chunkX, chunkZ, chunk);
-        updates++;
       }
     }
-
-    LOGGER.info("Updated " + updates + " chunks.");
   }
 
   private int normalize(int value) {
