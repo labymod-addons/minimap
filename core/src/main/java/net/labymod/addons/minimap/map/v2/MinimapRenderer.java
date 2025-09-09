@@ -203,9 +203,6 @@ public final class MinimapRenderer {
     }
   }
 
-  public void initialize() {
-  }
-
   private void refreshMinimap() {
     ClientPlayer player = Laby.labyAPI().minecraft().getClientPlayer();
     if (player == null) {
@@ -236,9 +233,8 @@ public final class MinimapRenderer {
     int midChunkX = midX >> 4;
     int midChunkZ = midZ >> 4;
 
-    boolean underground = false;//PlayerUtil.isPlayerUnderground(level, player, 10);
-
-    this.storage.setPlayerPosition(player.position(), this.lastUnderground);
+    boolean underground = false;
+    this.storage.setPlayerPosition(player.position(), false);
 
     int minChunkX = minX >> 4;
     int minChunkZ = minZ >> 4;
@@ -312,16 +308,17 @@ public final class MinimapRenderer {
       this.storage.processed();
     }
 
+    int py = MathHelper.floor(position.getY());
+    boolean changeLevel = py < this.lastPlayerY - 5 || py > this.lastPlayerY + 5;
     if ((this.lastMidChunkX != midChunkX
         && this.lastMidChunkZ != midChunkZ)
         || this.lastUnderground != underground
-        || this.lastZoom != zoom) {
+        || this.lastZoom != zoom
+    || changeLevel) {
       this.lastMidChunkX = midChunkX;
       this.lastMidChunkZ = midChunkZ;
 
       this.lastZoom = zoom;
-
-      this.lastUnderground = underground;
       this.changed = true;
     }
   }

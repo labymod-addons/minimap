@@ -117,7 +117,6 @@ public class MapWidget extends SimpleWidget {
   @Override
   public void initialize(Parent parent) {
     super.initialize(parent);
-    this.renderer.initialize();
   }
 
   @Override

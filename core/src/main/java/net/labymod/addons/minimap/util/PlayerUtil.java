@@ -18,8 +18,7 @@ public final class PlayerUtil {
       int threshold
   ) {
     return isPlayerUndergroundBySkylight(level, player)
-        || isPlayerUndergroundBySurface(level, player, threshold)
-        || isPlayerUndergroundByObstruction(level, player, 20);
+        || isPlayerUndergroundByObstruction(level, player, threshold);
   }
 
   private static boolean isPlayerUndergroundBySkylight(
@@ -83,11 +82,14 @@ public final class PlayerUtil {
 
     int maxY = level.getMaxBuildHeight();
 
-    for (int scanY = y + 1; y <= Math.min(maxY, y + scanUp); y++) {
-      BlockState state = level.getBlockState(x, scanY, z);
-      if (state != null && !state.block().isAir()) {
-        // Found a ceiling close above
-        return true;
+    // scan a 3x3 area
+    for (int scanX = x - 1; x <= Math.min(maxY, x + scanUp); x++) {
+      for (int scanZ = z - 1; z <= Math.min(maxY, z + scanUp); z++) {
+        BlockState state = level.getBlockState(scanX, y, scanZ);
+        if (state != null && !state.block().isAir()) {
+          // Found a ceiling close above
+          return true;
+        }
       }
     }
 

@@ -74,8 +74,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
   @Override
   public void load(MinimapHudWidgetConfig config) {
     super.load(config);
-
-    this.renderer.initialize();
   }
 
   @Override
