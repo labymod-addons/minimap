@@ -264,12 +264,17 @@ public class ChunkDataStorage {
 
   private void resetCompilation(ChunkData data) {
     this.compilationService.resetCompilation(data);
+    this.setShouldProcess(true);
   }
 
   public void compile(ChunkData data) {
     if (this.compilationService.compile(data)) {
       //this.writer.write(data);
     }
+  }
+
+  public boolean isCompiled(ChunkData data) {
+    return this.compilationService.isCompiled(data);
   }
 
   public void resetCompilations() {

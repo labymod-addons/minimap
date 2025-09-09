@@ -223,35 +223,43 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
   private void renderMapTexture(ClientPlayer player, ScreenContext context, HudSize size) {
     Stack stack = context.stack();
+
+    // Use current storage bounds so movement is continuous relative to the active map window
     MinimapBounds bounds = this.renderer.minimapBounds();
     float mapMidX = bounds.getX1() + (bounds.getX2() - bounds.getX1()) / 2F;
     float mapMidZ = bounds.getZ1() + (bounds.getZ2() - bounds.getZ1()) / 2F;
 
+    // Smooth player position (interpolated)
     Position position = player.position();
     Position previousPosition = player.previousPosition();
     double smoothX = position.lerpX(previousPosition, context.getTickDelta());
     double smoothZ = position.lerpZ(previousPosition, context.getTickDelta());
 
-    smoothX -= mapMidX;
-    smoothZ -= mapMidZ;
+    // Offset from the map window center to the player (in blocks)
+    double dx = smoothX - mapMidX;
+    double dz = smoothZ - mapMidZ;
 
-    var configuration = this.configuration();
-    float pixelLength = size.getActualWidth() / (configuration.zoom().get() * 10F) / 2;
-    double offsetX = -pixelLength * smoothX;
-    double offsetZ = pixelLength * smoothZ;
+    // Pixels-per-block for current zoom
+    int zoomBlocks = this.configuration().zoom().get() * 10;
+    float pixelsPerBlock = size.getActualWidth() / (zoomBlocks * 2.0F);
+    this.renderEvent.setPixelLength(pixelsPerBlock);
 
-    float pixelWidthX = -0.4F;
-    float pixelWidthY = -0.4F;
+    // Convert world offset to screen pixels (screen Y grows downward, hence +dz)
+    double offsetX = -pixelsPerBlock * dx;
+    double offsetY = +pixelsPerBlock * dz;
 
-    this.renderEvent.setPixelLength(pixelLength);
+    // Small texel-alignment tweak to avoid sampling seams
+    float pixelNudgeX = -0.4F;
+    float pixelNudgeY = -0.4F;
 
     stack.push();
     stack.translate(
-        pixelWidthX + offsetX,
-        -(pixelWidthY + offsetZ),
+        (float) (pixelNudgeX + offsetX),
+        (float) -(pixelNudgeY + offsetY),
         0F
     );
 
+    // Render once; centering and smooth movement are driven by the translation above
     this.renderer.render(
         context,
         0,
@@ -260,6 +268,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
         size.getActualHeight()
     );
     stack.pop();
+
+
   }
 
   private void renderMapOutline(ScreenContext context, HudSize size,

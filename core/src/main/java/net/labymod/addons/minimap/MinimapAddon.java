@@ -6,7 +6,6 @@ import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.config.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.generated.ReferenceStorage;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
-import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.addons.minimap.debug.ImGuiMinimapDebug;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration;
@@ -35,11 +34,12 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     this.registerSettingCategory();
     MinimapAddon.references = this.referenceStorageAccessor();
 
-    ChunkDataStorage storage = new ChunkDataStorage();
-    this.registerListener(storage);
+    MinimapContext minimapContext = new MinimapContext();
+    this.registerListener(minimapContext.storage());
+    this.registerListener(minimapContext.uniformBlocks());
 
     var references = Laby.references();
-    this.minimapRenderer = new MinimapRenderer(this, "hud", storage);
+    this.minimapRenderer = new MinimapRenderer(this, minimapContext);
     references.hudWidgetRegistry().register(this.hudWidget = new MinimapHudWidget(this, this.minimapRenderer));
 
     this.servers.init();

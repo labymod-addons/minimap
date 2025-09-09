@@ -1,7 +1,8 @@
 #version 150
 
-
-#l3d_import <labymod:shaders/include/post_processor.glsl>
+#l3d_import <labymod:shaders/include/projection.glsl>
+#l3d_import <labymod:shaders/include/globals.glsl>
+#l3d_import <labymod:shaders/include/dynamic_transforms.glsl>
 
 #ifdef UNIFORM_BLOCK
 layout(std140) uniform Minimap {
@@ -21,14 +22,14 @@ uniform sampler2D DiffuseSampler;
 uniform sampler2D HeightmapSampler;
 uniform sampler2D LightmapSampler;
 
-in vec2 pos;
+in vec2 texCoord;
 
 out vec4 fragColor;
 
 const vec4 BLACK_COLOR = vec4(0, 0, 0, 1);
 
 vec4 getLighting() {
-  vec4 lightColor = TEXTURE(LightmapSampler, pos);
+  vec4 lightColor = TEXTURE(LightmapSampler, texCoord);
   lightColor.a = clamp(lightColor.a, 0, 1);
   float black = float(all(equal(lightColor, BLACK_COLOR)));
 
@@ -38,13 +39,13 @@ vec4 getLighting() {
 }
 
 void main() {
-  float height = TEXTURE(HeightmapSampler, pos).r;
-  vec4 baseColor = TEXTURE(DiffuseSampler, pos);
+  float height = TEXTURE(HeightmapSampler, texCoord).r;
+  vec4 baseColor = TEXTURE(DiffuseSampler, texCoord);
 
   vec3 sunDirection = SunPosition - vec3(0.5, 0.5, 0.0);
 
-  float dx = TEXTURE(HeightmapSampler, pos + vec2(PixelSize.x, 0.0)).r - height;
-  float dy = TEXTURE(HeightmapSampler, pos + vec2(0.0, PixelSize.y)).r - height;
+  float dx = TEXTURE(HeightmapSampler, texCoord + vec2(PixelSize.x, 0.0)).r - height;
+  float dy = TEXTURE(HeightmapSampler, texCoord + vec2(0.0, PixelSize.y)).r - height;
 
   // Reconstruct the normal from the gradients
   vec3 normal = normalize(vec3(-dx, -dy, 0.03));
