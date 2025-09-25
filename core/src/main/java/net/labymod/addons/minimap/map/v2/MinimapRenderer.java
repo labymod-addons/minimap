@@ -5,6 +5,7 @@ import java.util.function.IntSupplier;
 import net.labymod.addons.minimap.MinimapContext;
 import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
+import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.addons.minimap.gui.state.MinimapGuiBlitRenderState;
@@ -18,12 +19,14 @@ import net.labymod.addons.minimap.map.v2.texture.SectionTextureRepository;
 import net.labymod.addons.minimap.util.MinimapDebugFlags;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
+import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.client.gui.screen.state.states.GuiTextureSet;
 import net.labymod.api.client.world.ClientWorld;
+import net.labymod.api.util.Lazy;
 import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.logging.Logging;
 import net.labymod.api.util.math.MathHelper;
@@ -38,6 +41,7 @@ public final class MinimapRenderer {
   private final SectionTextureRepository sectionTextureRepository;
   private final ChunkDataStorage storage;
   private final MinimapUniformBlocks uniformBlocks;
+  private final Lazy<Icon> dummyMinimap;
 
   private DaylightPeriod currentPeriod = DaylightPeriod.DAYTIME;
 
@@ -56,6 +60,9 @@ public final class MinimapRenderer {
     this.sectionTextureRepository = minimapContext.sectionTextureRepository();
     this.storage = minimapContext.storage();
     this.uniformBlocks = minimapContext.uniformBlocks();
+    this.dummyMinimap = Lazy.of(
+        () -> Icon.texture(Util.newDefaultNamespace("themes/vanilla/textures/dummy_minimap.png"))
+    );
   }
 
   public void tick() {
@@ -75,6 +82,14 @@ public final class MinimapRenderer {
     }
 
     renderer.run();
+  }
+
+  public void renderDummyMinimap(
+      ScreenContext context,
+      float x, float y,
+      float width, float height
+  ) {
+    context.canvas().submitIcon(this.dummyMinimap.get(), x, y, width, height);
   }
 
   public void render(ScreenContext context, float x, float y, float width, float height) {
@@ -98,7 +113,8 @@ public final class MinimapRenderer {
     MinimapUniformBlock minimap = this.uniformBlocks.minimap();
     minimap.sunPosition().set(new Vector3f(0.9F, -1.0F, 1F));
     float timeOfDay = this.getTimeOfDay();
-    float normalizedDayTime = (float) (1.0F - (Math.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F + 0.2F));
+    float normalizedDayTime = (float) (1.0F - (Math.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F
+        + 0.2F));
     normalizedDayTime = MathHelper.clamp(normalizedDayTime, 0.0F, 1.0F);
     normalizedDayTime = 1.0F - normalizedDayTime;
 
@@ -314,7 +330,7 @@ public final class MinimapRenderer {
         && this.lastMidChunkZ != midChunkZ)
         || this.lastUnderground != underground
         || this.lastZoom != zoom
-    || changeLevel) {
+        || changeLevel) {
       this.lastMidChunkX = midChunkX;
       this.lastMidChunkZ = midChunkZ;
 

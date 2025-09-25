@@ -36,6 +36,7 @@ import net.labymod.api.configuration.settings.annotation.SettingSection;
 import net.labymod.api.util.Color;
 import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.position.Position;
+import org.jetbrains.annotations.Nullable;
 
 @SpriteSlot(size = 32)
 public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
@@ -95,7 +96,51 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     }
 
     if (!this.labyAPI.minecraft().isIngame()) {
-      this.renderMapOutline(context, newHudSize, null);
+
+      context.pushStack();
+      context.translate(newHudSize.getActualWidth() / 2F, newHudSize.getActualHeight() / 2F, 0F);
+      context.scale(Util.MINIMAP_SCALE, Util.MINIMAP_SCALE, 1F);
+      context.translate(-newHudSize.getActualWidth() / 2F, -newHudSize.getActualHeight() / 2F, 0F);
+
+      this.renderMapOutline(context, newHudSize, MinimapDisplayType.Stage.BEFORE_TEXTURE);
+      RenderAttributesStack renderAttributesStack = Laby.references()
+          .renderEnvironmentContext()
+          .renderAttributesStack();
+
+      float radius = newHudSize.getActualWidth() / 2F;
+      RenderAttributes renderAttributes = renderAttributesStack.pushAndGet();
+      renderAttributes.setStencilMode(StencilMode.WRITE_STENCIL);
+      var configuration = this.configuration();
+      configuration.displayType().get().renderStencil(context, radius);
+      renderAttributes.setStencilMode(StencilMode.WRITE_TO_STENCIL);
+
+      context.pushStack();
+      if (this.lastRadius != radius) {
+        this.distanceToCorner = (float) Math.sqrt(radius * radius + radius * radius);
+        this.lastRadius = radius;
+      }
+
+      int zoomBlocks = this.configuration().zoom().get() * 10;
+      float pixelsPerBlock = size.getActualWidth() / (zoomBlocks * 0.5F);
+
+      context.pushStack();
+      context.translate(newHudSize.getActualWidth() / 2F, newHudSize.getActualHeight() / 2F, 0F);
+      context.scale(pixelsPerBlock, pixelsPerBlock, 1F);
+      context.translate(-newHudSize.getActualWidth() / 2F, -newHudSize.getActualHeight() / 2F, 0F);
+
+      this.renderer.renderDummyMinimap(
+          context,
+          0, 0,
+          newHudSize.getActualWidth(), newHudSize.getActualHeight()
+      );
+
+      context.popStack();
+      context.popStack();
+
+      renderAttributesStack.pop();
+      this.renderMapOutline(context, newHudSize, MinimapDisplayType.Stage.AFTER_TEXTURE);
+
+      context.popStack();
       return;
     }
 
@@ -195,24 +240,30 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     this.renderer.tick();
   }
 
-  private void applyZoom(ClientPlayer player, ScreenContext context, HudSize size, boolean rotate) {
+  private void applyZoom(@Nullable ClientPlayer player, ScreenContext context, HudSize size, boolean rotate) {
     Stack stack = context.stack();
     double addZoom = this.distanceToCorner / this.lastRadius + 0.3D;
 
-    Position position = player.position();
-    Position previousPosition = player.previousPosition();
-
     var configuration = this.configuration();
-    if (configuration.jumpBouncing().get()) {
-      addZoom += (previousPosition.getY() - position.getY()) / 20.0D;
+    if (player != null) {
+      Position position = player.position();
+      Position previousPosition = player.previousPosition();
+
+      if (configuration.jumpBouncing().get()) {
+        addZoom += (previousPosition.getY() - position.getY()) / 20.0D;
+      }
     }
+
 
     // Rotate and scale map
     stack.translate(size.getActualWidth() / 2F, size.getActualHeight() / 2F, 0F);
     if (rotate) {
       stack.scale(-1, -1, 1);
-      stack.rotate(-player.getRotationHeadYaw(), 0F, 0F, 1F);
+      if (player != null) {
+        stack.rotate(-player.getRotationHeadYaw(), 0F, 0F, 1F);
+      }
     }
+
     stack.scale((float) addZoom, (float) addZoom, 1F);
     stack.translate(-size.getActualWidth() / 2F, -size.getActualHeight() / 2F, 0F);
 
