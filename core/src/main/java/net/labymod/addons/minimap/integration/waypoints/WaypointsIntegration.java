@@ -57,6 +57,10 @@ public class WaypointsIntegration implements AddonIntegration {
       return this.waypoint.type();
     }
 
+    public int iconColor() {
+      return this.waypoint.meta().iconColor();
+    }
+
     public Color color() {
       return this.waypoint.color();
     }

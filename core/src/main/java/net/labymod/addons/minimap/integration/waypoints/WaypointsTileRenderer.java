@@ -40,7 +40,7 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
       int alpha = (int) (255 * diff);
 
       if (alpha > 3) {
-        float scale =  0.33F;
+        float scale = 0.33F;
         canvas.submitComponent(
             waypoint.title(),
             0, -8F - (canvas.getLineHeight() * scale),
@@ -57,6 +57,7 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
     context.pushStack();
     context.translate(Util.SHADOW_OFFSET, Util.SHADOW_OFFSET, 0.0F);
 
+    int iconColor = waypoint.iconColor();
     canvas.submitIcon(
         icon,
         -6.5F / 2.0F,
@@ -64,7 +65,7 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
         16.0F / 2.0F,
         16.0F / 2.0F,
         false,
-        Util.applyShadowColor(waypoint.color().get())
+        Util.applyShadowColor(iconColor)
     );
 
     context.popStack();
@@ -76,7 +77,7 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
         16.0F / 2.0F,
         16.0F / 2.0F,
         false,
-        waypoint.color().get()
+        iconColor
     );
   }
 
