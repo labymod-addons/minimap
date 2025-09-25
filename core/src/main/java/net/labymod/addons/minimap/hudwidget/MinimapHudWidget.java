@@ -414,6 +414,9 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     @ColorPickerSetting(alpha = true, chroma = true)
     private final ConfigProperty<Color> playerColor = ConfigProperty.create(Color.WHITE);
 
+    @SwitchSetting
+    private final ConfigProperty<Boolean> caveMode = ConfigProperty.create(false);
+
     @Override
     public ConfigProperty<MinimapDisplayType> displayType() {
       return this.displayType;
@@ -466,6 +469,11 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     @Override
     public ConfigProperty<Color> playerColor() {
       return this.playerColor;
+    }
+
+    @Override
+    public ConfigProperty<Boolean> caveMode() {
+      return this.caveMode;
     }
   }
 

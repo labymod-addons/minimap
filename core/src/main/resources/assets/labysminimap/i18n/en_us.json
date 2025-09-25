@@ -69,6 +69,10 @@
         "playerColor": {
           "name": "Color"
         },
+        "caveMode":{
+          "name": "Cave Mode",
+          "description": "Enables cave mode for the minimap.\n§4§lWARNING§r: This may cause lag!"
+        },
         "header": {
           "player": {
             "name": "Own Player"

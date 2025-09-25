@@ -17,6 +17,7 @@ import net.labymod.addons.minimap.map.v2.texture.SectionTexture;
 import net.labymod.addons.minimap.map.v2.texture.SectionTexture.Variant;
 import net.labymod.addons.minimap.map.v2.texture.SectionTextureRepository;
 import net.labymod.addons.minimap.util.MinimapDebugFlags;
+import net.labymod.addons.minimap.util.PlayerUtil;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gui.icon.Icon;
@@ -250,7 +251,12 @@ public final class MinimapRenderer {
     int midChunkZ = midZ >> 4;
 
     boolean underground = false;
-    this.storage.setPlayerPosition(player.position(), false);
+
+    if (this.configProvider.hudWidgetConfig().caveMode().get()) {
+      underground = PlayerUtil.isPlayerUnderground(level, player, 2);
+    }
+
+    this.storage.setPlayerPosition(player.position(), underground);
 
     int minChunkX = minX >> 4;
     int minChunkZ = minZ >> 4;
@@ -333,6 +339,21 @@ public final class MinimapRenderer {
         || changeLevel) {
       this.lastMidChunkX = midChunkX;
       this.lastMidChunkZ = midChunkZ;
+
+      if (this.lastUnderground != underground) {
+        this.storage.resetCompilations();
+      }
+
+      if (underground) {
+        if (this.lastPlayerY != py) {
+          this.storage.resetCompilations();
+        }
+      }
+
+
+      this.lastUnderground = underground;
+      this.lastPlayerY = py;
+
 
       this.lastZoom = zoom;
       this.changed = true;

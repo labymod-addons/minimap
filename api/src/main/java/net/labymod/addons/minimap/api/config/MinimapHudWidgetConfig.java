@@ -27,4 +27,6 @@ public interface MinimapHudWidgetConfig {
   ConfigProperty<MinimapPlayerIcon> playerIcon();
 
   ConfigProperty<Color> playerColor();
+
+  ConfigProperty<Boolean> caveMode();
 }
