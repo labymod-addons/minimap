@@ -1,0 +1,87 @@
+{
+    "labysminimap": {
+        "settings": {
+            "name": "",
+            "enabled": {
+                "name": ""
+            }
+        },
+        "hudWidget": {
+            "minimap": {
+                "name": "",
+                "displayType": {
+                    "name": "",
+                    "entries": {
+                        "round": "",
+                        "roundClassic": "",
+                        "roundFutureWide": "",
+                        "roundFutureThin": "",
+                        "roundSimpleChrome": "",
+                        "roundSimpleMetal": "",
+                        "roundMetalGold": "",
+                        "roundWood": "",
+                        "squareParchment": "",
+                        "square": "",
+                        "minecraftMapSquare": ""
+                    }
+                },
+                "jumpBouncing": {
+                    "name": ""
+                },
+                "zoom": {
+                    "name": ""
+                },
+                "updateMethod": {
+                    "name": "",
+                    "entries": {
+                        "blockTrigger": "",
+                        "chunkTrigger": ""
+                    }
+                },
+                "cardinalType": {
+                    "name": "",
+                    "entries": {
+                        "hidden": "",
+                        "normal": "",
+                        "extended": "",
+                        "numbers": ""
+                    }
+                },
+                "showCoordinates": {
+                    "name": ""
+                },
+                "tileSize": {
+                    "name": "",
+                    "description": ""
+                },
+                "showOwnPlayer": {
+                    "name": ""
+                },
+                "showPlayers": {
+                    "name": ""
+                },
+                "showWaypoints": {
+                    "name": ""
+                },
+                "playerIcon": {
+                    "name": ""
+                },
+                "playerColor": {
+                    "name": ""
+                },
+                "caveMode": {
+                    "name": "",
+                    "description": ""
+                },
+                "header": {
+                    "player": {
+                        "name": ""
+                    },
+                    "tiles": {
+                        "name": ""
+                    }
+                }
+            }
+        }
+    }
+}
