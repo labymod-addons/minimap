@@ -2,6 +2,11 @@
     "labysminimap": {
         "settings": {
             "name": "Minimapa do Laby"
+        },
+        "hudWidget": {
+            "minimap": {
+                "name": "Minimapa"
+            }
         }
     }
 }
