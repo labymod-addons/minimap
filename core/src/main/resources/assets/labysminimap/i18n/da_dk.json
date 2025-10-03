@@ -1,1 +1,21 @@
-{}
+{
+    "labysminimap": {
+        "settings": {
+            "enabled": {
+                "name": "Aktiveret"
+            },
+            "name": "Laby's Minikort"
+        },
+        "hudWidget": {
+            "minimap": {
+                "name": "Minikort",
+                "displayType": {
+                    "entries": {
+                        "round": "Rund",
+                        "roundClassic": "Rund Klassisk"
+                    }
+                }
+            }
+        }
+    }
+}
