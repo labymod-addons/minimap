@@ -18,7 +18,10 @@
                         "roundMetalGold": "Yuvarlak Metal Altın",
                         "roundWood": "Yuvarlak Odun",
                         "squareParchment": "Kare Parşömen",
-                        "minecraftMapSquare": "Minecraft Haritası"
+                        "minecraftMapSquare": "Minecraft Haritası",
+                        "round": "Yuvarlak",
+                        "roundClassic": "Klasik Yuvarlak",
+                        "roundFutureWide": "Geniş Yuvarlak Gelecek"
                     }
                 },
                 "jumpBouncing": {
