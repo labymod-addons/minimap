@@ -16,6 +16,9 @@
                 },
                 "playerIcon": {
                     "name": "Ícone"
+                },
+                "playerColor": {
+                    "name": "Cor"
                 }
             }
         }
