@@ -21,7 +21,8 @@
                         "minecraftMapSquare": "Minecraft Haritası",
                         "round": "Yuvarlak",
                         "roundClassic": "Klasik Yuvarlak",
-                        "roundFutureWide": "Geniş Yuvarlak Gelecek"
+                        "roundFutureWide": "Geniş Yuvarlak Gelecek",
+                        "square": "Kare"
                     }
                 },
                 "jumpBouncing": {
