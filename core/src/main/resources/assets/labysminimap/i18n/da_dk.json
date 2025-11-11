@@ -12,8 +12,14 @@
                 "displayType": {
                     "entries": {
                         "round": "Rund",
-                        "roundClassic": "Rund Klassisk"
-                    }
+                        "roundClassic": "Rund Klassisk",
+                        "square": "Firkant",
+                        "minecraftMapSquare": "Minecraft Kort"
+                    },
+                    "name": "Visning"
+                },
+                "zoom": {
+                    "name": "Zoom"
                 }
             }
         }
