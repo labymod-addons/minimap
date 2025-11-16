@@ -1,1 +1,18 @@
-{}
+{
+    "labysminimap": {
+        "settings": {
+            "name": "Laby'nin Mini Haritasi",
+            "enabled": {
+                "name": "Aktif"
+            }
+        },
+        "hudWidget": {
+            "minimap": {
+                "name": "Mini Harita",
+                "displayType": {
+                    "name": "Görüntülemek"
+                }
+            }
+        }
+    }
+}
