@@ -14,7 +14,13 @@
                     "entries": {
                         "round": "Rond",
                         "roundClassic": "Rond klassiek",
-                        "roundFutureWide": "Rond Future Breed"
+                        "roundFutureWide": "Rond Future Breed",
+                        "roundFutureThin": "Rond Toekomst Dun",
+                        "roundSimpleChrome": "Rond Eenvoudig Chroom",
+                        "roundSimpleMetal": "Rond Simpel Metaal",
+                        "roundMetalGold": "Rond Metaal Goud",
+                        "roundWood": "Rond Hout",
+                        "squareParchment": "Vierkant perkament"
                     }
                 }
             }
