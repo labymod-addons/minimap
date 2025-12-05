@@ -19,6 +19,17 @@
                 },
                 "playerColor": {
                     "name": "Cor"
+                },
+                "caveMode": {
+                    "name": "Modo Caverna"
+                },
+                "header": {
+                    "player": {
+                        "name": "Próprio Jogador"
+                    }
+                },
+                "cardinalType": {
+                    "name": "Cardeais"
                 }
             }
         }
