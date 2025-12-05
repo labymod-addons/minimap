@@ -16,7 +16,8 @@
                         "roundSimpleChrome": "Yuvarlak Basit Krom",
                         "roundSimpleMetal": "Yuvarlak Basit Metal",
                         "roundMetalGold": "Yuvarlak Metal Altın",
-                        "roundWood": "Yuvarlak Odun"
+                        "roundWood": "Yuvarlak Odun",
+                        "squareParchment": "Kare Parşömen"
                     }
                 }
             }
