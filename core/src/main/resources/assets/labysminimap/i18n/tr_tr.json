@@ -41,7 +41,43 @@
                 "cardinalType": {
                     "name": "Kardinaller",
                     "entries": {
-                        "hidden": "Gizlenmiş"
+                        "hidden": "Gizlenmiş",
+                        "normal": "K, D, G, B",
+                        "extended": "K, KD, D, GD, G, GB, B, KB",
+                        "numbers": "0, 1, 2, 3"
+                    }
+                },
+                "showCoordinates": {
+                    "name": "Koordinatları Göster"
+                },
+                "tileSize": {
+                    "name": "Döşeme Boyutu"
+                },
+                "showOwnPlayer": {
+                    "name": "Kendi Oyuncunu Göster"
+                },
+                "showPlayers": {
+                    "name": "Oyuncuları Göster"
+                },
+                "showWaypoints": {
+                    "name": "Nokta İşaretleyicilerini Göster"
+                },
+                "playerIcon": {
+                    "name": "Simge"
+                },
+                "playerColor": {
+                    "name": "Renk"
+                },
+                "caveMode": {
+                    "name": "Mağara Modu",
+                    "description": "Mini harita için mağara modunu etkinleştirir.\n§4§lUYARI§r: Bu durum gecikmeye neden olabilir!"
+                },
+                "header": {
+                    "player": {
+                        "name": "Kendi Oyuncusu"
+                    },
+                    "tiles": {
+                        "name": "Döşeme"
                     }
                 }
             }
