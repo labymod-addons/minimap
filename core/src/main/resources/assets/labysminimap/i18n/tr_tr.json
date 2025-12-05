@@ -51,7 +51,8 @@
                     "name": "Koordinatları Göster"
                 },
                 "tileSize": {
-                    "name": "Döşeme Boyutu"
+                    "name": "Döşeme Boyutu",
+                    "description": "Mini Haritadaki döşemelerin (Oyuncu kafaları, Nokta İşaretleyicileri) boyutu"
                 },
                 "showOwnPlayer": {
                     "name": "Kendi Oyuncunu Göster"
