@@ -12,10 +12,10 @@
                 "displayType": {
                     "name": "Görüntülemek",
                     "entries": {
-                        "roundFutureThin": "Yuvarlak Gelecek İnce",
-                        "roundSimpleChrome": "Yuvarlak Basit Krom",
-                        "roundSimpleMetal": "Yuvarlak Basit Metal",
-                        "roundMetalGold": "Yuvarlak Metal Altın",
+                        "roundFutureThin": "İnce Yuvarlak Gelecek",
+                        "roundSimpleChrome": "Basit Yuvarlak Krom",
+                        "roundSimpleMetal": "Basit Yuvarlak Metal",
+                        "roundMetalGold": "Yuvarlak Altın Metal",
                         "roundWood": "Yuvarlak Odun",
                         "squareParchment": "Kare Parşömen",
                         "minecraftMapSquare": "Minecraft Haritası",
@@ -31,7 +31,17 @@
                     "name": "Yakınlaştırma"
                 },
                 "updateMethod": {
-                    "name": "Güncelleme Yöntemi"
+                    "name": "Güncelleme Yöntemi",
+                    "entries": {
+                        "blockTrigger": "Hareket halindeyken (Daha düşük FPS)",
+                        "chunkTrigger": "Yeni bölge gir"
+                    }
+                },
+                "cardinalType": {
+                    "name": "Kardinaller",
+                    "entries": {
+                        "hidden": "Gizlenmiş"
+                    }
                 }
             }
         }
