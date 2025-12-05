@@ -17,8 +17,15 @@
                         "roundSimpleMetal": "Yuvarlak Basit Metal",
                         "roundMetalGold": "Yuvarlak Metal Altın",
                         "roundWood": "Yuvarlak Odun",
-                        "squareParchment": "Kare Parşömen"
+                        "squareParchment": "Kare Parşömen",
+                        "minecraftMapSquare": "Minecraft Haritası"
                     }
+                },
+                "jumpBouncing": {
+                    "name": "Zıplama sekmesi"
+                },
+                "zoom": {
+                    "name": "Yakınlaştırma"
                 }
             }
         }
