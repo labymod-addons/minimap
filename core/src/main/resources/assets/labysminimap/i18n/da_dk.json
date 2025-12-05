@@ -20,6 +20,26 @@
                 },
                 "zoom": {
                     "name": "Zoom"
+                },
+                "cardinalType": {
+                    "entries": {
+                        "hidden": "Skjult"
+                    }
+                },
+                "showCoordinates": {
+                    "name": "Vis koordinater"
+                },
+                "showPlayers": {
+                    "name": "Vis spillere"
+                },
+                "showWaypoints": {
+                    "name": "Vis Waypoints"
+                },
+                "playerIcon": {
+                    "name": "Ikon"
+                },
+                "playerColor": {
+                    "name": "Farve"
                 }
             }
         }
