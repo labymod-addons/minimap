@@ -26,6 +26,9 @@
                 },
                 "zoom": {
                     "name": "Yakınlaştırma"
+                },
+                "updateMethod": {
+                    "name": "Güncelleme Yöntemi"
                 }
             }
         }
