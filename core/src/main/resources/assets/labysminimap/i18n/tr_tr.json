@@ -10,7 +10,14 @@
             "minimap": {
                 "name": "Mini Harita",
                 "displayType": {
-                    "name": "Görüntülemek"
+                    "name": "Görüntülemek",
+                    "entries": {
+                        "roundFutureThin": "Yuvarlak Gelecek İnce",
+                        "roundSimpleChrome": "Yuvarlak Basit Krom",
+                        "roundSimpleMetal": "Yuvarlak Basit Metal",
+                        "roundMetalGold": "Yuvarlak Metal Altın",
+                        "roundWood": "Yuvarlak Odun"
+                    }
                 }
             }
         }
