@@ -1,1 +1,87 @@
-{}
+{
+    "labysminimap": {
+        "settings": {
+            "name": "Laby's Minimap",
+            "enabled": {
+                "name": "Включено"
+            }
+        },
+        "hudWidget": {
+            "minimap": {
+                "name": "Мини-карта",
+                "displayType": {
+                    "name": "Внешний вид",
+                    "entries": {
+                        "round": "Круг",
+                        "roundClassic": "Круг Классик",
+                        "roundFutureWide": "Круг Нео широкий",
+                        "roundFutureThin": "Круг Нео тонкий",
+                        "roundSimpleChrome": "Круг Простой хром",
+                        "roundSimpleMetal": "Круг Простой металл",
+                        "roundMetalGold": "Круг Золотой металл",
+                        "roundWood": "Круг Дерево",
+                        "squareParchment": "Квадрат Пергамент",
+                        "square": "Квадрат",
+                        "minecraftMapSquare": "Карта Minecraft"
+                    }
+                },
+                "jumpBouncing": {
+                    "name": "Отскок при прыжке"
+                },
+                "zoom": {
+                    "name": "Масштаб"
+                },
+                "updateMethod": {
+                    "name": "Режим обновления",
+                    "entries": {
+                        "blockTrigger": "При движении (меньше FPS)",
+                        "chunkTrigger": "Переход в другой чанк"
+                    }
+                },
+                "cardinalType": {
+                    "name": "Стороны света",
+                    "entries": {
+                        "hidden": "Скрыты",
+                        "normal": "N, E, S, W",
+                        "extended": "N, NE, E, SE, S, SW, W, NW",
+                        "numbers": "0, 1, 2, 3"
+                    }
+                },
+                "showCoordinates": {
+                    "name": "Отображать координаты"
+                },
+                "tileSize": {
+                    "name": "Размер маркеров",
+                    "description": "Размер маркеров (голов игроков, меток) на мини-карте."
+                },
+                "showOwnPlayer": {
+                    "name": "Отображать себя"
+                },
+                "showPlayers": {
+                    "name": "Отображать игроков"
+                },
+                "showWaypoints": {
+                    "name": "Отображать метки"
+                },
+                "header": {
+                    "player": {
+                        "name": "Маркер вашего игрока"
+                    },
+                    "tiles": {
+                        "name": "Маркеры"
+                    }
+                },
+                "playerIcon": {
+                    "name": "Вид"
+                },
+                "playerColor": {
+                    "name": "Цвет"
+                },
+                "caveMode": {
+                    "name": "Пещерный режим",
+                    "description": "Включает пещерный режим мини-карты.\n§4§lВНИМАНИЕ§r: Может упасть производительность!"
+                }
+            }
+        }
+    }
+}
