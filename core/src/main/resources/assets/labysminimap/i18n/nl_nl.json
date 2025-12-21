@@ -20,7 +20,8 @@
                         "roundSimpleMetal": "Rond Simpel Metaal",
                         "roundMetalGold": "Rond Metaal Goud",
                         "roundWood": "Rond Hout",
-                        "squareParchment": "Vierkant perkament"
+                        "squareParchment": "Vierkant perkament",
+                        "square": "Vierkant"
                     }
                 }
             }
