@@ -21,8 +21,12 @@
                         "roundMetalGold": "Rond Metaal Goud",
                         "roundWood": "Rond Hout",
                         "squareParchment": "Vierkant perkament",
-                        "square": "Vierkant"
+                        "square": "Vierkant",
+                        "minecraftMapSquare": "Minecraft Map"
                     }
+                },
+                "zoom": {
+                    "name": "Zoom"
                 }
             }
         }
