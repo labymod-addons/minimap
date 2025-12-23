@@ -14,7 +14,9 @@
                         "round": "Rund",
                         "roundClassic": "Rund Klassisk",
                         "square": "Firkant",
-                        "minecraftMapSquare": "Minecraft Kort"
+                        "minecraftMapSquare": "Minecraft Kort",
+                        "roundFutureWide": "Runde Future Wide",
+                        "roundFutureThin": "Runde Fremtid Tynd"
                     },
                     "name": "Visning"
                 },
