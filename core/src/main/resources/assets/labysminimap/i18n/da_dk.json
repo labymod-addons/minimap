@@ -52,7 +52,10 @@
                     "name": "Farve"
                 },
                 "updateMethod": {
-                    "name": "Opdateringsmetode"
+                    "name": "Opdateringsmetode",
+                    "entries": {
+                        "blockTrigger": "Imens man går (Lavere FPS)"
+                    }
                 },
                 "tileSize": {
                     "name": "Flisestørrelse"
