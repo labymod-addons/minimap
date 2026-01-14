@@ -68,6 +68,18 @@
                 },
                 "showOwnPlayer": {
                     "name": "Vis egen spiller"
+                },
+                "caveMode": {
+                    "name": "Grottetilstand",
+                    "description": "Slår grottetilstand til for minikort.\n§4§lADVARSEL§r: Dette kan forårsage lag!"
+                },
+                "header": {
+                    "player": {
+                        "name": "Egen Spiller"
+                    },
+                    "tiles": {
+                        "name": "Titler"
+                    }
                 }
             }
         }
