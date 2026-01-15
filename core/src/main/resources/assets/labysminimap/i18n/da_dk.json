@@ -17,7 +17,8 @@
                         "minecraftMapSquare": "Minecraft Kort",
                         "roundFutureWide": "Runde Fremtid Tyk",
                         "roundFutureThin": "Runde Fremtid Tynd",
-                        "roundSimpleChrome": "Rundet Simpel Krom"
+                        "roundSimpleChrome": "Rundet Simpel Krom",
+                        "roundSimpleMetal": "Runde Simpel Metal"
                     },
                     "name": "Visning"
                 },
