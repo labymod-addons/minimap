@@ -19,7 +19,9 @@
                         "roundFutureThin": "Runde Fremtid Tynd",
                         "roundSimpleChrome": "Rundet Simpel Krom",
                         "roundSimpleMetal": "Runde Simpel Metal",
-                        "squareParchment": "Firkantet Pergament"
+                        "squareParchment": "Firkantet Pergament",
+                        "roundMetalGold": "Runde Metal Guld",
+                        "roundWood": "Runde Træ"
                     },
                     "name": "Visning"
                 },
