@@ -18,7 +18,8 @@
                         "roundFutureWide": "Runde Fremtid Tyk",
                         "roundFutureThin": "Runde Fremtid Tynd",
                         "roundSimpleChrome": "Rundet Simpel Krom",
-                        "roundSimpleMetal": "Runde Simpel Metal"
+                        "roundSimpleMetal": "Runde Simpel Metal",
+                        "squareParchment": "Firkantet Pergament"
                     },
                     "name": "Visning"
                 },
