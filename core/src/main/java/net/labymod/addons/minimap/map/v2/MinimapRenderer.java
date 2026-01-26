@@ -20,11 +20,11 @@ import net.labymod.addons.minimap.util.MinimapDebugFlags;
 import net.labymod.addons.minimap.util.PlayerUtil;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
+import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
 import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
-import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.client.gui.screen.state.states.GuiTextureSet;
 import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.util.Lazy;
@@ -213,7 +213,7 @@ public final class MinimapRenderer {
               dstY + 2.0F,
               -1,
               0.75F,
-              TextFlags.SHADOW
+              TextRenderingOptions.SHADOW
           );
         }
       }

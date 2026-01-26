@@ -1,11 +1,14 @@
 package net.labymod.addons.minimap.data.compilation;
 
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.data.GameChunkData;
 import net.labymod.api.Laby;
+import net.labymod.api.client.resources.ResourceLocation;
 import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.client.world.block.Block;
 import net.labymod.api.client.world.block.BlockColorProvider;
@@ -18,6 +21,19 @@ import net.labymod.api.util.math.vector.IntVector3;
 
 public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
 
+  private static final Set<ResourceLocation> IGNORED_BLOCKS = Set.of(ResourceLocation.create("minecraft","barrier"));
+  private static final Predicate<BlockState> VISIBLE_BLOCKS = state -> {
+    if (state == null) {
+      return false;
+    }
+
+    Block block = state.block();
+    if (block.isAir()) {
+      return false;
+    }
+
+    return !IGNORED_BLOCKS.contains(block.id());
+  };
   private final BlockColorProvider blockColorProvider;
   private final ClientWorld level;
   private int playerX;
@@ -217,7 +233,7 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
     while (y > minBuildHeight) {
       blockState = chunk.getBlockState(x, y, z);
 
-      if (blockState != null && !blockState.block().isAir()) {
+      if (VISIBLE_BLOCKS.test(blockState)) {
         break;
       }
       y--;

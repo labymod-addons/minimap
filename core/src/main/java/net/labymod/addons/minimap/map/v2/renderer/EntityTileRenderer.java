@@ -6,9 +6,9 @@ import net.labymod.addons.minimap.api.renderer.TileRenderer;
 import net.labymod.api.Laby;
 import net.labymod.api.client.entity.Entity;
 import net.labymod.api.client.entity.player.Player;
+import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
-import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.util.Color;
 
 public class EntityTileRenderer extends TileRenderer<Entity> {
@@ -49,7 +49,7 @@ public class EntityTileRenderer extends TileRenderer<Entity> {
         -1,
         Color.withAlpha(0x000000, 100),
         0.33F,
-        TextFlags.SHADOW
+        TextRenderingOptions.SHADOW
     );
     context.popStack();
 

@@ -8,10 +8,10 @@ import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration.WaypointContainer;
 import net.labymod.api.Laby;
 import net.labymod.api.client.gfx.pipeline.renderer.text.FormattedTextLayout;
+import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
 import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
-import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.util.Color;
 import net.labymod.api.util.math.MathHelper;
 
@@ -47,7 +47,7 @@ public class WaypointsTileRenderer extends TileRenderer<WaypointContainer> {
             Color.withAlpha(0xFFFFFF, alpha),
             Color.withAlpha(0x000000, MathHelper.clamp(alpha, 0, 100)),
             scale,
-            TextFlags.SHADOW | TextFlags.CENTERED
+            TextRenderingOptions.SHADOW | TextRenderingOptions.CENTERED
         );
       }
 

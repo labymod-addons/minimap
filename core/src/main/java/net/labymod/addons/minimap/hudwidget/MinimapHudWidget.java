@@ -16,13 +16,13 @@ import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.pipeline.RenderAttributes;
 import net.labymod.api.client.gfx.pipeline.RenderAttributes.StencilMode;
 import net.labymod.api.client.gfx.pipeline.RenderAttributesStack;
+import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
 import net.labymod.api.client.gui.hud.binding.category.HudWidgetCategory;
 import net.labymod.api.client.gui.hud.hudwidget.HudWidget;
 import net.labymod.api.client.gui.hud.hudwidget.HudWidgetConfig;
 import net.labymod.api.client.gui.hud.position.HudSize;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
-import net.labymod.api.client.gui.screen.state.TextFlags;
 import net.labymod.api.client.gui.screen.widget.widgets.hud.HudWidgetWidget;
 import net.labymod.api.client.gui.screen.widget.widgets.input.SliderWidget.SliderSetting;
 import net.labymod.api.client.gui.screen.widget.widgets.input.SwitchWidget.SwitchSetting;
@@ -165,7 +165,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
           newHudSize.getActualHeight(),
           -1,
           1.0F,
-          TextFlags.SHADOW | TextFlags.CENTERED
+          TextRenderingOptions.SHADOW | TextRenderingOptions.CENTERED
       );
     }
 
@@ -359,7 +359,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
             this.circle.getCircleX() - 2, this.circle.getCircleY() - 4,
             -1,
             1.0F,
-            TextFlags.SHADOW
+            TextRenderingOptions.SHADOW
         );
       }
 
