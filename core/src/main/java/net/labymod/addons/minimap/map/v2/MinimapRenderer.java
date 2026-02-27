@@ -27,6 +27,7 @@ import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.gui.screen.state.states.GuiTextureSet;
 import net.labymod.api.client.world.ClientWorld;
+import net.labymod.api.laby3d.pipeline.material.GuiMaterial;
 import net.labymod.api.util.Lazy;
 import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.logging.Logging;
@@ -182,13 +183,12 @@ public final class MinimapRenderer {
         canvas.submitState(
             (pose, scissorArea) ->
                 new MinimapGuiBlitRenderState(
-                    MinimapRenderStates.MINIMAP,
-                    pose,
-                    GuiTextureSet.builder()
+                    GuiMaterial.builder(MinimapRenderStates.MINIMAP)
                         .setTexture(0, colorTexture.deviceTextureView())
                         .setTexture(1, heightmapTexture.deviceTextureView())
                         .setTexture(2, lightmapTexture.deviceTextureView())
                         .build(),
+                    pose,
                     dstX, dstY, dstW, dstH,
                     u0, v0, u1, v1,
                     -1,

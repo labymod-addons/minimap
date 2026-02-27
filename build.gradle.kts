@@ -30,7 +30,7 @@ labyMod {
         minecraftVersion = "*"
         version = rootProject.version.toString()
         addon("labyswaypoints")
-        releaseChannel = ReleaseChannels.PRODUCTION
+        releaseChannel = ReleaseChannels.INTERNAL
     }
 }
 

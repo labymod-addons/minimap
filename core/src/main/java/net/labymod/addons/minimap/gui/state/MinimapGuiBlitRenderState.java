@@ -4,9 +4,8 @@ import net.labymod.addons.minimap.laby3d.MinimapUniformBlocks;
 import net.labymod.addons.minimap.laby3d.shader.MinimapUniformBlock;
 import net.labymod.api.client.gui.screen.state.DrawCommandContext;
 import net.labymod.api.client.gui.screen.state.states.GuiBlitRenderState;
-import net.labymod.api.client.gui.screen.state.states.GuiTextureSet;
 import net.labymod.api.client.gui.screen.util.scissor.ScissorArea;
-import net.labymod.laby3d.api.pipeline.RenderState;
+import net.labymod.api.laby3d.pipeline.material.Material;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 
@@ -15,9 +14,8 @@ public class MinimapGuiBlitRenderState extends GuiBlitRenderState {
   private final MinimapUniformBlocks uniformBlocks;
 
   public MinimapGuiBlitRenderState(
-      RenderState renderState,
+      Material material,
       Matrix4f pose,
-      GuiTextureSet guiTextureSet,
       float x, float y, float width, float height,
       float minU, float minV, float maxU, float maxV,
       int argb,
@@ -25,9 +23,8 @@ public class MinimapGuiBlitRenderState extends GuiBlitRenderState {
       MinimapUniformBlocks uniformBlocks
   ) {
     super(
-        renderState,
+        material,
         pose,
-        guiTextureSet,
         x, y, width, height,
         minU, minV, maxU, maxV,
         argb,
@@ -43,7 +40,7 @@ public class MinimapGuiBlitRenderState extends GuiBlitRenderState {
 
   @Override
   public void consumeCommand(DrawCommandContext command) {
-    command.drawRenderCommand().setUniformBlock(MinimapUniformBlock.NAME, this.uniformBlocks.minimap());
+    command.commandBuffer().bindUniformBlock(MinimapUniformBlock.NAME, this.uniformBlocks.minimap());
     super.consumeCommand(command);
   }
 }
