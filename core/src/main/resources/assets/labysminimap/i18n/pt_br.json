@@ -5,7 +5,12 @@
         },
         "hudWidget": {
             "minimap": {
-                "name": "Minimapa"
+                "name": "Minimapa",
+                "displayType": {
+                    "entries": {
+                        "minecraftMapSquare": "Mapa do Minecraft"
+                    }
+                }
             }
         }
     }
