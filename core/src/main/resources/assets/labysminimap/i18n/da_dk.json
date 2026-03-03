@@ -28,7 +28,10 @@
                 },
                 "cardinalType": {
                     "entries": {
-                        "hidden": "Skjult"
+                        "hidden": "Skjult",
+                        "normal": "N, Ø, S, V",
+                        "extended": "N, NØ, Ø, SØ, S, SV, V, NV",
+                        "numbers": "0, 1, 2, 3"
                     }
                 },
                 "showCoordinates": {
@@ -45,6 +48,12 @@
                 },
                 "playerColor": {
                     "name": "Farve"
+                },
+                "updateMethod": {
+                    "name": "Opdateringsmetode"
+                },
+                "tileSize": {
+                    "name": "Flisestørrelse"
                 }
             }
         }
