@@ -10,6 +10,12 @@
                     "entries": {
                         "minecraftMapSquare": "Mapa do Minecraft"
                     }
+                },
+                "showPlayers": {
+                    "name": "Mostrar Jogadores"
+                },
+                "playerIcon": {
+                    "name": "Ícone"
                 }
             }
         }
