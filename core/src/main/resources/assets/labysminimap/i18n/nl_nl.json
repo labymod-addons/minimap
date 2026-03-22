@@ -59,6 +59,27 @@
                 },
                 "showPlayers": {
                     "name": "Spelers weergeven"
+                },
+                "showWaypoints": {
+                    "name": "Waypoints weergeven"
+                },
+                "playerIcon": {
+                    "name": "Icoon"
+                },
+                "playerColor": {
+                    "name": "kleur"
+                },
+                "caveMode": {
+                    "name": "Grotmodus",
+                    "description": "Schakelt grotmodus in voor de minimap.\n§4§lWAARSCHUWING§r: Dit kan lag veroorzaken!"
+                },
+                "header": {
+                    "player": {
+                        "name": "Eigen speler"
+                    },
+                    "tiles": {
+                        "name": "Tegels"
+                    }
                 }
             }
         }
