@@ -27,6 +27,38 @@
                 },
                 "zoom": {
                     "name": "Zoom"
+                },
+                "jumpBouncing": {
+                    "name": "Sprongstuiter"
+                },
+                "updateMethod": {
+                    "name": "Updatemethode",
+                    "entries": {
+                        "blockTrigger": "Tijdens het bewegen (Lagere FPS)",
+                        "chunkTrigger": "Voer nieuwe chunk in"
+                    }
+                },
+                "cardinalType": {
+                    "name": "Windrichtingen",
+                    "entries": {
+                        "hidden": "Verborgen",
+                        "normal": "N, O, Z, W",
+                        "extended": "N, NO, O, ZO, Z, ZW, W, NW",
+                        "numbers": "0, 1, 2, 3"
+                    }
+                },
+                "showCoordinates": {
+                    "name": "Coördinaten weergeven"
+                },
+                "tileSize": {
+                    "name": "Tegelformaat",
+                    "description": "Grootte van de tegels (Spelerkoppen, Waypoints) op de Minimap"
+                },
+                "showOwnPlayer": {
+                    "name": "Eigen speler weergeven"
+                },
+                "showPlayers": {
+                    "name": "Spelers weergeven"
                 }
             }
         }
