@@ -54,7 +54,8 @@
                 "updateMethod": {
                     "name": "Opdateringsmetode",
                     "entries": {
-                        "blockTrigger": "Imens man går (Lavere FPS)"
+                        "blockTrigger": "Imens man går (Lavere FPS)",
+                        "chunkTrigger": "Indtast nyt chunk"
                     }
                 },
                 "tileSize": {
