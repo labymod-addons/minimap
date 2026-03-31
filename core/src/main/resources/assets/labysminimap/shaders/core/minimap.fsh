@@ -3,6 +3,7 @@
 #l3d_import <labymod:shaders/include/projection.glsl>
 #l3d_import <labymod:shaders/include/globals.glsl>
 #l3d_import <labymod:shaders/include/dynamic_transforms.glsl>
+#l3d_import <labymod:shaders/include/clip_data.glsl>
 
 #ifdef UNIFORM_BLOCK
 layout(std140) uniform Minimap {
@@ -23,6 +24,7 @@ uniform sampler2D HeightmapSampler;
 uniform sampler2D LightmapSampler;
 
 in vec2 texCoord;
+in vec2 fragCoord;
 
 out vec4 fragColor;
 
@@ -57,6 +59,12 @@ void main() {
   // Apply shadows and highlights to the base color
   vec3 litColor = baseColor.rgb * lightIntensity;
 
-  fragColor = vec4(litColor, baseColor.a) * getLighting();
+  vec4 color = vec4(litColor, baseColor.a) * getLighting();
+
+  float clipAlpha = labyClipTest(fragCoord);
+  if (clipAlpha < 0.01) discard;
+  color.a *= clipAlpha;
+
+  fragColor = color;
   //fragColor = baseColor;
 }

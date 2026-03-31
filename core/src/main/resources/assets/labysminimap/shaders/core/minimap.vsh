@@ -10,8 +10,11 @@ in vec4 Color;
 
 out vec2 texCoord;
 out vec4 vertexColor;
+out vec2 fragCoord;
 
 void main() {
+  fragCoord = Position.xy;
+
   gl_Position = ProjectionMatrix * ModelViewMatrix * vec4(Position, 1.0);
   texCoord = UV;
   vertexColor = Color;

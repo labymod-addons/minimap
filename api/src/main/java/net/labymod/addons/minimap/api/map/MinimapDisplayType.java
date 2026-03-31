@@ -2,7 +2,7 @@ package net.labymod.addons.minimap.api.map;
 
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.api.client.gui.icon.Icon;
-import net.labymod.api.client.gui.screen.ScreenContext;
+import net.labymod.api.client.gui.screen.state.ClipShape;
 import net.labymod.api.client.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 
@@ -10,154 +10,89 @@ public enum MinimapDisplayType {
   ROUND(
       Stage.AFTER_TEXTURE,
       Icon.texture(Util.newThemeLocation("overlay/round")),
-      (context, radius) -> {
-        context.canvas().submitCircle(
-            radius, radius,
-            radius - Util.BORDER_PADDING,
-            Integer.MAX_VALUE
-        );
-      },
+      radius -> ClipShape.circle(radius, radius, radius - Util.BORDER_PADDING),
       true
   ),
   ROUND_CLASSIC(
       Stage.AFTER_TEXTURE,
       Icon.texture(Util.newThemeLocation("overlay/round_classic")),
-      (context, radius) -> {
-        context.canvas().submitCircle(
-            radius, radius,
-            radius - Util.BORDER_PADDING,
-            Integer.MAX_VALUE
-        );
-      },
+      radius -> ClipShape.circle(radius, radius, radius - Util.BORDER_PADDING),
       true
   ),
   ROUND_FUTURE_WIDE(
       Stage.AFTER_TEXTURE,
       Icon.texture(Util.newThemeLocation("overlay/round_future_wide")),
-      (context, radius) ->
-      {
-        context.canvas().submitCircle(
-            radius, radius,
-            radius - Util.BORDER_PADDING,
-            Integer.MAX_VALUE
-        );
-      },
+      radius -> ClipShape.circle(radius, radius, radius - Util.BORDER_PADDING),
       true
   ),
   ROUND_FUTURE_THIN(
       Stage.AFTER_TEXTURE,
       Icon.texture(Util.newThemeLocation("overlay/round_future_thin")),
-      (context, radius) ->
-      {
-        context.canvas().submitCircle(
-            radius, radius,
-            radius - Util.BORDER_PADDING + 1,
-            Integer.MAX_VALUE
-        );
-      },
+      radius -> ClipShape.circle(radius, radius, radius - Util.BORDER_PADDING + 1),
       true
   ),
   ROUND_METAL_GOLD(
       Stage.AFTER_TEXTURE,
       Icon.texture(Util.newThemeLocation("overlay/round_metal_gold")),
-      (context, radius) -> {
-        context.canvas().submitCircle(
-            radius, radius,
-            radius - Util.BORDER_PADDING,
-            Integer.MAX_VALUE
-        );
-      },
+      radius -> ClipShape.circle(radius, radius, radius - Util.BORDER_PADDING),
       true
   ),
   ROUND_SIMPLE_CHROME(
       Stage.AFTER_TEXTURE,
       Icon.texture(Util.newThemeLocation("overlay/round_simple_chrome")),
-      (context, radius) -> {
-        context.canvas().submitCircle(
-            radius, radius,
-            radius + 1,
-            Integer.MAX_VALUE
-        );
-      },
+      radius -> ClipShape.circle(radius, radius, radius + 1),
       true
   ),
   ROUND_SIMPLE_METAL(
       Stage.AFTER_TEXTURE,
       Icon.texture(Util.newThemeLocation("overlay/round_simple_metal")),
-      (context, radius) -> {
-        context.canvas().submitCircle(
-            radius, radius,
-            radius + 1,
-            Integer.MAX_VALUE
-        );
-      },
+      radius -> ClipShape.circle(radius, radius, radius + 1),
       true
   ),
   ROUND_WOOD(
       Stage.AFTER_TEXTURE,
       Icon.texture(Util.newThemeLocation("overlay/round_wood")),
-      (context, radius) -> {
-        context.canvas().submitCircle(
-            radius, radius,
-            radius - Util.BORDER_PADDING,
-            Integer.MAX_VALUE
-        );
-      },
+      radius -> ClipShape.circle(radius, radius, radius - Util.BORDER_PADDING),
       true
   ),
   SQUARE(
       Stage.AFTER_TEXTURE,
       Icon.texture(Util.newThemeLocation("overlay/square")),
-      (context, radius) ->
-      {
+      radius -> {
         float size = radius * 2F - Util.BORDER_PADDING * 2F;
-        context.canvas().submitRelativeRect(
-            Util.BORDER_PADDING, Util.BORDER_PADDING,
-            size, size,
-            Integer.MAX_VALUE
-        );
+        return ClipShape.rect(Util.BORDER_PADDING, Util.BORDER_PADDING, size, size);
       }
   ),
   SQUARE_PARCHMENT(
       Stage.AFTER_TEXTURE,
       Icon.texture(Util.newThemeLocation("overlay/square_parchment")),
-      (context, radius) ->
-      {
+      radius -> {
         float size = radius * 2F - Util.BORDER_PADDING * 2F;
-        context.canvas().submitRelativeRect(
-            Util.BORDER_PADDING, Util.BORDER_PADDING,
-            size, size,
-            Integer.MAX_VALUE
-        );
+        return ClipShape.rect(Util.BORDER_PADDING, Util.BORDER_PADDING, size, size);
       }
   ),
   MINECRAFT_MAP_SQUARE(
       Stage.BEFORE_TEXTURE,
       Icon.texture(ResourceLocation.create("minecraft", "textures/map/map_background.png")),
-      (context, radius) ->
-      {
+      radius -> {
         float size = radius * 2F - Util.BORDER_PADDING * 2F;
-        context.canvas().submitRelativeRect(
-            Util.BORDER_PADDING, Util.BORDER_PADDING,
-            size, size,
-            Integer.MAX_VALUE
-        );
+        return ClipShape.rect(Util.BORDER_PADDING, Util.BORDER_PADDING, size, size);
       }
   );
 
   private final Stage stage;
   private final Icon icon;
-  private final MinimapStencil stencil;
+  private final ClipShapeFactory clipShapeFactory;
   private final boolean circle;
 
-  MinimapDisplayType(Stage stage, Icon icon, MinimapStencil stencil) {
-    this(stage, icon, stencil, false);
+  MinimapDisplayType(Stage stage, Icon icon, ClipShapeFactory clipShapeFactory) {
+    this(stage, icon, clipShapeFactory, false);
   }
 
-  MinimapDisplayType(Stage stage, Icon icon, MinimapStencil stencil, boolean circle) {
+  MinimapDisplayType(Stage stage, Icon icon, ClipShapeFactory clipShapeFactory, boolean circle) {
     this.stage = stage;
     this.icon = icon;
-    this.stencil = stencil;
+    this.clipShapeFactory = clipShapeFactory;
     this.circle = circle;
   }
 
@@ -171,17 +106,13 @@ public enum MinimapDisplayType {
     return this.icon;
   }
 
-  @NotNull
-  public MinimapStencil stencil() {
-    return this.stencil;
-  }
-
   public boolean isCircle() {
     return this.circle;
   }
 
-  public void renderStencil(ScreenContext context, float radius) {
-    this.stencil.render(context, radius);
+  @NotNull
+  public ClipShape clipShape(float radius) {
+    return this.clipShapeFactory.create(radius);
   }
 
   public static enum Stage {
@@ -189,8 +120,8 @@ public enum MinimapDisplayType {
     AFTER_TEXTURE
   }
 
-  public interface MinimapStencil {
+  public interface ClipShapeFactory {
 
-    void render(ScreenContext context, float radius);
+    ClipShape create(float radius);
   }
 }

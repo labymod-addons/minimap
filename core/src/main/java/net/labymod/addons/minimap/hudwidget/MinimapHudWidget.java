@@ -11,11 +11,7 @@ import net.labymod.addons.minimap.api.map.MinimapPlayerIcon;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
-import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
-import net.labymod.api.client.gfx.pipeline.RenderAttributes;
-import net.labymod.api.client.gfx.pipeline.RenderAttributes.StencilMode;
-import net.labymod.api.client.gfx.pipeline.RenderAttributesStack;
 import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
 import net.labymod.api.client.gui.hud.binding.category.HudWidgetCategory;
 import net.labymod.api.client.gui.hud.hudwidget.HudWidget;
@@ -103,16 +99,10 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       context.translate(-newHudSize.getActualWidth() / 2F, -newHudSize.getActualHeight() / 2F, 0F);
 
       this.renderMapOutline(context, newHudSize, MinimapDisplayType.Stage.BEFORE_TEXTURE);
-      RenderAttributesStack renderAttributesStack = Laby.references()
-          .renderEnvironmentContext()
-          .renderAttributesStack();
 
       float radius = newHudSize.getActualWidth() / 2F;
-      RenderAttributes renderAttributes = renderAttributesStack.pushAndGet();
-      renderAttributes.setStencilMode(StencilMode.WRITE_STENCIL);
       var configuration = this.configuration();
-      configuration.displayType().get().renderStencil(context, radius);
-      renderAttributes.setStencilMode(StencilMode.WRITE_TO_STENCIL);
+      context.canvas().pushClipShape(configuration.displayType().get().clipShape(radius));
 
       context.pushStack();
       if (this.lastRadius != radius) {
@@ -137,7 +127,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       context.popStack();
       context.popStack();
 
-      renderAttributesStack.pop();
+      context.canvas().popClipShape();
       this.renderMapOutline(context, newHudSize, MinimapDisplayType.Stage.AFTER_TEXTURE);
 
       context.popStack();
@@ -185,12 +175,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
 
     this.renderMapOutline(context, newHudSize, MinimapDisplayType.Stage.BEFORE_TEXTURE);
 
-    RenderAttributesStack renderAttributesStack = Laby.references().renderEnvironmentContext()
-        .renderAttributesStack();
-    RenderAttributes renderAttributes = renderAttributesStack.pushAndGet();
-    renderAttributes.setStencilMode(StencilMode.WRITE_STENCIL);
-    configuration.displayType().get().renderStencil(context, radius);
-    renderAttributes.setStencilMode(StencilMode.WRITE_TO_STENCIL);
+    context.canvas().pushClipShape(configuration.displayType().get().clipShape(radius));
 
     // Render minimap
     if (this.addon.isMinimapAllowed()) {
@@ -210,7 +195,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     context.popStack();
 
     this.renderEvent.fireWithStage(Stage.STRAIGHT_NORMAL_STENCIL);
-    renderAttributesStack.pop();
+    context.canvas().popClipShape();
 
     this.renderMapOutline(context, newHudSize, MinimapDisplayType.Stage.AFTER_TEXTURE);
 

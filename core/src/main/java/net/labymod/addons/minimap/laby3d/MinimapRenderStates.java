@@ -19,7 +19,7 @@ public final class MinimapRenderStates {
   public static final RenderState MINIMAP = RenderState.builder(GUI_TEXTURED.toSnippet())
       .setId(buildStateId("minimap"))
       .setShaderProgramDescription(
-          ShaderProgramDescription.builder(RenderStates.DEFAULT_SHADER_SNIPPET)
+          ShaderProgramDescription.builder(RenderStates.DEFAULT_SHADER_SNIPPET, RenderStates.CLIP_DATA_SHADER_SNIPPET)
               .setId(buildProgramId("minimap"))
               .setVertexShader(buildShaderId("core/minimap.vsh"))
               .setFragmentShader(buildShaderId("core/minimap.fsh"))
@@ -30,7 +30,7 @@ public final class MinimapRenderStates {
                   UniformBlockDescription.builder()
                       .setName(MinimapUniformBlock.NAME)
                       .setLayout(MinimapUniformBlock.LAYOUT)
-                      .setBinding(11)
+                      .setBinding(12)
                       .build()
               )
               .build()
