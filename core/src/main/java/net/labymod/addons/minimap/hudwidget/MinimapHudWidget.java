@@ -37,6 +37,7 @@ import net.labymod.api.configuration.settings.annotation.SettingSection;
 import net.labymod.api.util.Color;
 import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.position.Position;
+import net.labymod.api.util.math.vector.DoubleVector3;
 import org.jetbrains.annotations.Nullable;
 
 @SpriteSlot(size = 32)
@@ -271,10 +272,14 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     float mapMidZ = bounds.getZ1() + (bounds.getZ2() - bounds.getZ1()) / 2F;
 
     // Smooth player position (interpolated)
-    Position position = player.position();
-    Position previousPosition = player.previousPosition();
-    double smoothX = position.lerpX(previousPosition, context.getTickDelta());
-    double smoothZ = position.lerpZ(previousPosition, context.getTickDelta());
+    MinecraftCamera camera = this.labyAPI.minecraft().getCamera();
+    if (camera == null) {
+      return;
+    }
+
+    DoubleVector3 position = camera.renderPosition();
+    double smoothX = position.getX();
+    double smoothZ = position.getZ();
 
     // Offset from the map window center to the player (in blocks)
     double dx = smoothX - mapMidX;

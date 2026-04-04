@@ -122,6 +122,10 @@ public abstract class TileRenderer<T> {
     return stage == Stage.STRAIGHT_ZOOMED_STENCIL;
   }
 
+  protected boolean isCentered(T tile) {
+    return false;
+  }
+
   protected float getCurrentPixelDistanceX() {
     return this.currentPixelDistanceX;
   }
@@ -148,10 +152,17 @@ public abstract class TileRenderer<T> {
       this.currentPixelDistanceX = (this.playerX - this.getTileX(tile)) * this.pixelLength;
       this.currentPixelDistanceZ = (this.playerZ - this.getTileZ(tile)) * this.pixelLength;
 
-      float rotX = this.headRotationCos * this.currentPixelDistanceX
-          - this.headRotationSin * this.currentPixelDistanceZ;
-      float rotZ = this.headRotationSin * this.currentPixelDistanceX
-          + this.headRotationCos * this.currentPixelDistanceZ;
+      float rotX;
+      float rotZ;
+      if (this.isCentered(tile)) {
+        rotX = 0;
+        rotZ = 0;
+      } else {
+        rotX = this.headRotationCos * this.currentPixelDistanceX
+            - this.headRotationSin * this.currentPixelDistanceZ;
+        rotZ = this.headRotationSin * this.currentPixelDistanceX
+            + this.headRotationCos * this.currentPixelDistanceZ;
+      }
 
       float maxRadius = this.getScaledRadius();
 

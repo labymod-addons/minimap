@@ -113,6 +113,10 @@ public final class MinimapRenderer {
     float pxPerBlockZ = height / (float) (z2 - z1);
 
     MinimapUniformBlock minimap = this.uniformBlocks.minimap();
+    if (minimap == null) {
+      return;
+    }
+
     minimap.sunPosition().set(new Vector3f(0.9F, -1.0F, 1F));
     float timeOfDay = this.getTimeOfDay();
     float normalizedDayTime = (float) (1.0F - (Math.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F

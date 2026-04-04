@@ -46,6 +46,11 @@ public class PlayerTileRenderer extends TileRenderer<Player> {
   }
 
   @Override
+  protected boolean isCentered(Player player) {
+    return player == this.clientPlayer();
+  }
+
+  @Override
   protected boolean shouldRenderTile(Player player) {
     if (player == this.clientPlayer()) {
       return this.configProvider().hudWidgetConfig().showOwnPlayer().get();
