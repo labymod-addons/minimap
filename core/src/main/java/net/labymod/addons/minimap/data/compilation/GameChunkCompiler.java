@@ -21,7 +21,10 @@ import net.labymod.api.util.math.vector.IntVector3;
 
 public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
 
-  private static final Set<ResourceLocation> IGNORED_BLOCKS = Set.of(ResourceLocation.create("minecraft","barrier"));
+  private static final Set<ResourceLocation> IGNORED_BLOCKS = Set.of(
+      ResourceLocation.create("minecraft", "barrier"),
+      ResourceLocation.create("minecraft", "light")
+  );
   private static final Predicate<BlockState> VISIBLE_BLOCKS = state -> {
     if (state == null) {
       return false;
@@ -148,13 +151,13 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
 
     BlockState above = this.getBlockAbove(chunk, block);
     this.compileChunkColor(
-            data,
-            format,
-            x, z,
-            block,
-            () -> highestBlock.position().getY() - (highestBlock.hasCollision() ? 0 : 1),
-            () -> above
-        );
+        data,
+        format,
+        x, z,
+        block,
+        () -> highestBlock.position().getY() - (highestBlock.hasCollision() ? 0 : 1),
+        () -> above
+    );
   }
 
   private void compileChunkColor(
