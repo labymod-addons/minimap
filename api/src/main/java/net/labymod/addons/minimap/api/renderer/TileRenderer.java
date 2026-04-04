@@ -9,6 +9,7 @@ import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.render.matrix.Stack;
+import net.labymod.api.client.world.MinecraftCamera;
 import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.position.Position;
 import org.jetbrains.annotations.NotNull;
@@ -65,10 +66,11 @@ public abstract class TileRenderer<T> {
 
     this.scaledRadius = this.radius / event.zoom();
 
-    float headRotationAngle = -clientPlayer.getRotationHeadYaw();
+    MinecraftCamera camera = Laby.labyAPI().minecraft().getCamera();
+    float yaw = camera == null ? 0 : camera.getYaw();
 
-    this.headRotationCos = MathHelper.cos(MathHelper.toRadiansFloat(headRotationAngle));
-    this.headRotationSin = MathHelper.sin(MathHelper.toRadiansFloat(headRotationAngle));
+    this.headRotationCos = MathHelper.cos(MathHelper.toRadiansFloat(-yaw));
+    this.headRotationSin = MathHelper.sin(MathHelper.toRadiansFloat(-yaw));
 
     this.pixelLength = event.pixelLength();
 
@@ -129,7 +131,8 @@ public abstract class TileRenderer<T> {
   }
 
   protected float getCurrentDistance() {
-    return (float) Math.sqrt(this.getCurrentPixelDistanceX() * this.getCurrentPixelDistanceX() + this.getCurrentPixelDistanceZ() * this.getCurrentPixelDistanceZ());
+    return (float) Math.sqrt(this.getCurrentPixelDistanceX() * this.getCurrentPixelDistanceX()
+        + this.getCurrentPixelDistanceZ() * this.getCurrentPixelDistanceZ());
   }
 
   protected MinimapConfigProvider configProvider() {
@@ -145,8 +148,10 @@ public abstract class TileRenderer<T> {
       this.currentPixelDistanceX = (this.playerX - this.getTileX(tile)) * this.pixelLength;
       this.currentPixelDistanceZ = (this.playerZ - this.getTileZ(tile)) * this.pixelLength;
 
-      float rotX = this.headRotationCos * this.currentPixelDistanceX - this.headRotationSin * this.currentPixelDistanceZ;
-      float rotZ = this.headRotationSin * this.currentPixelDistanceX + this.headRotationCos * this.currentPixelDistanceZ;
+      float rotX = this.headRotationCos * this.currentPixelDistanceX
+          - this.headRotationSin * this.currentPixelDistanceZ;
+      float rotZ = this.headRotationSin * this.currentPixelDistanceX
+          + this.headRotationCos * this.currentPixelDistanceZ;
 
       float maxRadius = this.getScaledRadius();
 

@@ -1,5 +1,8 @@
 package net.labymod.addons.minimap.hudwidget;
 
+import static net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions.SHADOW;
+import static net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions.USE_FLOATING_POINT_VALUES;
+
 import net.labymod.addons.minimap.MinimapAddon;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent;
 import net.labymod.addons.minimap.api.event.MinimapRenderEvent.Stage;
@@ -11,6 +14,7 @@ import net.labymod.addons.minimap.api.map.MinimapPlayerIcon;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
+import net.labymod.api.Laby;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
 import net.labymod.api.client.gui.hud.binding.category.HudWidgetCategory;
@@ -26,6 +30,7 @@ import net.labymod.api.client.gui.screen.widget.widgets.input.color.ColorPickerW
 import net.labymod.api.client.gui.screen.widget.widgets.input.dropdown.DropdownWidget.DropdownEntryTranslationPrefix;
 import net.labymod.api.client.gui.screen.widget.widgets.input.dropdown.DropdownWidget.DropdownSetting;
 import net.labymod.api.client.render.matrix.Stack;
+import net.labymod.api.client.world.MinecraftCamera;
 import net.labymod.api.configuration.loader.annotation.SpriteSlot;
 import net.labymod.api.configuration.loader.property.ConfigProperty;
 import net.labymod.api.configuration.settings.annotation.SettingSection;
@@ -155,7 +160,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
           newHudSize.getActualHeight(),
           -1,
           1.0F,
-          TextRenderingOptions.SHADOW | TextRenderingOptions.CENTERED
+          SHADOW | TextRenderingOptions.CENTERED
       );
     }
 
@@ -225,7 +230,8 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     this.renderer.tick();
   }
 
-  private void applyZoom(@Nullable ClientPlayer player, ScreenContext context, HudSize size, boolean rotate) {
+  private void applyZoom(@Nullable ClientPlayer player, ScreenContext context, HudSize size,
+      boolean rotate) {
     Stack stack = context.stack();
     double addZoom = this.distanceToCorner / this.lastRadius + 0.3D;
 
@@ -239,13 +245,14 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
       }
     }
 
-
     // Rotate and scale map
     stack.translate(size.getActualWidth() / 2F, size.getActualHeight() / 2F, 0F);
     if (rotate) {
       stack.scale(-1, -1, 1);
       if (player != null) {
-        stack.rotate(-player.getRotationHeadYaw(), 0F, 0F, 1F);
+        MinecraftCamera camera = Laby.labyAPI().minecraft().getCamera();
+        float yaw = camera == null ? 0 : camera.getYaw();
+        stack.rotate(-yaw, 0F, 0F, 1F);
       }
     }
 
@@ -330,7 +337,9 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     String[] cardinals = numbers
         ? new String[]{"2", "3", "0", "1"}
         : new String[]{"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
-    float yaw = player.getRotationHeadYaw();
+
+    MinecraftCamera camera = Laby.labyAPI().minecraft().getCamera();
+    float yaw = camera == null ? 0 : camera.getYaw();
 
     int index = 1;
     for (String cardinal : cardinals) {
@@ -344,7 +353,7 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
             this.circle.getCircleX() - 2, this.circle.getCircleY() - 4,
             -1,
             1.0F,
-            TextRenderingOptions.SHADOW
+            SHADOW | USE_FLOATING_POINT_VALUES
         );
       }
 
