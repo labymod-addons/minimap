@@ -5,6 +5,14 @@
             "enabled": {
                 "name": "Activé"
             }
+        },
+        "hudWidget": {
+            "minimap": {
+                "name": "Minicarte",
+                "displayType": {
+                    "name": "Afficher"
+                }
+            }
         }
     }
 }
