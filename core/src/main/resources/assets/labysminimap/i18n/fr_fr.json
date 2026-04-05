@@ -1,1 +1,10 @@
-{}
+{
+    "labysminimap": {
+        "settings": {
+            "name": "Minicarte de Laby",
+            "enabled": {
+                "name": "Activé"
+            }
+        }
+    }
+}
