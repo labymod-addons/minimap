@@ -1,7 +1,15 @@
 {
     "labysminimap": {
         "settings": {
-            "name": "الخريطة المصغرة الخاصة بـ Laby"
+            "name": "الخريطة المصغرة الخاصة بـ Laby",
+            "enabled": {
+                "name": "مفعّل"
+            }
+        },
+        "hudWidget": {
+            "minimap": {
+                "name": "الخريطة المصغرة"
+            }
         }
     }
 }
