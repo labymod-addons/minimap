@@ -34,7 +34,8 @@
                         "normal": "N, Ø, S, V",
                         "extended": "N, NØ, Ø, SØ, S, SV, V, NV",
                         "numbers": "0, 1, 2, 3"
-                    }
+                    },
+                    "name": "Kardinaler"
                 },
                 "showCoordinates": {
                     "name": "Vis koordinater"
@@ -59,7 +60,11 @@
                     }
                 },
                 "tileSize": {
-                    "name": "Flisestørrelse"
+                    "name": "Flisestørrelse",
+                    "description": "Størrelse på fliserne (Spillerhoveder, Waypoints) på Kortet"
+                },
+                "jumpBouncing": {
+                    "name": "Hop hoppende"
                 }
             }
         }
