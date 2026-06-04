@@ -64,7 +64,10 @@
                     "description": "Størrelse på fliserne (Spillerhoveder, Waypoints) på Kortet"
                 },
                 "jumpBouncing": {
-                    "name": "Hop hoppende"
+                    "name": "Studsende hop"
+                },
+                "showOwnPlayer": {
+                    "name": "Vis egen spiller"
                 }
             }
         }
