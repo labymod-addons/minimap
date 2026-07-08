@@ -44,4 +44,9 @@ subprojects {
     repositories {
         mavenLocal()
     }
+
+    extensions.findByType(JavaPluginExtension::class.java)?.apply {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
 }
