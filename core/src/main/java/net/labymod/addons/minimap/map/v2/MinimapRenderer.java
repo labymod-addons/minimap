@@ -230,7 +230,7 @@ public final class MinimapRenderer {
       return;
     }
 
-    if (Laby.labyAPI().minecraft().isKeyPressed(Key.O)) {
+    if (MinimapDebugFlags.DEBUG_RESET_KEY && Laby.labyAPI().minecraft().isKeyPressed(Key.O)) {
       this.storage.resetCompilations();
     }
 

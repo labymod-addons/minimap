@@ -9,6 +9,7 @@ import java.util.Map;
 import javax.imageio.ImageIO;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.data.compilation.CompilationService;
+import net.labymod.addons.minimap.util.MinimapDebugFlags;
 import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.event.Subscribe;
@@ -137,6 +138,10 @@ public class ChunkDataStorage {
 
   @Subscribe
   public void onKey(KeyEvent event) {
+    if (!MinimapDebugFlags.DEBUG_RESET_KEY) {
+      return;
+    }
+
     if (event.state() == State.PRESS && event.key() == Key.O) {
       this.chunks.values().forEach(this::resetCompilation);
     }
