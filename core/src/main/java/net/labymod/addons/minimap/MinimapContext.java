@@ -3,6 +3,7 @@ package net.labymod.addons.minimap;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.addons.minimap.laby3d.MinimapUniformBlocks;
 import net.labymod.addons.minimap.map.v2.texture.SectionTextureRepository;
+import net.labymod.api.client.world.ClientWorld;
 
 public record MinimapContext(
     ChunkDataStorage storage,
@@ -12,5 +13,10 @@ public record MinimapContext(
 
   public MinimapContext() {
     this(new ChunkDataStorage(), new SectionTextureRepository(), new MinimapUniformBlocks());
+  }
+
+  public void reload(ClientWorld world) {
+    this.sectionTextureRepository.clear();
+    this.storage.reload(world);
   }
 }

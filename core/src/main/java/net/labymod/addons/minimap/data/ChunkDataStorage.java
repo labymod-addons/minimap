@@ -11,6 +11,7 @@ import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.data.compilation.CompilationService;
 import net.labymod.addons.minimap.util.MinimapDebugFlags;
 import net.labymod.api.client.gui.screen.key.Key;
+import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.input.KeyEvent;
@@ -147,9 +148,17 @@ public class ChunkDataStorage {
     }
   }
 
-  private void clearAll() {
+  public void clearAll() {
     this.chunks.clear();
+    this.resetCompilations();
     this.setShouldProcess(true);
+  }
+
+  public void reload(ClientWorld world) {
+    this.clearAll();
+    for (Chunk chunk : world.getChunks()) {
+      this.putChunk(chunk);
+    }
   }
 
   public boolean isChunkLoaded(int x, int z) {
@@ -173,9 +182,13 @@ public class ChunkDataStorage {
   }
 
   private void loadChunk(Chunk chunk) {
-    this.chunks.put(this.getChunkId(chunk), new GameChunkData(chunk));
+    this.putChunk(chunk);
     this.resetNeighboringChunks(chunk);
     this.setShouldProcess(true);
+  }
+
+  private void putChunk(Chunk chunk) {
+    this.chunks.put(this.getChunkId(chunk), new GameChunkData(chunk));
   }
 
   private void resetNeighboringChunks(Chunk currentChunk) {

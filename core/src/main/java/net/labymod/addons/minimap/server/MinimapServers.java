@@ -3,6 +3,7 @@ package net.labymod.addons.minimap.server;
 import java.util.Locale;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.api.Laby;
+import net.labymod.api.client.network.server.ServerData;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.network.server.ServerDisconnectEvent;
 import net.labymod.api.event.client.network.server.ServerJoinEvent;
@@ -41,6 +42,11 @@ public class MinimapServers {
     TranslationProtocol legacyTranslationProtocol = new TranslationProtocol(LEGACY_ID, protocol);
     legacyTranslationProtocol.registerListener(new MinimapTranslationListener());
     protocolService.translationRegistry().register(legacyTranslationProtocol);
+  }
+
+  public void refreshAllowedState() {
+    ServerData serverData = Laby.labyAPI().serverController().getCurrentServerData();
+    this.currentlyAllowed = serverData == null || this.isAllowed(serverData.address().getHost());
   }
 
   public boolean isAllowed(String address) {

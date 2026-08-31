@@ -13,6 +13,7 @@ import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.addons.minimap.server.MinimapServers;
 import net.labymod.api.Laby;
 import net.labymod.api.addon.LabyAddon;
+import net.labymod.api.client.Minecraft;
 import net.labymod.api.models.Implements;
 import net.labymod.api.models.addon.annotation.AddonMain;
 import net.labymod.laby3d.api.util.Util;
@@ -25,6 +26,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
   private final MinimapServers servers = new MinimapServers();
   private static ReferenceStorage references;
 
+  private MinimapContext minimapContext;
   private MinimapRenderer minimapRenderer;
   private MinimapHudWidget hudWidget;
 
@@ -34,12 +36,12 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     this.registerSettingCategory();
     MinimapAddon.references = this.referenceStorageAccessor();
 
-    MinimapContext minimapContext = new MinimapContext();
-    this.registerListener(minimapContext.storage());
-    this.registerListener(minimapContext.uniformBlocks());
+    this.minimapContext = new MinimapContext();
+    this.registerListener(this.minimapContext.storage());
+    this.registerListener(this.minimapContext.uniformBlocks());
 
     var references = Laby.references();
-    this.minimapRenderer = new MinimapRenderer(this, minimapContext);
+    this.minimapRenderer = new MinimapRenderer(this, this.minimapContext);
     references.hudWidgetRegistry().register(this.hudWidget = new MinimapHudWidget(this, this.minimapRenderer));
 
     this.servers.init();
@@ -60,6 +62,23 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
         );*/
 
     references.controlEntryRegistry().registerEntry(false, ImGuiMinimapDebug::new);
+  }
+
+  @Override
+  protected void onActivated() {
+    // Every listener of this addon was muted while it was disabled, so the collected world state is
+    // stale.
+    this.servers.refreshAllowedState();
+
+    Minecraft minecraft = this.labyAPI().minecraft();
+    if (minecraft.isIngame()) {
+      this.minimapContext.reload(minecraft.clientWorld());
+    }
+  }
+
+  @Override
+  protected void onDeactivated() {
+    this.minimapContext.storage().clearAll();
   }
 
   @Override

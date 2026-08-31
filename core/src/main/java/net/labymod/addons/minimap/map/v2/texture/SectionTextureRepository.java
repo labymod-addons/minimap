@@ -45,6 +45,12 @@ public class SectionTextureRepository {
     return texture;
   }
 
+  public void clear() {
+    for (CompositeSectionTexture texture : this.textures.values()) {
+      texture.clearTextures();
+    }
+  }
+
   public Collection<CompositeSectionTexture> textures() {
     return this.textures.values();
   }

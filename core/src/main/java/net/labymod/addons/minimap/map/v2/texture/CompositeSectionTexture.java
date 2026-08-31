@@ -34,6 +34,14 @@ public class CompositeSectionTexture {
     this.getTexture(variant).clearTexture(clearColor);
   }
 
+  public void clearTextures() {
+    for (SectionTexture texture : this.textures.values()) {
+      texture.clearTexture(0);
+    }
+
+    this.updateTexture();
+  }
+
   public void updateTexture() {
     for (SectionTexture texture : this.textures.values()) {
       texture.updateTexture();
