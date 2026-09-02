@@ -160,7 +160,7 @@ public class MinimapPublisher {
             .append(",\"color\":").append(waypoint.meta().iconColor()).append('}');
       }
     } catch (Throwable ignored) {
-      // waypoints addon not present/ready — skip silently
+      // waypoints addon not present or not ready yet, skip silently
     }
   }
 
