@@ -11,6 +11,7 @@ import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.addons.minimap.server.MinimapServers;
+import net.labymod.addons.minimap.stream.MinimapPublisher;
 import net.labymod.api.Laby;
 import net.labymod.api.addon.LabyAddon;
 import net.labymod.api.models.Implements;
@@ -48,6 +49,16 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
         .registerIntegration("labyswaypoints", WaypointsIntegration.class);
 
     this.registerListener(getReferences().tileRendererDispatcher());
+
+    // External Devices: publish minimap tiles + live state whenever a phone is connected. Transport and
+    // pairing live in the core ExternalDeviceService (ingame.phoneHud setting). Guarded so the addon
+    // still works on client builds that don't ship the External Devices API yet.
+    try {
+      Class.forName("net.labymod.api.externaldevice.ExternalDeviceService");
+      this.registerListener(new MinimapPublisher(this, minimapContext));
+    } catch (ClassNotFoundException ignored) {
+      this.logger().info("External Devices API not available in this client build, minimap publishing disabled");
+    }
 
     /*
     references.hotkeyService()
