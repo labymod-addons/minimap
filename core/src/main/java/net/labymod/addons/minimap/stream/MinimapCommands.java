@@ -1,5 +1,7 @@
 package net.labymod.addons.minimap.stream;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -12,9 +14,11 @@ import net.labymod.api.Laby;
 import net.labymod.api.client.component.Component;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.externaldevice.ExternalDeviceCommandException;
+import net.labymod.api.externaldevice.ExternalDeviceRegistration;
 import net.labymod.api.util.Color;
 import net.labymod.api.util.math.position.Position;
 import net.labymod.api.util.math.vector.DoubleVector3;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The operations the minimap adds to the command set of paired controllers (a Stream Deck, the
@@ -39,18 +43,26 @@ public final class MinimapCommands {
   /** The waypoint is created on the render thread; a controller waits for the answer. */
   private static final long TIMEOUT_SECONDS = 3L;
 
+  private static ExternalDeviceRegistration registration;
+
   private MinimapCommands() {
   }
 
+  /** Offers the operation to controllers; dropped again while the addon is switched off. */
   public static void register() {
-    Laby.references().externalDeviceService().registerCommand(OP_WAYPOINT, MinimapCommands::waypoint);
+    unregister();
+    registration = Laby.references().externalDeviceService().control()
+        .registerCommand(OP_WAYPOINT, MinimapCommands::waypoint);
   }
 
   public static void unregister() {
-    Laby.references().externalDeviceService().unregisterCommand(OP_WAYPOINT);
+    if (registration != null) {
+      registration.close();
+      registration = null;
+    }
   }
 
-  private static String waypoint(String request) throws Exception {
+  private static JsonObject waypoint(JsonObject request) throws Exception {
     ClientPlayer player = Laby.labyAPI().minecraft().getClientPlayer();
     if (player == null) {
       throw new ExternalDeviceCommandException("no_world");
@@ -58,14 +70,14 @@ public final class MinimapCommands {
     Position position = player.position();
     DoubleVector3 location = new DoubleVector3(position.getX(), position.getY(), position.getZ());
 
-    String name = Json.getString(request, "name");
+    String name = string(request, "name");
     if (name == null || name.isBlank()) {
       // A nameless waypoint in the list tells nobody anything; its coordinates do.
       name = String.format(Locale.ROOT, "%.0f, %.0f, %.0f",
           location.getX(), location.getY(), location.getZ());
     }
-    Integer color = Json.getInt(request, "color");
-    boolean session = "session".equals(Json.getString(request, "type"));
+    Integer color = integer(request, "color");
+    boolean session = "session".equals(string(request, "type"));
 
     String title = name;
     CompletableFuture<Void> created = new CompletableFuture<>();
@@ -102,8 +114,24 @@ public final class MinimapCommands {
       throw exception;
     }
 
-    return "{\"name\":\"" + Json.escape(title) + "\",\"x\":" + Math.round(location.getX())
-        + ",\"y\":" + Math.round(location.getY())
-        + ",\"z\":" + Math.round(location.getZ()) + "}";
+    JsonObject answer = new JsonObject();
+    answer.addProperty("name", title);
+    answer.addProperty("x", Math.round(location.getX()));
+    answer.addProperty("y", Math.round(location.getY()));
+    answer.addProperty("z", Math.round(location.getZ()));
+    return answer;
+  }
+
+  @Nullable
+  private static String string(JsonObject request, String key) {
+    JsonElement element = request.get(key);
+    return element != null && element.isJsonPrimitive() ? element.getAsString() : null;
+  }
+
+  @Nullable
+  private static Integer integer(JsonObject request, String key) {
+    JsonElement element = request.get(key);
+    return element != null && element.isJsonPrimitive() && element.getAsJsonPrimitive().isNumber()
+        ? element.getAsInt() : null;
   }
 }

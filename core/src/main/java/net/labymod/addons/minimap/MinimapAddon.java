@@ -29,6 +29,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
 
   private MinimapRenderer minimapRenderer;
   private MinimapHudWidget hudWidget;
+  private boolean externalDevices;
 
   @Override
   protected void enable() {
@@ -55,11 +56,12 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     // a paired controller set waypoints. Transport and pairing live in the core
     // ExternalDeviceService (ingame.phoneHud setting). Guarded so the addon still works on client
     // builds that don't ship the External Devices API yet; a LinkageError means an older one that
-    // has the service but not its command registry.
+    // has the service but not its control side.
     try {
-      Class.forName("net.labymod.api.externaldevice.ExternalDeviceService");
+      Class.forName("net.labymod.api.externaldevice.ExternalDeviceControl");
       this.registerListener(new MinimapPublisher(this, minimapContext));
       MinimapCommands.register();
+      this.externalDevices = true;
     } catch (ClassNotFoundException | LinkageError ignored) {
       this.logger().info("External Devices API not available in this client build, minimap publishing disabled");
     }
@@ -75,6 +77,24 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
         );*/
 
     references.controlEntryRegistry().registerEntry(false, ImGuiMinimapDebug::new);
+  }
+
+  /**
+   * Switched off in the mods menu the publisher simply stops receiving ticks, but the waypoint
+   * operation is pulled by the controller, so it has to be taken off the list itself.
+   */
+  @Override
+  protected void onDeactivated() {
+    if (this.externalDevices) {
+      MinimapCommands.unregister();
+    }
+  }
+
+  @Override
+  protected void onActivated() {
+    if (this.externalDevices) {
+      MinimapCommands.register();
+    }
   }
 
   @Override

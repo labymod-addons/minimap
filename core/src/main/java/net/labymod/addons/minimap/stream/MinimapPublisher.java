@@ -1,11 +1,12 @@
 package net.labymod.addons.minimap.stream;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import javax.imageio.ImageIO;
 import net.labymod.addons.minimap.MinimapAddon;
@@ -21,7 +22,9 @@ import net.labymod.api.client.world.MinecraftCamera;
 import net.labymod.api.event.Phase;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.lifecycle.GameTickEvent;
+import net.labymod.api.event.labymod.externaldevice.ExternalDeviceConnectedEvent;
 import net.labymod.api.externaldevice.ExternalDeviceService;
+import net.labymod.api.externaldevice.ExternalDeviceStream;
 import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.position.Position;
 import net.labymod.api.util.math.vector.DoubleVector3;
@@ -29,7 +32,7 @@ import net.labymod.api.util.math.vector.DoubleVector3;
 /**
  * Publishes the minimap to phones via the core {@link ExternalDeviceService}: throttled live state
  * (position, heading, players, waypoints) plus delta-encoded map tiles (see
- * {@link MinimapChannel}). Transport, pairing and generic widget streaming live in the core — this
+ * {@link MinimapChannel}). Transport, pairing and generic widget streaming live in the core, this
  * class only contributes the minimap's frames while a device is connected.
  *
  * <p>Respects {@link MinimapAddon#isMinimapAllowed()}: on blacklisted servers no tiles are sent and
@@ -54,17 +57,24 @@ public class MinimapPublisher {
   private final Map<Long, Integer> tileHashes = new HashMap<>();
 
   private int tickCounter;
-  private int lastGeneration = -1;
+  /** A device paired since the last pass: it needs every tile, not the deltas it never saw. */
+  private volatile boolean resendTiles;
   /**
    * Synthetic stream clock: advances EXACTLY 50ms per game tick, independent of wall time. Real
    * tick scheduling jitters (30–70ms with catch-up bursts) while positions advance one fixed step
-   * per tick — stamping wall time therefore made the apparent speed wobble on the phone.
+   * per tick, so stamping wall time made the apparent speed wobble on the phone.
    */
   private long streamTime;
 
   public MinimapPublisher(MinimapAddon addon, MinimapContext context) {
     this.addon = addon;
     this.storage = context.storage();
+  }
+
+  /** Fires on a network thread, so the tile cache is dropped on the next tick instead of here. */
+  @Subscribe
+  public void onDeviceConnected(ExternalDeviceConnectedEvent event) {
+    this.resendTiles = true;
   }
 
   @Subscribe
@@ -76,11 +86,10 @@ public class MinimapPublisher {
     if (!service.hasConnectedDevice()) {
       return;
     }
+    ExternalDeviceStream stream = service.stream();
 
-    // A new device paired since our last pass → resend every tile, not just deltas.
-    int generation = service.connectionGeneration();
-    if (generation != this.lastGeneration) {
-      this.lastGeneration = generation;
+    if (this.resendTiles) {
+      this.resendTiles = false;
       this.tileHashes.clear();
     }
 
@@ -89,84 +98,78 @@ public class MinimapPublisher {
     boolean allowed = this.addon.isMinimapAllowed();
 
     if (this.tickCounter % Math.max(1, 20 / MinimapChannel.STATE_HZ) == 0) {
-      service.publishText(buildState(allowed));
+      stream.publishText(buildState(allowed));
     }
 
     if (allowed && this.tickCounter % Math.max(1, 20 / MinimapChannel.TILE_HZ) == 0) {
-      streamTiles(service);
+      streamTiles(stream);
     }
   }
 
   // ---- state -------------------------------------------------------------------------------------
 
-  private String buildState(boolean allowed) {
+  private JsonObject buildState(boolean allowed) {
     Minecraft minecraft = Laby.labyAPI().minecraft();
     ClientPlayer player = minecraft.getClientPlayer();
 
-    StringBuilder json = new StringBuilder(256);
+    JsonObject state = new JsonObject();
+    state.addProperty("t", MinimapChannel.MSG_STATE);
     // Tick-time stamp (see streamTime): the app's jitter-buffer playhead runs on THIS timeline,
     // so neither delivery jitter nor wall-clock tick scheduling can distort the motion.
-    json.append("{\"t\":\"").append(MinimapChannel.MSG_STATE).append("\",\"ts\":")
-        .append(this.streamTime)
-        .append(",\"allowed\":").append(allowed);
+    state.addProperty("ts", this.streamTime);
+    state.addProperty("allowed", allowed);
 
     if (player != null) {
       Position position = player.position();
       MinecraftCamera camera = minecraft.getCamera();
-      float yaw = camera == null ? 0F : camera.getYaw();
-      json.append(",\"x\":").append(num(position.getX()))
-          .append(",\"y\":").append(num(position.getY()))
-          .append(",\"z\":").append(num(position.getZ()))
-          .append(",\"yaw\":").append(num(yaw));
+      state.addProperty("x", num(position.getX()));
+      state.addProperty("y", num(position.getY()));
+      state.addProperty("z", num(position.getZ()));
+      state.addProperty("yaw", num(camera == null ? 0F : camera.getYaw()));
     }
 
-    json.append(",\"players\":[");
-    appendPlayers(json, player);
-    json.append("],\"waypoints\":[");
-    appendWaypoints(json);
-    json.append("]}");
-    return json.toString();
+    state.add("players", players(player));
+    state.add("waypoints", waypoints());
+    return state;
   }
 
-  private void appendPlayers(StringBuilder json, ClientPlayer self) {
-    boolean first = true;
+  private JsonArray players(ClientPlayer self) {
+    JsonArray players = new JsonArray();
     for (Player player : Laby.references().clientWorld().getPlayers()) {
       if (player == self) {
         continue;
       }
       Position position = player.position();
-      if (!first) {
-        json.append(',');
-      }
-      first = false;
-      json.append("{\"u\":\"").append(player.getUniqueId())
-          .append("\",\"n\":\"").append(Json.escape(player.getName()))
-          .append("\",\"x\":").append(num(position.getX()))
-          .append(",\"z\":").append(num(position.getZ())).append('}');
+      JsonObject entry = new JsonObject();
+      entry.addProperty("u", player.getUniqueId().toString());
+      entry.addProperty("n", player.getName());
+      entry.addProperty("x", num(position.getX()));
+      entry.addProperty("z", num(position.getZ()));
+      players.add(entry);
     }
+    return players;
   }
 
-  private void appendWaypoints(StringBuilder json) {
+  private JsonArray waypoints() {
+    JsonArray waypoints = new JsonArray();
     try {
-      boolean first = true;
       for (var waypoint : Waypoints.references().waypointService().getVisible()) {
         DoubleVector3 position = waypoint.position();
-        if (!first) {
-          json.append(',');
-        }
-        first = false;
-        json.append("{\"x\":").append(num(position.getX()))
-            .append(",\"z\":").append(num(position.getZ()))
-            .append(",\"color\":").append(waypoint.meta().iconColor()).append('}');
+        JsonObject entry = new JsonObject();
+        entry.addProperty("x", num(position.getX()));
+        entry.addProperty("z", num(position.getZ()));
+        entry.addProperty("color", waypoint.meta().iconColor());
+        waypoints.add(entry);
       }
     } catch (Throwable ignored) {
       // waypoints addon not present or not ready yet, skip silently
     }
+    return waypoints;
   }
 
   // ---- tiles -------------------------------------------------------------------------------------
 
-  private void streamTiles(ExternalDeviceService service) {
+  private void streamTiles(ExternalDeviceStream stream) {
     ClientPlayer player = Laby.labyAPI().minecraft().getClientPlayer();
     if (player == null) {
       return;
@@ -175,7 +178,7 @@ public class MinimapPublisher {
     int centerChunkZ = MathHelper.floor(player.position().getZ()) >> 4;
 
     // Forget sent-hashes for chunks well outside the streaming radius: the app prunes distant
-    // tiles from memory, so those areas MUST re-stream when the player returns — a permanent
+    // tiles from memory, so those areas MUST re-stream when the player returns; a permanent
     // hash entry would suppress the resend forever (visible as tiles vanishing for good).
     this.tileHashes.keySet().removeIf(key -> {
       int keyX = (int) (key >> 32);
@@ -202,7 +205,7 @@ public class MinimapPublisher {
 
       byte[] frame = encodeTile(data);
       if (frame != null) {
-        service.publishBinary(frame);
+        stream.publishBinary(frame);
         this.tileHashes.put(key, hash);
         if (++sent >= MAX_TILES_PER_TICK) {
           break;
@@ -260,7 +263,8 @@ public class MinimapPublisher {
     return (long) x << 32 | z & 0xFFFFFFFFL;
   }
 
-  private static String num(double value) {
-    return String.format(Locale.US, "%.2f", value);
+  /** Two decimals are enough for a map on a phone and keep the state message small. */
+  private static double num(double value) {
+    return Math.round(value * 100.0D) / 100.0D;
   }
 }
