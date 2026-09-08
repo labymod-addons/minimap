@@ -78,6 +78,10 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
 
   @Override
   protected void onDeactivated() {
+    if (this.minimapContext == null) { //TODO: Hotfix; proper fix to follow (@Christian)
+      return;
+    }
+
     this.minimapContext.storage().clearAll();
   }
 
