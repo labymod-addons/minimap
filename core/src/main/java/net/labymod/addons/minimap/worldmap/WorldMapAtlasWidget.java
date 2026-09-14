@@ -1,0 +1,364 @@
+package net.labymod.addons.minimap.worldmap;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import net.labymod.addons.minimap.api.util.Util;
+import net.labymod.addons.minimap.world.MapWorldKey;
+import net.labymod.addons.minimap.world.WorldMapService;
+import net.labymod.addons.minimap.world.WorldMapWaypoint;
+import net.labymod.api.Laby;
+import net.labymod.api.client.component.Component;
+import net.labymod.api.client.component.serializer.plain.PlainTextComponentSerializer;
+import net.labymod.api.client.entity.player.ClientPlayer;
+import net.labymod.api.client.gui.screen.Parent;
+import net.labymod.api.client.gui.screen.widget.Widget;
+import net.labymod.api.client.gui.screen.widget.action.Switchable;
+import net.labymod.api.client.gui.screen.widget.cursor.CursorTypes;
+import net.labymod.api.client.gui.screen.widget.widgets.ComponentWidget;
+import net.labymod.api.client.gui.screen.widget.widgets.DivWidget;
+import net.labymod.api.client.gui.screen.widget.widgets.input.TextFieldWidget;
+import net.labymod.api.client.gui.screen.widget.widgets.layout.FlexibleContentWidget;
+import net.labymod.api.client.gui.screen.widget.widgets.layout.ScrollWidget;
+import net.labymod.api.client.gui.screen.widget.widgets.layout.list.VerticalListWidget;
+import net.labymod.api.client.gui.screen.widget.widgets.renderer.IconWidget;
+import net.labymod.api.util.I18n;
+import net.labymod.api.util.math.position.Position;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Side panel of the world map with dimensions, sub-worlds, layers and the waypoints of the shown
+ * dimension.
+ */
+final class WorldMapAtlasWidget extends DivWidget {
+
+  private static final String I18N_PREFIX = Util.NAMESPACE + ".worldMap.atlas.";
+  private static final long MINUTE_MILLIS = 60_000L;
+  private static final long HOUR_MILLIS = 60L * MINUTE_MILLIS;
+  private static final long DAY_MILLIS = 24L * HOUR_MILLIS;
+
+  private final Actions actions;
+  private final WorldMapService service;
+  private final List<MapWorldKey> keys;
+  private final MapWorldKey viewKey;
+  @Nullable
+  private final MapWorldKey activeKey;
+  private final boolean current;
+  @Nullable
+  private final List<WorldMapWaypoint> waypoints;
+  private final List<WaypointRow> waypointRows = new ArrayList<>();
+  private boolean following;
+  private boolean caveLayer;
+  private String filter;
+  @Nullable
+  private WorldMapToggleWidget followToggle;
+  @Nullable
+  private WorldMapToggleWidget caveToggle;
+  @Nullable
+  private TextFieldWidget search;
+
+  /**
+   * @param current   whether the player is in the shown world
+   * @param waypoints the shown dimension's waypoints, {@code null} without the waypoints addon
+   */
+  WorldMapAtlasWidget(
+      Actions actions,
+      WorldMapService service,
+      List<MapWorldKey> keys,
+      MapWorldKey viewKey,
+      boolean current,
+      boolean following,
+      boolean caveLayer,
+      @Nullable List<WorldMapWaypoint> waypoints,
+      String filter
+  ) {
+    this.actions = actions;
+    this.service = service;
+    this.keys = keys;
+    this.viewKey = viewKey;
+    this.activeKey = service.activeKey();
+    this.current = current;
+    this.following = following;
+    this.caveLayer = caveLayer;
+    this.waypoints = waypoints == null ? null : new ArrayList<>(waypoints);
+    this.filter = filter;
+  }
+
+  @Override
+  public void initialize(Parent parent) {
+    super.initialize(parent);
+    this.waypointRows.clear();
+    this.followToggle = null;
+    this.caveToggle = null;
+    this.search = null;
+
+    VerticalListWidget<Widget> content = new VerticalListWidget<>();
+    content.addId("atlas-content");
+    content.addChild(ComponentWidget.i18n(I18N_PREFIX + "title").addId("atlas-title"));
+    content.addChild(ComponentWidget.text(this.viewKey.context()).addId("atlas-subtitle"));
+    this.addDimensions(content);
+    this.addSubWorlds(content);
+    if (this.current) {
+      this.addLayers(content);
+    }
+
+    if (this.waypoints != null) {
+      this.addWaypoints(content);
+    }
+
+    ScrollWidget scroll = new ScrollWidget(content);
+    scroll.addId("atlas-scroll");
+    this.addChild(scroll);
+  }
+
+  void update(boolean following, boolean caveLayer) {
+    this.following = following;
+    this.caveLayer = caveLayer;
+    if (this.followToggle != null) {
+      this.followToggle.setValue(following);
+    }
+
+    if (this.caveToggle != null) {
+      this.caveToggle.setValue(caveLayer);
+    }
+  }
+
+  void updateDistances(double playerX, double playerZ) {
+    for (WaypointRow row : this.waypointRows) {
+      row.distance().setText(formatDistance(row.waypoint(), playerX, playerZ));
+    }
+  }
+
+  /**
+   * @return whether the panel was built from these waypoints
+   */
+  boolean shows(@Nullable List<WorldMapWaypoint> waypoints) {
+    return Objects.equals(this.waypoints, waypoints);
+  }
+
+  boolean isSearchFocused() {
+    return this.search != null && this.search.isFocused();
+  }
+
+  void unfocusSearch() {
+    if (this.search != null) {
+      this.search.setFocused(false);
+    }
+  }
+
+  private void addDimensions(VerticalListWidget<Widget> content) {
+    content.addChild(label("dimension"));
+    FlexibleContentWidget tabs = new FlexibleContentWidget();
+    tabs.addId("atlas-tabs");
+    for (MapWorldKey key : WorldMapNames.dimensionTabs(this.keys, this.viewKey, this.activeKey)) {
+      DivWidget tab = new DivWidget();
+      tab.addId("atlas-tab");
+      if (key.dimension().equals(this.viewKey.dimension())) {
+        tab.addId("atlas-tab-active");
+      } else {
+        this.makePressable(tab, () -> this.actions.showWorld(key));
+      }
+
+      tab.addChild(ComponentWidget.text(WorldMapNames.dimension(key.dimension())));
+      tabs.addFlexibleContent(tab);
+    }
+
+    content.addChild(tabs);
+  }
+
+  private void addSubWorlds(VerticalListWidget<Widget> content) {
+    List<MapWorldKey> subWorlds = WorldMapNames.subWorlds(this.keys, this.viewKey.dimension());
+    if (subWorlds.size() < 2) {
+      return;
+    }
+
+    content.addChild(label("worlds"));
+    for (MapWorldKey key : subWorlds) {
+      String detail = key.equals(this.activeKey)
+          ? I18n.getTranslation(I18N_PREFIX + "hereNow")
+          : this.formatLastUsed(this.service.lastUsed(key));
+      DivWidget row = row(
+          ComponentWidget.text(WorldMapNames.subWorld(key)),
+          detail == null ? null : ComponentWidget.text(detail)
+      );
+      if (key.equals(this.viewKey)) {
+        row.addId("atlas-row-active");
+      } else {
+        this.makePressable(row, () -> this.actions.showWorld(key));
+      }
+
+      content.addChild(row);
+    }
+  }
+
+  private void addLayers(VerticalListWidget<Widget> content) {
+    content.addChild(label("layers"));
+    this.followToggle = this.addToggle(content, "follow", this.following, this.actions::setFollowing);
+    this.caveToggle = this.addToggle(content, "caves", this.caveLayer, this.actions::setCaveLayer);
+  }
+
+  private WorldMapToggleWidget addToggle(
+      VerticalListWidget<Widget> content,
+      String key,
+      boolean value,
+      Switchable switchable
+  ) {
+    WorldMapToggleWidget toggle = new WorldMapToggleWidget(value);
+    toggle.addId("atlas-toggle");
+
+    DivWidget row = row(ComponentWidget.i18n(I18N_PREFIX + key), null);
+    row.addChild(toggle);
+    this.makePressable(row, () -> {
+      boolean enabled = !toggle.value();
+      toggle.setValue(enabled);
+      switchable.switchValue(enabled);
+    });
+    content.addChild(row);
+    return toggle;
+  }
+
+  private void addWaypoints(VerticalListWidget<Widget> content) {
+    List<WorldMapWaypoint> waypoints = this.waypoints;
+    content.addChild(ComponentWidget.component(Component.translatable(
+        I18N_PREFIX + "waypoints",
+        Component.text(String.valueOf(waypoints.size()))
+    )).addId("atlas-label"));
+
+    TextFieldWidget search = new TextFieldWidget();
+    search.addId("atlas-search");
+    search.placeholder(Component.translatable(I18N_PREFIX + "search"));
+    search.setText(this.filter);
+    search.updateListener(text -> {
+      this.filter = text;
+      this.actions.filterWaypoints(text);
+      this.applyFilter();
+    });
+    content.addChild(search);
+    this.search = search;
+
+    if (waypoints.isEmpty()) {
+      content.addChild(ComponentWidget.i18n(I18N_PREFIX + "noWaypoints").addId("atlas-empty"));
+      return;
+    }
+
+    ClientPlayer player = this.current ? Laby.labyAPI().minecraft().getClientPlayer() : null;
+    List<WorldMapWaypoint> sorted = new ArrayList<>(waypoints);
+    if (player != null) {
+      Position position = player.position();
+      sorted.sort(Comparator.comparingDouble(
+          waypoint -> distanceSquared(waypoint, position.getX(), position.getZ())
+      ));
+    }
+
+    PlainTextComponentSerializer serializer = PlainTextComponentSerializer.plainText();
+    for (WorldMapWaypoint waypoint : sorted) {
+      IconWidget icon = new IconWidget(waypoint.icon());
+      icon.addId("atlas-row-icon");
+      icon.color().set(waypoint.iconColor());
+
+      ComponentWidget name = ComponentWidget.component(waypoint.title());
+      name.addId("atlas-row-name-indented");
+      ComponentWidget distance = player == null
+          ? ComponentWidget.empty()
+          : ComponentWidget.text(formatDistance(waypoint, player.position().getX(), player.position().getZ()));
+
+      DivWidget row = row(name, distance);
+      row.addChild(icon);
+      this.makePressable(row, () -> this.actions.focusWaypoint(waypoint));
+      content.addChild(row);
+      this.waypointRows.add(new WaypointRow(
+          row,
+          waypoint,
+          serializer.serialize(waypoint.title()).toLowerCase(Locale.ROOT),
+          distance
+      ));
+    }
+
+    this.applyFilter();
+  }
+
+  private void applyFilter() {
+    String needle = this.filter.trim().toLowerCase(Locale.ROOT);
+    for (WaypointRow row : this.waypointRows) {
+      row.widget().setVisible(needle.isEmpty() || row.searchText().contains(needle));
+    }
+  }
+
+  private void makePressable(DivWidget widget, Runnable action) {
+    widget.setHoverCursor(CursorTypes.POINTING_HAND);
+    widget.setPressable(action::run);
+  }
+
+  @Nullable
+  private String formatLastUsed(long millis) {
+    if (millis <= 0L) {
+      return null;
+    }
+
+    long elapsed = Math.max(0L, System.currentTimeMillis() - millis);
+    if (elapsed < MINUTE_MILLIS) {
+      return I18n.getTranslation(I18N_PREFIX + "justNow");
+    }
+
+    if (elapsed < HOUR_MILLIS) {
+      return I18n.getTranslation(I18N_PREFIX + "minutesAgo", elapsed / MINUTE_MILLIS);
+    }
+
+    if (elapsed < DAY_MILLIS) {
+      return I18n.getTranslation(I18N_PREFIX + "hoursAgo", elapsed / HOUR_MILLIS);
+    }
+
+    return I18n.getTranslation(I18N_PREFIX + "daysAgo", elapsed / DAY_MILLIS);
+  }
+
+  private static ComponentWidget label(String key) {
+    return ComponentWidget.i18n(I18N_PREFIX + key).addId("atlas-label");
+  }
+
+  private static DivWidget row(ComponentWidget name, @Nullable ComponentWidget detail) {
+    DivWidget row = new DivWidget();
+    row.addId("atlas-row");
+    name.addId("atlas-row-name");
+    row.addChild(name);
+    if (detail != null) {
+      detail.addId("atlas-row-detail");
+      row.addChild(detail);
+    }
+
+    return row;
+  }
+
+  private static String formatDistance(WorldMapWaypoint waypoint, double playerX, double playerZ) {
+    return Math.round(Math.sqrt(distanceSquared(waypoint, playerX, playerZ))) + " m";
+  }
+
+  private static double distanceSquared(WorldMapWaypoint waypoint, double x, double z) {
+    double deltaX = waypoint.x() - x;
+    double deltaZ = waypoint.z() - z;
+    return deltaX * deltaX + deltaZ * deltaZ;
+  }
+
+  interface Actions {
+
+    void showWorld(MapWorldKey key);
+
+    void setFollowing(boolean following);
+
+    void setCaveLayer(boolean enabled);
+
+    void focusWaypoint(WorldMapWaypoint waypoint);
+
+    void filterWaypoints(String filter);
+  }
+
+  private record WaypointRow(
+      DivWidget widget,
+      WorldMapWaypoint waypoint,
+      String searchText,
+      ComponentWidget distance
+  ) {
+
+  }
+}

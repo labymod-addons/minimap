@@ -110,6 +110,10 @@ final class WorldMapCamera {
     this.following = following;
   }
 
+  boolean isFollowing() {
+    return this.following;
+  }
+
   /**
    * Screen pixels per block.
    */

@@ -10,18 +10,42 @@
       }
     },
     "worldMap": {
-      "follow": "Follow Player",
-      "caveOn": "Cave Layer: On",
-      "caveOff": "Cave Layer: Off",
-      "close": "Close",
       "empty": "Nothing explored here yet",
       "subWorld": "World %s",
-      "menu": {
-        "createWaypoint": "Create waypoint here",
-        "editWaypoint": "Edit waypoint",
-        "hideWaypoint": "Hide waypoint",
-        "copyCoordinates": "Copy coordinates",
-        "centerPlayer": "Center on player"
+      "subWorldOf": "World %s of %s",
+      "following": "Following",
+      "freeCamera": "Free camera",
+      "caveOn": "Caves on",
+      "caveOff": "Caves off",
+      "hint": {
+        "follow": "Follow",
+        "caves": "Caves",
+        "atlas": "Atlas",
+        "actions": "Actions",
+        "rightClick": "Right click"
+      },
+      "wheel": {
+        "edit": "Edit",
+        "hide": "Hide",
+        "create": "Waypoint",
+        "copy": "Copy",
+        "follow": "Follow"
+      },
+      "atlas": {
+        "title": "World map",
+        "dimension": "Dimension",
+        "worlds": "Worlds",
+        "layers": "Layers",
+        "follow": "Follow player",
+        "caves": "Cave layer",
+        "waypoints": "Waypoints (%s)",
+        "search": "Search waypoints",
+        "noWaypoints": "No waypoints in this dimension",
+        "hereNow": "here now",
+        "justNow": "just now",
+        "minutesAgo": "%s min ago",
+        "hoursAgo": "%s h ago",
+        "daysAgo": "%s d ago"
       }
     },
     "hudWidget": {
