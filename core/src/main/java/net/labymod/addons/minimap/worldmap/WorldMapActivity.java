@@ -328,7 +328,12 @@ public class WorldMapActivity extends SimpleActivity {
     this.camera.update(width, height, current && player != null, playerX, playerZ);
 
     MapRegionStore store = this.service.openView(this.viewKey);
-    this.renderer.render(context, store, this.camera, width, height);
+    Window window = minecraft.minecraftWindow();
+    this.renderer.render(
+        context, store, this.camera,
+        width, height,
+        (float) window.getRawWidth() / window.getScaledWidth()
+    );
     if (current && this.caveLayerEnabled) {
       // Built cave chunks are opaque and cover the dimming, so only the area not built yet stays dark
       context.canvas().submitRelativeRect(0.0F, 0.0F, width, height, CAVE_UNBUILT_DIM_COLOR);

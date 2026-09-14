@@ -28,8 +28,10 @@ public final class MapRegionStore {
   private static final Logging LOGGER = Logging.getLogger();
   private static final int MAX_LOADED_REGIONS = 24;
   private static final int MAX_LOADED_LODS = 1024;
+  private static final int MAX_LOADED_FINE_LODS = 160;
   private static final String REGION_DIRECTORY = "regions";
-  private static final String LOD_DIRECTORY = "lod";
+  // Overviews used to be half the size, the new directory keeps them from being read as corrupt
+  private static final String LOD_DIRECTORY = "lod256";
   private static final String FILE_PREFIX = "r.";
   private static final String FILE_SUFFIX = ".bin";
 
@@ -39,6 +41,7 @@ public final class MapRegionStore {
   private final Queue<Runnable> completions = new ConcurrentLinkedQueue<>();
   private final Long2ObjectLinkedOpenHashMap<MapRegion> regions = new Long2ObjectLinkedOpenHashMap<>();
   private final Long2ObjectLinkedOpenHashMap<int[]> lods = new Long2ObjectLinkedOpenHashMap<>();
+  private final Long2ObjectLinkedOpenHashMap<int[]> fineLods = new Long2ObjectLinkedOpenHashMap<>();
   private final LongSet stored = new LongOpenHashSet();
   private final LongSet loadingRegions = new LongOpenHashSet();
   private final LongSet loadingLods = new LongOpenHashSet();
@@ -137,11 +140,24 @@ public final class MapRegionStore {
   }
 
   /**
-   * @return the overview of a saved region, or {@code null} while it is loading
+   * @return the {@value MapLod#SMALL_SIZE} pixel overview of a saved region, or {@code null} while
+   *     it is loading
    */
   public int @Nullable [] getLod(int x, int z) {
+    return this.getLod(this.lods, x, z);
+  }
+
+  /**
+   * @return the {@value MapLod#SIZE} pixel overview of a saved region, or {@code null} while it is
+   *     loading
+   */
+  public int @Nullable [] getFineLod(int x, int z) {
+    return this.getLod(this.fineLods, x, z);
+  }
+
+  private int @Nullable [] getLod(Long2ObjectLinkedOpenHashMap<int[]> lods, int x, int z) {
     long key = MapRegion.key(x, z);
-    int[] lod = this.lods.getAndMoveToLast(key);
+    int[] lod = lods.getAndMoveToLast(key);
     if (lod == null && this.stored.contains(key)) {
       this.loadLod(key);
     }
@@ -307,9 +323,11 @@ public final class MapRegionStore {
       // A missing overview stays marked as loading until the region is saved
       if (lod != null) {
         int[] loaded = lod;
+        int[] small = MapLod.small(lod);
         this.completions.add(() -> {
           this.loadingLods.remove(key);
-          this.putLod(key, loaded);
+          // Keeping a loaded small overview spares the renderer from uploading the same pixels again
+          this.putLod(key, loaded, this.lods.containsKey(key) ? null : small);
         });
       }
     });
@@ -322,19 +340,27 @@ public final class MapRegionStore {
       writeAtomically(regionFile, snapshot.encode());
       int[] lod = MapLod.build(snapshot);
       writeAtomically(this.lodFile(snapshot.x(), snapshot.z()), MapLod.encode(lod));
+      int[] small = MapLod.small(lod);
       this.completions.add(() -> {
         this.loadingLods.remove(key);
-        this.putLod(key, lod);
+        this.putLod(key, lod, small);
       });
     } catch (IOException exception) {
       LOGGER.error("Failed to save map region {}", regionFile, exception);
     }
   }
 
-  private void putLod(long key, int[] lod) {
-    this.lods.putAndMoveToLast(key, lod);
-    while (this.lods.size() > MAX_LOADED_LODS) {
-      this.lods.removeFirst();
+  private void putLod(long key, int[] fine, int @Nullable [] small) {
+    this.fineLods.putAndMoveToLast(key, fine);
+    while (this.fineLods.size() > MAX_LOADED_FINE_LODS) {
+      this.fineLods.removeFirst();
+    }
+
+    if (small != null) {
+      this.lods.putAndMoveToLast(key, small);
+      while (this.lods.size() > MAX_LOADED_LODS) {
+        this.lods.removeFirst();
+      }
     }
   }
 

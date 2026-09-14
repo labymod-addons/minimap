@@ -6,12 +6,14 @@ import java.util.zip.DataFormatException;
 import net.labymod.addons.minimap.util.Compression;
 
 /**
- * Pre-shaded overview of a region, {@value #SIZE}&times;{@value #SIZE} pixels with four blocks per
- * pixel.
+ * Pre-shaded overview of a region, {@value #SIZE}&times;{@value #SIZE} pixels with two blocks per
+ * pixel. A {@value #SMALL_SIZE}&times;{@value #SMALL_SIZE} version for further out is derived from
+ * it.
  */
 public final class MapLod {
 
-  public static final int SIZE = 128;
+  public static final int SIZE = 256;
+  public static final int SMALL_SIZE = SIZE / 2;
   private static final int SCALE = MapRegion.BLOCKS / SIZE;
 
   private MapLod() {
@@ -58,12 +60,23 @@ public final class MapLod {
     return pixels;
   }
 
+  public static int[] small(int[] pixels) {
+    int[] small = new int[SMALL_SIZE * SMALL_SIZE];
+    downsample(pixels, SIZE, small, SMALL_SIZE, 0, 0, SIZE / SMALL_SIZE);
+    return small;
+  }
+
   /**
    * Averages {@code factor}&times;{@code factor} source pixels into each target pixel, skipping
    * transparent ones.
    */
-  public static void downsample(int[] source, int[] target, int targetX, int targetY, int factor) {
-    int size = SIZE / factor;
+  public static void downsample(
+      int[] source, int sourceSize,
+      int[] target, int targetSize,
+      int targetX, int targetY,
+      int factor
+  ) {
+    int size = sourceSize / factor;
     for (int y = 0; y < size; y++) {
       for (int x = 0; x < size; x++) {
         int count = 0;
@@ -71,7 +84,7 @@ public final class MapLod {
         int green = 0;
         int blue = 0;
         for (int offsetY = 0; offsetY < factor; offsetY++) {
-          int row = (y * factor + offsetY) * SIZE + x * factor;
+          int row = (y * factor + offsetY) * sourceSize + x * factor;
           for (int offsetX = 0; offsetX < factor; offsetX++) {
             int color = source[row + offsetX];
             if (color >>> 24 == 0) {
@@ -86,7 +99,7 @@ public final class MapLod {
         }
 
         if (count > 0) {
-          target[(targetY + y) * SIZE + targetX + x] =
+          target[(targetY + y) * targetSize + targetX + x] =
               0xFF000000 | red / count << 16 | green / count << 8 | blue / count;
         }
       }
