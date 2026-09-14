@@ -57,6 +57,8 @@ public final class MinimapRenderer {
   private int lastMidChunkZ;
   private int lastPlayerY;
   private int lastZoom;
+  private int minimumBuildRadius;
+  private int lastBuildRadius;
   private boolean changed = true;
   private int[] chunkOrder = new int[0];
   private int chunkOrderRadius = -1;
@@ -79,6 +81,13 @@ public final class MinimapRenderer {
   }
 
   public void setZoomSupplier(IntSupplier zoomSupplier) {
+  }
+
+  /**
+   * Builds chunks at least this many blocks around the player, even if the zoom shows less.
+   */
+  public void setMinimumBuildRadius(int minimumBuildRadius) {
+    this.minimumBuildRadius = minimumBuildRadius;
   }
 
   public MinimapBounds minimapBounds() {
@@ -270,6 +279,7 @@ public final class MinimapRenderer {
     int minZ = midZ - zoom;
     int maxX = midX + zoom;
     int maxZ = midZ + zoom;
+    int buildRadius = Math.max(zoom, this.minimumBuildRadius);
 
     int midChunkX = midX >> 4;
     int midChunkZ = midZ >> 4;
@@ -288,11 +298,11 @@ public final class MinimapRenderer {
 
     this.storage.setPlayerPosition(player.position(), underground);
 
-    int minChunkX = minX >> 4;
-    int minChunkZ = minZ >> 4;
+    int minChunkX = (midX - buildRadius) >> 4;
+    int minChunkZ = (midZ - buildRadius) >> 4;
 
-    int maxChunkX = maxX >> 4;
-    int maxChunkZ = maxZ >> 4;
+    int maxChunkX = (midX + buildRadius) >> 4;
+    int maxChunkZ = (midZ + buildRadius) >> 4;
 
     ColorFormat format = ColorFormat.ARGB32;
     if (this.changed || this.storage.shouldProcess()) {
@@ -365,6 +375,7 @@ public final class MinimapRenderer {
         && this.lastMidChunkZ != midChunkZ)
         || this.lastUnderground != underground
         || this.lastZoom != zoom
+        || this.lastBuildRadius != buildRadius
         || changeLevel) {
       this.lastMidChunkX = midChunkX;
       this.lastMidChunkZ = midChunkZ;
@@ -387,6 +398,7 @@ public final class MinimapRenderer {
 
 
       this.lastZoom = zoom;
+      this.lastBuildRadius = buildRadius;
       this.changed = true;
     }
   }

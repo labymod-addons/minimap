@@ -51,18 +51,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
         .registerIntegration("labyswaypoints", WaypointsIntegration.class);
 
     this.registerListener(getReferences().tileRendererDispatcher());
-
-    // External Devices: publish minimap tiles + live state whenever a phone is connected.
-    // Transport and pairing live in the core ExternalDeviceService (ingame.externalDevices
-    // setting). Guarded so the addon still works on client builds that don't ship the External
-    // Devices API yet; a LinkageError means an older one that has the service but not its
-    // stream side.
-    try {
-      Class.forName("net.labymod.api.externaldevice.ExternalDeviceStream");
-      this.registerListener(new MinimapPublisher(this, minimapContext));
-    } catch (ClassNotFoundException | LinkageError ignored) {
-      this.logger().info("External Devices API not available in this client build, minimap publishing disabled");
-    }
+    this.registerListener(new MinimapPublisher(this, this.minimapContext, this.minimapRenderer, this.hudWidget));
 
     /*
     references.hotkeyService()
@@ -91,7 +80,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
 
   @Override
   protected void onDeactivated() {
-    if (this.minimapContext == null) { //TODO: Hotfix; proper fix to follow (@Christian)
+    if (this.minimapContext == null) {
       return;
     }
 

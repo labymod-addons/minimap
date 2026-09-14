@@ -13,6 +13,8 @@ import net.labymod.addons.minimap.MinimapAddon;
 import net.labymod.addons.minimap.MinimapContext;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
+import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
+import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.addons.waypoints.Waypoints;
 import net.labymod.api.Laby;
 import net.labymod.api.client.Minecraft;
@@ -53,6 +55,8 @@ public class MinimapPublisher {
   private static final int TILE_SCALE = 8;
 
   private final MinimapAddon addon;
+  private final MinimapRenderer renderer;
+  private final MinimapHudWidget hudWidget;
   private final ChunkDataStorage storage;
   private final Map<Long, Integer> tileHashes = new HashMap<>();
 
@@ -66,8 +70,15 @@ public class MinimapPublisher {
    */
   private long streamTime;
 
-  public MinimapPublisher(MinimapAddon addon, MinimapContext context) {
+  public MinimapPublisher(
+      MinimapAddon addon,
+      MinimapContext context,
+      MinimapRenderer renderer,
+      MinimapHudWidget hudWidget
+  ) {
     this.addon = addon;
+    this.renderer = renderer;
+    this.hudWidget = hudWidget;
     this.storage = context.storage();
   }
 
@@ -84,9 +95,17 @@ public class MinimapPublisher {
     }
     ExternalDeviceService service = Laby.references().externalDeviceService();
     if (!service.hasConnectedDevice()) {
+      this.renderer.setMinimumBuildRadius(0);
       return;
     }
     ExternalDeviceStream stream = service.stream();
+
+    // Only compiled chunks are streamed, and chunks are compiled by the renderer tick. The HUD
+    // widget drives that tick only while it's enabled, so drive it here otherwise.
+    this.renderer.setMinimumBuildRadius(TILE_RADIUS_CHUNKS * 16);
+    if (!this.hudWidget.isEnabled()) {
+      this.renderer.tick();
+    }
 
     if (this.resendTiles) {
       this.resendTiles = false;
