@@ -17,9 +17,11 @@
       "freeCamera": "Free camera",
       "caveOn": "Caves on",
       "caveOff": "Caves off",
+      "chunk": "Chunk %s, %s",
       "hint": {
         "follow": "Follow",
         "caves": "Caves",
+        "grid": "Grid",
         "atlas": "Atlas",
         "actions": "Actions",
         "rightClick": "Right click"
@@ -38,6 +40,7 @@
         "layers": "Layers",
         "follow": "Follow player",
         "caves": "Cave layer",
+        "chunkGrid": "Chunk grid",
         "waypoints": "Waypoints (%s)",
         "search": "Search waypoints",
         "noWaypoints": "No waypoints in this dimension",

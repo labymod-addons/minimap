@@ -14,4 +14,6 @@ public interface WorldMapWaypoints {
   void edit(String id);
 
   void hide(String id);
+
+  void move(String id, double x, double y, double z);
 }

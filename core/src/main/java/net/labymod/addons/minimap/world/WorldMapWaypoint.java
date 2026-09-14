@@ -10,7 +10,8 @@ public record WorldMapWaypoint(
     double z,
     Icon icon,
     int iconColor,
-    Component title
+    Component title,
+    boolean movable
 ) {
 
 }

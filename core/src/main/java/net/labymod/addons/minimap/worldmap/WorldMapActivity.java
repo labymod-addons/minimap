@@ -7,6 +7,7 @@ import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.config.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapPlayerIcon;
 import net.labymod.addons.minimap.api.util.Util;
+import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.laby3d.MinimapUniformBlocks;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.addons.minimap.world.MapRegion;
@@ -59,6 +60,14 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private static final int KEY_BACKGROUND_COLOR = 0x80000000;
   private static final int HINT_TEXT_COLOR = 0xDCFFFFFF;
   private static final int HINT_BACKGROUND_COLOR = 0xA00C0F12;
+  private static final int DRAG_LINE_COLOR = 0xE6FFFFFF;
+  private static final int DRAG_LINE_OUTLINE_COLOR = 0x99000000;
+  private static final float DRAG_LINE_WIDTH = 1.0F;
+  private static final float DRAG_LINE_OUTLINE_WIDTH = 2.5F;
+  private static final int CHUNK_LINE_ALPHA = 0x48;
+  private static final int REGION_LINE_ALPHA = 0x80;
+  private static final float CHUNK_GRID_MIN_SCALE = 0.5F;
+  private static final float CHUNK_GRID_FADE_SCALE = 1.0F;
   private static final int ATLAS_COLOR = 0xEB101513;
   private static final int ATLAS_BORDER_COLOR = 0xFF222B27;
   private static final int ATLAS_HANDLE_HOVER_COLOR = 0xFF1C2622;
@@ -85,6 +94,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private final WorldMapService service;
   private final WorldMapOpener opener;
   private final ConfigProperty<Boolean> atlasOpen;
+  private final ConfigProperty<Boolean> chunkGrid;
   private final WorldMapRenderer renderer;
   private final CaveLayer caveLayer;
   private final WorldMapCamera camera = new WorldMapCamera();
@@ -105,6 +115,10 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private double flingZ;
   @Nullable
   private WorldMapWaypoint hoveredWaypoint;
+  @Nullable
+  private WorldMapWaypoint pressedWaypoint;
+  @Nullable
+  private WorldMapWaypoint draggedWaypoint;
 
   private List<MapWorldKey> dimensionTabs = List.of();
   private float[] dimensionTabX = new float[0];
@@ -139,6 +153,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       WorldMapService service,
       WorldMapOpener opener,
       ConfigProperty<Boolean> atlasOpen,
+      ConfigProperty<Boolean> chunkGrid,
       MinimapRenderer minimapRenderer,
       MinimapUniformBlocks uniformBlocks
   ) {
@@ -146,6 +161,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.service = service;
     this.opener = opener;
     this.atlasOpen = atlasOpen;
+    this.chunkGrid = chunkGrid;
     this.renderer = new WorldMapRenderer(minimapRenderer, uniformBlocks);
     this.caveLayer = new CaveLayer(minimapRenderer, uniformBlocks);
     this.viewKey = service.activeKey();
@@ -156,6 +172,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     super.initialize(parent);
     this.initializedKey = this.viewKey;
     this.wheel = null;
+    this.cancelWaypointDrag();
     this.atlas = null;
     this.atlasHandle = null;
     this.atlasHandleIcon = null;
@@ -182,6 +199,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         this.isViewingActive(),
         this.camera.isFollowing(),
         this.caveLayerEnabled,
+        this.chunkGrid.get(),
         waypoints == null ? null : waypoints.waypoints(this.viewKey),
         this.waypointFilter
     );
@@ -247,7 +265,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return;
     }
 
-    this.atlas.update(this.camera.isFollowing(), this.caveLayerEnabled);
+    this.atlas.update(this.camera.isFollowing(), this.caveLayerEnabled, this.chunkGrid.get());
     if (this.ticks % ATLAS_REFRESH_TICKS != 0) {
       return;
     }
@@ -311,6 +329,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return true;
     }
 
+    if (this.draggedWaypoint != null) {
+      this.cancelWaypointDrag();
+      return true;
+    }
+
     if (super.mouseClicked(mouse, mouseButton) || this.viewKey == null) {
       return true;
     }
@@ -325,6 +348,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       }
 
       this.dragging = true;
+      this.pressedWaypoint = this.hoveredWaypoint;
       this.dragDistance = 0.0F;
       this.pendingDeltaX = 0.0D;
       this.pendingDeltaY = 0.0D;
@@ -361,6 +385,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return true;
     }
 
+    if (this.pressedWaypoint != null && this.pressedWaypoint.movable()) {
+      this.draggedWaypoint = this.pressedWaypoint;
+      return true;
+    }
+
     this.camera.pan(this.pendingDeltaX + deltaX, this.pendingDeltaY + deltaY);
     this.pendingDeltaX = 0.0D;
     this.pendingDeltaY = 0.0D;
@@ -378,10 +407,16 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     this.dragging = false;
-    if (this.dragDistance < CLICK_TOLERANCE) {
+    WorldMapWaypoint pressed = this.pressedWaypoint;
+    WorldMapWaypoint dragged = this.draggedWaypoint;
+    this.pressedWaypoint = null;
+    this.draggedWaypoint = null;
+    if (dragged != null) {
+      this.dropWaypoint(dragged, mouse.getX(), mouse.getY());
+    } else if (this.dragDistance < CLICK_TOLERANCE) {
       WorldMapWaypoints waypoints = this.service.waypoints();
-      if (waypoints != null && this.hoveredWaypoint != null) {
-        waypoints.edit(this.hoveredWaypoint.id());
+      if (waypoints != null && pressed != null) {
+        waypoints.edit(pressed.id());
       }
     } else if (System.nanoTime() - this.lastDragNanos <= FLING_WINDOW_NANOS) {
       this.camera.fling(this.flingX, this.flingZ);
@@ -408,6 +443,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return true;
     }
 
+    if (this.draggedWaypoint != null && key == Key.ESCAPE) {
+      this.cancelWaypointDrag();
+      return true;
+    }
+
     if (this.atlas != null && this.atlas.isSearchFocused()) {
       return super.keyPressed(key, type);
     }
@@ -420,6 +460,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
     if (key == Key.TAB && this.atlas != null) {
       this.toggleAtlas();
+      return true;
+    }
+
+    if (key == Key.G) {
+      this.setChunkGrid(!this.chunkGrid.get());
       return true;
     }
 
@@ -477,6 +522,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.waypointFilter = filter;
   }
 
+  @Override
+  public void setChunkGrid(boolean enabled) {
+    this.chunkGrid.set(enabled);
+  }
+
   private void renderMap(ScreenContext context, Minecraft minecraft, float width, float height) {
     boolean current = this.isViewingActive();
     ClientPlayer player = minecraft.getClientPlayer();
@@ -510,6 +560,10 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       this.caveLayer.render(context, this.camera, width, height);
     }
 
+    if (this.chunkGrid.get()) {
+      this.renderChunkGrid(context.canvas(), width, height, (float) window.getRawWidth() / window.getScaledWidth());
+    }
+
     MutableMouse mouse = context.mouse();
     this.renderWaypoints(context, width, height, mouse.getX(), mouse.getY());
     if (current && player != null) {
@@ -529,7 +583,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
     this.renderAtlasBackground(canvas, height);
     this.renderHints(canvas, this.atlasRight(), height, current);
-    if (!this.dragging && this.wheel == null && mouse.getX() >= this.atlasRight()) {
+    if ((!this.dragging || this.draggedWaypoint != null) && this.wheel == null && mouse.getX() >= this.atlasRight()) {
       this.renderTooltip(canvas, store, width, height, mouse.getX(), mouse.getY());
     }
   }
@@ -637,6 +691,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       x = this.renderHint(canvas, "C", "hint.caves", x, y, lineHeight);
     }
 
+    x = this.renderHint(canvas, "G", "hint.grid", x, y, lineHeight);
+
     x = this.renderHint(canvas, "Tab", "hint.atlas", x, y, lineHeight);
     this.renderHint(canvas, I18n.getTranslation(I18N_PREFIX + "hint.rightClick"), "hint.actions", x, y, lineHeight);
   }
@@ -661,11 +717,16 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       float width, float height,
       float mouseX, float mouseY
   ) {
-    Component text = this.describeLocation(
-        store,
-        MathHelper.floor(this.camera.screenToWorldX(mouseX, width)),
-        MathHelper.floor(this.camera.screenToWorldZ(mouseY, height))
-    );
+    int blockX = MathHelper.floor(this.camera.screenToWorldX(mouseX, width));
+    int blockZ = MathHelper.floor(this.camera.screenToWorldZ(mouseY, height));
+    Component text = this.describeLocation(store, blockX, blockZ);
+    if (this.chunkGrid.get()) {
+      text = text.append(Component.text("  ·  ")).append(Component.translatable(
+          I18N_PREFIX + "chunk",
+          Component.text(String.valueOf(blockX >> 4)),
+          Component.text(String.valueOf(blockZ >> 4))
+      ));
+    }
     float tooltipWidth = canvas.getTextWidth(text) * SMALL_TEXT_SCALE + TOOLTIP_PADDING * 2.0F;
     float tooltipHeight = canvas.getLineHeight() * SMALL_TEXT_SCALE + TOOLTIP_PADDING * 2.0F;
     float x = mouseX + TOOLTIP_OFFSET;
@@ -741,13 +802,25 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     for (WorldMapWaypoint waypoint : waypoints.waypoints(this.viewKey)) {
       float x = this.camera.worldToScreenX(waypoint.x(), width);
       float y = this.camera.worldToScreenY(waypoint.z(), height);
-      if (!this.isOnScreen(x, y, width, height, WAYPOINT_ICON_SIZE)) {
+      boolean dragged = this.draggedWaypoint != null && waypoint.id().equals(this.draggedWaypoint.id());
+      if (dragged) {
+        float targetY = mouseY + WAYPOINT_ICON_SIZE / 2.0F;
+        // Line shapes only report a tiny bounding box, so the canvas could sort them below the terrain
+        canvas.nextLayer();
+        thickLine(canvas, x, y, mouseX, targetY, DRAG_LINE_OUTLINE_WIDTH, DRAG_LINE_OUTLINE_COLOR);
+        canvas.submitCircle(x, y, 3.0F, DRAG_LINE_OUTLINE_COLOR);
+        thickLine(canvas, x, y, mouseX, targetY, DRAG_LINE_WIDTH, DRAG_LINE_COLOR);
+        canvas.submitCircle(x, y, 2.0F, DRAG_LINE_COLOR);
+        x = mouseX;
+        y = targetY;
+      } else if (!this.isOnScreen(x, y, width, height, WAYPOINT_ICON_SIZE)) {
         continue;
       }
 
       float deltaX = mouseX - x;
       float deltaY = mouseY - (y - WAYPOINT_ICON_SIZE / 2.0F);
-      boolean hovered = deltaX * deltaX + deltaY * deltaY <= WAYPOINT_HIT_RADIUS * WAYPOINT_HIT_RADIUS;
+      boolean hovered = dragged || (this.draggedWaypoint == null
+          && deltaX * deltaX + deltaY * deltaY <= WAYPOINT_HIT_RADIUS * WAYPOINT_HIT_RADIUS);
       if (hovered) {
         this.hoveredWaypoint = waypoint;
       }
@@ -934,6 +1007,17 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   }
 
   private int waypointY(int blockX, int blockZ) {
+    ClientPlayer player = Laby.labyAPI().minecraft().getClientPlayer();
+    return this.surfaceY(
+        blockX, blockZ,
+        player == null ? FALLBACK_WAYPOINT_Y : MathHelper.floor(player.position().getY())
+    );
+  }
+
+  /**
+   * @return the block above the saved surface, or the fallback where nothing is saved
+   */
+  private int surfaceY(int blockX, int blockZ, int fallback) {
     MapRegion region = this.service.openView(this.viewKey).getRegion(
         blockX >> MapRegion.BLOCK_SHIFT,
         blockZ >> MapRegion.BLOCK_SHIFT
@@ -944,8 +1028,76 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return region.height(localX, localZ) + 1;
     }
 
-    ClientPlayer player = Laby.labyAPI().minecraft().getClientPlayer();
-    return player == null ? FALLBACK_WAYPOINT_Y : MathHelper.floor(player.position().getY());
+    return fallback;
+  }
+
+  private void dropWaypoint(WorldMapWaypoint waypoint, float mouseX, float mouseY) {
+    WorldMapWaypoints waypoints = this.service.waypoints();
+    // Dropping onto the atlas panel puts the waypoint back
+    if (waypoints == null || mouseX < this.atlasRight()) {
+      return;
+    }
+
+    Window window = Laby.labyAPI().minecraft().minecraftWindow();
+    int blockX = MathHelper.floor(this.camera.screenToWorldX(mouseX, window.getScaledWidth()));
+    int blockZ = MathHelper.floor(this.camera.screenToWorldZ(mouseY, window.getScaledHeight()));
+    waypoints.move(
+        waypoint.id(),
+        blockX + 0.5D,
+        this.surfaceY(blockX, blockZ, MathHelper.floor(waypoint.y())),
+        blockZ + 0.5D
+    );
+  }
+
+  private void cancelWaypointDrag() {
+    this.pressedWaypoint = null;
+    this.draggedWaypoint = null;
+    this.dragging = false;
+  }
+
+  /**
+   * Chunk lines fade in while zooming in, region lines stay visible at every zoom.
+   */
+  private void renderChunkGrid(ScreenCanvas canvas, float width, float height, float pixelScale) {
+    float fade = (this.camera.scale() - CHUNK_GRID_MIN_SCALE) / CHUNK_GRID_FADE_SCALE;
+    int chunkAlpha = (int) (MathHelper.clamp(fade, 0.0F, 1.0F) * CHUNK_LINE_ALPHA);
+    if (chunkAlpha > 0) {
+      this.renderGridLines(canvas, width, height, ChunkData.CHUNK_SIZE, 1.0F / pixelScale, chunkAlpha);
+    }
+
+    this.renderGridLines(canvas, width, height, MapRegion.BLOCKS, 2.0F / pixelScale, REGION_LINE_ALPHA);
+  }
+
+  private void renderGridLines(
+      ScreenCanvas canvas,
+      float width, float height,
+      int spacing,
+      float thickness,
+      int alpha
+  ) {
+    int color = alpha << 24 | 0xFFFFFF;
+    long minX = Math.floorDiv(MathHelper.floor(this.camera.screenToWorldX(0.0F, width)), spacing) * (long) spacing;
+    double maxX = this.camera.screenToWorldX(width, width);
+    for (long blockX = minX; blockX <= maxX; blockX += spacing) {
+      // Region lines are drawn in their own pass
+      if (spacing != MapRegion.BLOCKS && blockX % MapRegion.BLOCKS == 0) {
+        continue;
+      }
+
+      float x = this.camera.worldToScreenX(blockX, width);
+      canvas.submitRelativeRect(x - thickness / 2.0F, 0.0F, thickness, height, color);
+    }
+
+    long minZ = Math.floorDiv(MathHelper.floor(this.camera.screenToWorldZ(0.0F, height)), spacing) * (long) spacing;
+    double maxZ = this.camera.screenToWorldZ(height, height);
+    for (long blockZ = minZ; blockZ <= maxZ; blockZ += spacing) {
+      if (spacing != MapRegion.BLOCKS && blockZ % MapRegion.BLOCKS == 0) {
+        continue;
+      }
+
+      float y = this.camera.worldToScreenY(blockZ, height);
+      canvas.submitRelativeRect(0.0F, y - thickness / 2.0F, width, thickness, color);
+    }
   }
 
   private void toggleAtlas() {
@@ -999,6 +1151,34 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
   private boolean isOnScreen(float x, float y, float width, float height, float margin) {
     return x >= -margin && x <= width + margin && y >= -margin && y <= height + margin;
+  }
+
+  /**
+   * Draws a line as a filled quad of the given width.
+   */
+  private static void thickLine(
+      ScreenCanvas canvas,
+      float fromX, float fromY,
+      float toX, float toY,
+      float width,
+      int color
+  ) {
+    float deltaX = toX - fromX;
+    float deltaY = toY - fromY;
+    float length = (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    if (length < 1.0F) {
+      return;
+    }
+
+    float normalX = -deltaY / length * width / 2.0F;
+    float normalY = deltaX / length * width / 2.0F;
+    canvas.submitTrapezoid(
+        fromX + normalX, fromY + normalY,
+        toX + normalX, toY + normalY,
+        toX - normalX, toY - normalY,
+        fromX - normalX, fromY - normalY,
+        color
+    );
   }
 
   private static void outline(ScreenCanvas canvas, float x, float y, float width, float height, int color) {

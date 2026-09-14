@@ -60,7 +60,9 @@ public class WaypointsWorldMap implements WorldMapWaypoints {
           location.getX(), location.getY(), location.getZ(),
           meta.icon(),
           meta.iconColor(),
-          meta.title()
+          meta.title(),
+          // Server and addon waypoints get placed again by their owner
+          meta.type() == WaypointType.PERMANENT
       ));
     }
 
@@ -109,6 +111,20 @@ public class WaypointsWorldMap implements WorldMapWaypoints {
 
     WaypointMeta meta = waypoint.meta().copy();
     meta.setVisible(false);
+    service.update(meta);
+    service.refresh();
+  }
+
+  @Override
+  public void move(String id, double x, double y, double z) {
+    WaypointService service = Waypoints.references().waypointService();
+    Waypoint waypoint = service.get(id);
+    if (waypoint == null) {
+      return;
+    }
+
+    WaypointMeta meta = waypoint.meta().copy();
+    meta.setLocation(new DoubleVector3(x, y, z));
     service.update(meta);
     service.refresh();
   }
