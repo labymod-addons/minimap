@@ -22,6 +22,10 @@ uniform vec4 ColorAdjustments;
 uniform sampler2D DiffuseSampler;
 uniform sampler2D HeightmapSampler;
 uniform sampler2D LightmapSampler;
+uniform sampler2D FadeSampler;
+uniform sampler2D PreviousDiffuseSampler;
+uniform sampler2D PreviousHeightmapSampler;
+uniform sampler2D PreviousLightmapSampler;
 
 in vec2 texCoord;
 in vec2 fragCoord;
@@ -30,8 +34,8 @@ out vec4 fragColor;
 
 const vec4 BLACK_COLOR = vec4(0, 0, 0, 1);
 
-vec4 getLighting() {
-  vec4 lightColor = TEXTURE(LightmapSampler, texCoord);
+vec4 getLighting(sampler2D lightmapSampler) {
+  vec4 lightColor = TEXTURE(lightmapSampler, texCoord);
   lightColor.a = clamp(lightColor.a, 0, 1);
   float black = float(all(equal(lightColor, BLACK_COLOR)));
 
@@ -40,14 +44,14 @@ vec4 getLighting() {
   return mix(lightColor, skyColor, max(dayTime, black));
 }
 
-void main() {
-  float height = TEXTURE(HeightmapSampler, texCoord).r;
-  vec4 baseColor = TEXTURE(DiffuseSampler, texCoord);
+vec4 shade(sampler2D diffuseSampler, sampler2D heightmapSampler, sampler2D lightmapSampler) {
+  float height = TEXTURE(heightmapSampler, texCoord).r;
+  vec4 baseColor = TEXTURE(diffuseSampler, texCoord);
 
   vec3 sunDirection = SunPosition - vec3(0.5, 0.5, 0.0);
 
-  float dx = TEXTURE(HeightmapSampler, texCoord + vec2(PixelSize.x, 0.0)).r - height;
-  float dy = TEXTURE(HeightmapSampler, texCoord + vec2(0.0, PixelSize.y)).r - height;
+  float dx = TEXTURE(heightmapSampler, texCoord + vec2(PixelSize.x, 0.0)).r - height;
+  float dy = TEXTURE(heightmapSampler, texCoord + vec2(0.0, PixelSize.y)).r - height;
 
   // Reconstruct the normal from the gradients
   vec3 normal = normalize(vec3(-dx, -dy, 0.03));
@@ -59,12 +63,22 @@ void main() {
   // Apply shadows and highlights to the base color
   vec3 litColor = baseColor.rgb * lightIntensity;
 
-  vec4 color = vec4(litColor, baseColor.a) * getLighting();
+  return vec4(litColor, baseColor.a) * getLighting(lightmapSampler);
+}
+
+void main() {
+  float fade = TEXTURE(FadeSampler, texCoord).r;
+  vec4 current = shade(DiffuseSampler, HeightmapSampler, LightmapSampler);
+  vec4 previous = shade(PreviousDiffuseSampler, PreviousHeightmapSampler, PreviousLightmapSampler);
+
+  // Blend premultiplied colors, a straight mix darkens chunks fading in from transparent
+  float alpha = mix(previous.a, current.a, fade);
+  vec3 premultiplied = mix(previous.rgb * previous.a, current.rgb * current.a, fade);
+  vec4 color = vec4(alpha > 0.0 ? premultiplied / alpha : current.rgb, alpha);
 
   float clipAlpha = labyClipTest(fragCoord);
   if (clipAlpha < 0.01) discard;
   color.a *= clipAlpha;
 
   fragColor = color;
-  //fragColor = baseColor;
 }

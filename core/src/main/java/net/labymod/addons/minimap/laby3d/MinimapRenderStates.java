@@ -26,6 +26,10 @@ public final class MinimapRenderStates {
               .addSampler(new UniformSamplerDescription("DiffuseSampler", 0))
               .addSampler(new UniformSamplerDescription("HeightmapSampler", 1))
               .addSampler(new UniformSamplerDescription("LightmapSampler", 2))
+              .addSampler(new UniformSamplerDescription("FadeSampler", 3))
+              .addSampler(new UniformSamplerDescription("PreviousDiffuseSampler", 4))
+              .addSampler(new UniformSamplerDescription("PreviousHeightmapSampler", 5))
+              .addSampler(new UniformSamplerDescription("PreviousLightmapSampler", 6))
               .addUniformBlock(
                   UniformBlockDescription.builder()
                       .setName(MinimapUniformBlock.NAME)

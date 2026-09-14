@@ -11,8 +11,8 @@ import net.labymod.laby3d.api.textures.SamplerDescription.Filter;
 
 public class SectionTexture {
 
-  private static final IdProvider ID_PROVIDER = (variant, x, z) -> Util.newDefaultNamespace(
-      "texture/minimap/section_" + x + "_" + z + "_" + variant.suffix()
+  private static final IdProvider ID_PROVIDER = (suffix, x, z) -> Util.newDefaultNamespace(
+      "texture/minimap/section_" + x + "_" + z + "_" + suffix
   );
   public static final int CHUNK_SIZE_X = 16;
   public static final int CHUNK_SIZE_Z = 16;
@@ -21,11 +21,11 @@ public class SectionTexture {
   private final int height;
   private final DynamicTexture texture;
 
-  public SectionTexture(Variant variant, int x, int z, int size) {
+  public SectionTexture(String suffix, int x, int z, int size) {
     this.width = CHUNK_SIZE_X * size;
     this.height = CHUNK_SIZE_Z * size;
     this.texture = new DynamicTexture(
-        ID_PROVIDER.apply(variant, x, z),
+        ID_PROVIDER.apply(suffix, x, z),
         this.width, this.height,
         SamplerDescription.builder()
             .setFilter(Filter.NEAREST)
@@ -86,7 +86,7 @@ public class SectionTexture {
 
   private interface IdProvider {
 
-    ResourceLocation apply(Variant variant, int x, int z);
+    ResourceLocation apply(String suffix, int x, int z);
 
   }
 }

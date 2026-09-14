@@ -71,7 +71,7 @@
         },
         "caveMode":{
           "name": "Cave Mode",
-          "description": "Enables cave mode for the minimap.\n§4§lWARNING§r: This may cause lag!"
+          "description": "Enables cave mode for the minimap."
         },
         "header": {
           "player": {

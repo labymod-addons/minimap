@@ -1,5 +1,6 @@
 package net.labymod.addons.minimap.map.v2;
 
+import java.util.Arrays;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import net.labymod.addons.minimap.MinimapContext;
@@ -38,6 +39,7 @@ import org.joml.Vector3f;
 public final class MinimapRenderer {
 
   private static final Logging LOGGER = Logging.getLogger();
+  private static final long BUILD_BUDGET_NANOS = 3_000_000L;
   private final MinimapBounds minimapBounds = new MinimapBounds();
   private final MinimapConfigProvider configProvider;
   private final SectionTextureRepository sectionTextureRepository;
@@ -53,6 +55,8 @@ public final class MinimapRenderer {
   private int lastPlayerY;
   private int lastZoom;
   private boolean changed = true;
+  private int[] chunkOrder = new int[0];
+  private int chunkOrderRadius = -1;
 
   public MinimapRenderer(
       MinimapConfigProvider configProvider,
@@ -139,6 +143,8 @@ public final class MinimapRenderer {
     int maxSecX = Math.floorDiv(maxChunkX, SectionTextureRepository.SECTION_SIZE);
     int maxSecZ = Math.floorDiv(maxChunkZ, SectionTextureRepository.SECTION_SIZE);
 
+    long now = System.nanoTime();
+
     // Iterate only visible sections and render the intersecting part
     for (int secX = minSecX; secX <= maxSecX; secX++) {
       for (int secZ = minSecZ; secZ <= maxSecZ; secZ++) {
@@ -184,6 +190,10 @@ public final class MinimapRenderer {
         SectionTexture colorTexture = composite.getTexture(SectionTexture.Variant.COLOR);
         SectionTexture heightmapTexture = composite.getTexture(SectionTexture.Variant.HEIGHTMAP);
         SectionTexture lightmapTexture = composite.getTexture(SectionTexture.Variant.LIGHTMAP);
+        SectionTexture previousColorTexture = composite.getPreviousTexture(Variant.COLOR);
+        SectionTexture previousHeightmapTexture = composite.getPreviousTexture(Variant.HEIGHTMAP);
+        SectionTexture previousLightmapTexture = composite.getPreviousTexture(Variant.LIGHTMAP);
+        composite.updateFade(now);
         canvas.submitState(
             (pose, scissorArea) ->
                 new MinimapGuiBlitRenderState(
@@ -191,6 +201,10 @@ public final class MinimapRenderer {
                         .setTexture(0, colorTexture.deviceTextureView())
                         .setTexture(1, heightmapTexture.deviceTextureView())
                         .setTexture(2, lightmapTexture.deviceTextureView())
+                        .setTexture(3, composite.fadeTextureView())
+                        .setTexture(4, previousColorTexture.deviceTextureView())
+                        .setTexture(5, previousHeightmapTexture.deviceTextureView())
+                        .setTexture(6, previousLightmapTexture.deviceTextureView())
                         .build(),
                     pose,
                     dstX, dstY, dstW, dstH,
@@ -270,9 +284,8 @@ public final class MinimapRenderer {
 
     ColorFormat format = ColorFormat.ARGB32;
     if (this.changed || this.storage.shouldProcess()) {
-      this.changed = false;
-
-      this.forEach(
+      boolean completed = this.forEach(
+          midChunkX, midChunkZ,
           minChunkX, minChunkZ,
           maxChunkX, maxChunkZ,
           (chunkX, chunkZ, chunk) -> {
@@ -289,6 +302,8 @@ public final class MinimapRenderer {
 
             int basePixelX = localChunkX * SectionTexture.CHUNK_SIZE_X;
             int basePixelZ = localChunkZ * SectionTexture.CHUNK_SIZE_Z;
+
+            texture.beginChunkFade(localChunkX, localChunkZ);
 
             for (int pixelX = 0; pixelX < SectionTexture.CHUNK_SIZE_X; pixelX++) {
               for (int pixelZ = 0; pixelZ < SectionTexture.CHUNK_SIZE_Z; pixelZ++) {
@@ -329,6 +344,7 @@ public final class MinimapRenderer {
 
       this.minimapBounds.update(minX, minZ, maxX, maxZ, 0);
       this.storage.processed();
+      this.changed = !completed;
     }
 
     int py = MathHelper.floor(position.getY());
@@ -343,11 +359,13 @@ public final class MinimapRenderer {
 
       if (this.lastUnderground != underground) {
         this.storage.resetCompilations();
+        this.beginTransition();
       }
 
       if (underground) {
         if (this.lastPlayerY != py) {
           this.storage.resetCompilations();
+          this.beginTransition();
         }
       }
 
@@ -361,16 +379,72 @@ public final class MinimapRenderer {
     }
   }
 
-  private void forEach(int minX, int minZ, int maxX, int maxZ, ChunkConsumer consumer) {
-    for (int chunkX = minX; chunkX <= maxX; chunkX++) {
-      for (int chunkZ = minZ; chunkZ <= maxZ; chunkZ++) {
-        ChunkData chunk = this.storage.getChunk(chunkX, chunkZ);
-        if (chunk == null || this.storage.isCompiled(chunk)) {
-          continue;
-        }
+  /**
+   * Passes uncompiled chunks to the consumer, nearest to the player first, until
+   * {@link #BUILD_BUDGET_NANOS} is used up. Nearest first makes the map grow as a circle.
+   *
+   * @return {@code false} if the budget ran out before every chunk in bounds was visited
+   */
+  private boolean forEach(
+      int midX, int midZ,
+      int minX, int minZ,
+      int maxX, int maxZ,
+      ChunkConsumer consumer
+  ) {
+    long deadline = System.nanoTime() + BUILD_BUDGET_NANOS;
+    int radius = Math.max(
+        Math.max(midX - minX, maxX - midX),
+        Math.max(midZ - minZ, maxZ - midZ)
+    );
+    this.updateChunkOrder(radius);
+    radius = this.chunkOrderRadius;
 
-        consumer.accept(chunkX, chunkZ, chunk);
+    int size = radius * 2 + 1;
+    for (int cell : this.chunkOrder) {
+      int chunkX = midX + cell / size - radius;
+      int chunkZ = midZ + cell % size - radius;
+      if (chunkX < minX || chunkX > maxX || chunkZ < minZ || chunkZ > maxZ) {
+        continue;
       }
+
+      ChunkData chunk = this.storage.getChunk(chunkX, chunkZ);
+      if (chunk == null || this.storage.isCompiled(chunk)) {
+        continue;
+      }
+
+      consumer.accept(chunkX, chunkZ, chunk);
+      if (System.nanoTime() >= deadline) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private void updateChunkOrder(int radius) {
+    if (radius <= this.chunkOrderRadius) {
+      return;
+    }
+
+    int size = radius * 2 + 1;
+    long[] keys = new long[size * size];
+    for (int cell = 0; cell < keys.length; cell++) {
+      long dx = cell / size - radius;
+      long dz = cell % size - radius;
+      keys[cell] = (dx * dx + dz * dz) << 32 | cell;
+    }
+    Arrays.sort(keys);
+
+    this.chunkOrder = new int[keys.length];
+    for (int i = 0; i < keys.length; i++) {
+      this.chunkOrder[i] = (int) keys[i];
+    }
+    this.chunkOrderRadius = radius;
+  }
+
+  private void beginTransition() {
+    for (CompositeSectionTexture texture : this.sectionTextureRepository.textures()) {
+      texture.beginTransition();
     }
   }
 
