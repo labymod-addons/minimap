@@ -25,10 +25,10 @@ import net.labymod.laby3d.api.textures.SamplerDescription.Filter;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Draws saved regions at three levels of detail: shaded block textures when zoomed in, one overview
- * per region further out and merged overviews of {@value #GROUP_REGIONS}&times;
- * {@value #GROUP_REGIONS} regions when zoomed out all the way. Builds textures for at most 4 ms
- * per frame and frees the least recently drawn ones.
+ * Draws saved regions with shaded block textures when zoomed in and pre-shaded overviews of two,
+ * four and eight blocks per pixel further out. Picks the level by physical pixels per block, so no
+ * overview pixel gets much bigger than a screen pixel. Builds textures for at most 4 ms per frame
+ * and frees the least recently drawn ones.
  */
 final class WorldMapRenderer {
 
@@ -37,10 +37,13 @@ final class WorldMapRenderer {
   private static final int SECTIONS_PER_REGION = MapRegion.CHUNKS / SectionTextureRepository.SECTION_SIZE;
   private static final int GROUP_REGIONS = 4;
   private static final int GROUP_BLOCKS = GROUP_REGIONS * MapRegion.BLOCKS;
-  private static final int MAX_DETAIL_TILES = 128;
-  private static final int MAX_REGION_TILES = 256;
+  private static final int MAX_DETAIL_TILES = 384;
+  private static final int MAX_FINE_TILES = 144;
+  private static final int MAX_REGION_TILES = 512;
   private static final int MAX_GROUP_TILES = 64;
-  private static final float MIN_DETAIL_SCALE = 0.75F;
+  private static final float MIN_DETAIL_PIXELS = 1.0F;
+  private static final float MIN_FINE_PIXELS = 0.5F;
+  private static final float MIN_REGION_PIXELS = 0.25F;
   private static final long BUILD_BUDGET_NANOS = 4_000_000L;
   private static final int HEIGHT_OFFSET = 32768;
   private static final SamplerDescription SAMPLER = SamplerDescription.builder()
@@ -50,6 +53,7 @@ final class WorldMapRenderer {
   private final MinimapRenderer minimapRenderer;
   private final MinimapUniformBlocks uniformBlocks;
   private final Long2ObjectLinkedOpenHashMap<DetailTile> detailTiles = new Long2ObjectLinkedOpenHashMap<>();
+  private final Long2ObjectLinkedOpenHashMap<LodTile> fineTiles = new Long2ObjectLinkedOpenHashMap<>();
   private final Long2ObjectLinkedOpenHashMap<LodTile> regionTiles = new Long2ObjectLinkedOpenHashMap<>();
   private final Long2ObjectLinkedOpenHashMap<LodTile> groupTiles = new Long2ObjectLinkedOpenHashMap<>();
   private final int[] groupPixels = new int[MapLod.SIZE * MapLod.SIZE];
@@ -66,11 +70,15 @@ final class WorldMapRenderer {
     this.uniformBlocks = uniformBlocks;
   }
 
+  /**
+   * @param pixelScale physical pixels per screen pixel
+   */
   void render(
       ScreenContext context,
       MapRegionStore store,
       WorldMapCamera camera,
-      float width, float height
+      float width, float height,
+      float pixelScale
   ) {
     if (this.store != store) {
       this.dispose();
@@ -97,12 +105,15 @@ final class WorldMapRenderer {
     int maxSectionZ = Math.floorDiv(maxBlockZ, SECTION_BLOCKS);
     int sectionCount = (maxSectionX - minSectionX + 1) * (maxSectionZ - minSectionZ + 1);
 
-    if (camera.scale() >= MIN_DETAIL_SCALE && sectionCount <= MAX_DETAIL_TILES) {
+    float pixels = camera.scale() * pixelScale;
+    if (pixels >= MIN_DETAIL_PIXELS && sectionCount <= MAX_DETAIL_TILES) {
       // Overviews fill in while the detailed textures are still being built
-      this.renderRegionTiles(context, store, camera, width, height, minRegionX, minRegionZ, maxRegionX, maxRegionZ);
+      this.renderLodTiles(context, store, camera, width, height, minRegionX, minRegionZ, maxRegionX, maxRegionZ, true);
       this.renderDetailTiles(context, store, camera, width, height, minSectionX, minSectionZ, maxSectionX, maxSectionZ);
-    } else if (regionCount <= MAX_REGION_TILES) {
-      this.renderRegionTiles(context, store, camera, width, height, minRegionX, minRegionZ, maxRegionX, maxRegionZ);
+    } else if (pixels >= MIN_FINE_PIXELS && regionCount <= MAX_FINE_TILES) {
+      this.renderLodTiles(context, store, camera, width, height, minRegionX, minRegionZ, maxRegionX, maxRegionZ, true);
+    } else if (pixels >= MIN_REGION_PIXELS && regionCount <= MAX_REGION_TILES) {
+      this.renderLodTiles(context, store, camera, width, height, minRegionX, minRegionZ, maxRegionX, maxRegionZ, false);
     } else {
       this.renderGroupTiles(
           context, store, camera, width, height,
@@ -112,12 +123,14 @@ final class WorldMapRenderer {
     }
 
     this.trim(this.detailTiles, MAX_DETAIL_TILES);
+    this.trim(this.fineTiles, MAX_FINE_TILES);
     this.trim(this.regionTiles, MAX_REGION_TILES);
     this.trim(this.groupTiles, MAX_GROUP_TILES);
   }
 
   void dispose() {
     disposeTiles(this.detailTiles);
+    disposeTiles(this.fineTiles);
     disposeTiles(this.regionTiles);
     disposeTiles(this.groupTiles);
     if (this.fadeTexture != null) {
@@ -212,29 +225,41 @@ final class WorldMapRenderer {
     return tile;
   }
 
-  private void renderRegionTiles(
+  private void renderLodTiles(
       ScreenContext context,
       MapRegionStore store,
       WorldMapCamera camera,
       float width, float height,
       int minRegionX, int minRegionZ,
-      int maxRegionX, int maxRegionZ
+      int maxRegionX, int maxRegionZ,
+      boolean fine
   ) {
     ScreenCanvas canvas = context.canvas();
+    Long2ObjectLinkedOpenHashMap<LodTile> tiles = fine ? this.fineTiles : this.regionTiles;
     float size = MapRegion.BLOCKS * camera.scale();
     for (int regionX = minRegionX; regionX <= maxRegionX; regionX++) {
       for (int regionZ = minRegionZ; regionZ <= maxRegionZ; regionZ++) {
-        int[] lod = store.getLod(regionX, regionZ);
+        int[] lod = fine ? store.getFineLod(regionX, regionZ) : store.getLod(regionX, regionZ);
+        long key = MapRegion.key(regionX, regionZ);
+        LodTile tile = tiles.getAndMoveToLast(key);
         if (lod == null) {
+          // An evicted overview is reloading, keep drawing what was uploaded
+          if (tile != null) {
+            this.drawLod(
+                canvas, tile,
+                camera.worldToScreenX((double) regionX * MapRegion.BLOCKS, width),
+                camera.worldToScreenY((double) regionZ * MapRegion.BLOCKS, height),
+                size
+            );
+          }
+
           continue;
         }
 
-        long key = MapRegion.key(regionX, regionZ);
-        LodTile tile = this.regionTiles.getAndMoveToLast(key);
         if ((tile == null || tile.source != lod) && System.nanoTime() < this.deadline) {
           if (tile == null) {
-            tile = new LodTile(this.nextTextureId++);
-            this.regionTiles.putAndMoveToLast(key, tile);
+            tile = new LodTile(this.nextTextureId++, fine ? MapLod.SIZE : MapLod.SMALL_SIZE);
+            tiles.putAndMoveToLast(key, tile);
           }
 
           tile.fill(lod);
@@ -267,6 +292,7 @@ final class WorldMapRenderer {
     float size = GROUP_BLOCKS * camera.scale();
     int regions = GROUP_REGIONS * GROUP_REGIONS;
     int cell = MapLod.SIZE / GROUP_REGIONS;
+    int factor = MapLod.SMALL_SIZE / cell;
     for (int groupX = minGroupX; groupX <= maxGroupX; groupX++) {
       for (int groupZ = minGroupZ; groupZ <= maxGroupZ; groupZ++) {
         long signature = 1L;
@@ -295,15 +321,16 @@ final class WorldMapRenderer {
             );
             if (lod != null) {
               MapLod.downsample(
-                  lod, this.groupPixels,
+                  lod, MapLod.SMALL_SIZE,
+                  this.groupPixels, MapLod.SIZE,
                   index % GROUP_REGIONS * cell, index / GROUP_REGIONS * cell,
-                  GROUP_REGIONS
+                  factor
               );
             }
           }
 
           if (tile == null) {
-            tile = new LodTile(this.nextTextureId++);
+            tile = new LodTile(this.nextTextureId++, MapLod.SIZE);
             this.groupTiles.putAndMoveToLast(key, tile);
           }
 
@@ -457,18 +484,20 @@ final class WorldMapRenderer {
   private static final class LodTile extends Tile {
 
     private final DynamicTexture texture;
+    private final int size;
     private int @Nullable [] source;
     private long signature;
 
-    private LodTile(int id) {
-      this.texture = createTexture(id, "lod", MapLod.SIZE);
+    private LodTile(int id, int size) {
+      this.texture = createTexture(id, "lod", size);
+      this.size = size;
     }
 
     private void fill(int[] pixels) {
       GameImage image = this.texture.getImage();
-      for (int y = 0; y < MapLod.SIZE; y++) {
-        int row = y * MapLod.SIZE;
-        for (int x = 0; x < MapLod.SIZE; x++) {
+      for (int y = 0; y < this.size; y++) {
+        int row = y * this.size;
+        for (int x = 0; x < this.size; x++) {
           image.setARGB(x, y, pixels[row + x]);
         }
       }
