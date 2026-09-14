@@ -5,7 +5,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.data.GameChunkData;
@@ -27,25 +26,12 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
       ResourceLocation.create("minecraft", "barrier"),
       ResourceLocation.create("minecraft", "light")
   );
-  private static final Map<Block, Boolean> VISIBILITY_CACHE = new IdentityHashMap<>();
-  private static final Predicate<BlockState> VISIBLE_BLOCKS = state -> {
-    if (state == null) {
-      return false;
-    }
-
-    Block block = state.block();
-    if (block.isAir()) {
-      return false;
-    }
-
-    Boolean visible = VISIBILITY_CACHE.get(block);
-    if (visible == null) {
-      visible = !IGNORED_BLOCKS.contains(block.id());
-      VISIBILITY_CACHE.put(block, visible);
-    }
-
-    return visible;
-  };
+  private static final int CAVE_HEIGHT = 8;
+  private static final int CAVE_DEPTH = 24;
+  private static final float CAVE_MIN_BRIGHTNESS = 0.35F;
+  private static final int CAVE_ROCK_COLOR = 0xFF000000;
+  private static final int WATER_MAX_DEPTH = 10;
+  private final Map<Block, Boolean> visibilityCache = new IdentityHashMap<>();
   private final BlockColorProvider blockColorProvider;
   private final ClientWorld level;
   private int playerX;
@@ -85,64 +71,88 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
     this.underground = underground;
   }
 
+  /**
+   * Looks for open space near the player's level, first up to {@link #CAVE_HEIGHT} blocks above,
+   * then up to {@link #CAVE_DEPTH} below. The floor under it gets darker the further it is from
+   * the player. Columns with no open space in that range render as rock.
+   */
   private void compileUndergroundChunk(GameChunkData data, ColorFormat format, int x, int z) {
-    // Fallback/clear
-    data.setColor(x, z, 0xFF000000);
+    Chunk chunk = data.getChunk();
+    int minY = Math.max(this.level.getMinBuildHeight(), this.playerY - CAVE_DEPTH);
+    int openY = this.findOpenY(chunk, x, z, minY);
 
-    final Chunk chunk = data.getChunk();
-    final int depth = this.playerY;
-
-    final int minBuildHeight = this.level.getMinBuildHeight();
-    final int minScanY = Math.max(minBuildHeight, depth - 20);
-    final int maxScanY = depth + 2;
-
-    // 1) Probe downward from depth to find first non-air within [-20 .. 0]
-    int startY = depth;
-    BlockState state = chunk.getBlockState(x, startY, z);
-    while (startY > minScanY && (state == null || state.block().isAir())) {
-      startY--;
-      state = chunk.getBlockState(x, startY, z);
-    }
-    // Clamp if we went below window, and ensure we have the state for startY
-    if (startY < minScanY) {
-      startY = minScanY;
-      state = chunk.getBlockState(x, startY, z);
-    }
-
-    // 2) Single upward pass with rolling window: (state, above)
-    BlockState above = chunk.getBlockState(x, startY + 1, z);
-
-    for (int y = startY; y <= maxScanY; y++) {
-      // If current block is solid (non-air), decide rendering using "above"
-      if (state != null && !state.block().isAir()) {
-        if (above != null) {
-          Block aboveBlock = above.block();
-          if (!aboveBlock.isAir() && !above.isFluid()) {
-            // Non-fluid solid ceiling directly above -> keep black and stop
-            data.setColor(x, z, 0xFF000000);
-            return;
-          }
-        }
-        final int blockY = y;
-        final BlockState blockAbove = above;
-        this.compileChunkColor(
-            data,
-            format,
-            x, z,
-            state,
-            () -> blockY,
-            () -> blockAbove
-        );
-        return;
+    for (int y = openY; y >= minY; y--) {
+      BlockState state = chunk.getBlockState(x, y, z);
+      if (!this.isVisible(state)) {
+        continue;
       }
 
-      // Advance window: move up one, fetch next "above" only once
-      final int nextY = y + 1;
-      state = above;
-      above = (nextY + 1 <= maxScanY + 1) ? chunk.getBlockState(x, nextY + 1, z) : null;
+      this.compileChunkColor(data, format, x, z, state, y, chunk.getBlockState(x, y + 1, z));
+
+      int distance = Math.min(Math.abs(this.playerY - y), CAVE_DEPTH);
+      float brightness = 1.0F - (1.0F - CAVE_MIN_BRIGHTNESS) * distance / CAVE_DEPTH;
+      data.setColor(
+          x, z,
+          format.mul(data.getColor(x, z), brightness, brightness, brightness, 1.0F)
+      );
+      return;
     }
 
-    // Nothing renderable found in the scan window; keep default color
+    data.setHeight(x, z, minY);
+    data.setLightLevel(x, z, 0);
+    data.setColor(x, z, CAVE_ROCK_COLOR);
+  }
+
+  /**
+   * @return the open block nearest to the player's level, or {@code minY - 1} if there is none
+   */
+  private int findOpenY(Chunk chunk, int x, int z, int minY) {
+    int maxY = this.playerY + CAVE_HEIGHT;
+    for (int y = this.playerY; y <= maxY; y++) {
+      if (this.isOpen(chunk.getBlockState(x, y, z))) {
+        return y;
+      }
+    }
+
+    for (int y = this.playerY - 1; y >= minY; y--) {
+      if (this.isOpen(chunk.getBlockState(x, y, z))) {
+        return y;
+      }
+    }
+
+    return minY - 1;
+  }
+
+  /**
+   * The map skips blocks without a color, like fences and doors, and blocks
+   * without collision, like grass and crops. It shows the block below them instead. Fluids and
+   * rails stay visible.
+   */
+  private boolean isVisible(BlockState state) {
+    if (state == null) {
+      return false;
+    }
+
+    Block block = state.block();
+    if (block.isAir()) {
+      return false;
+    }
+
+    Boolean visible = this.visibilityCache.get(block);
+    if (visible == null) {
+      // LabyMod returns -1 for blocks without a color. Builds before the 26.x fix return 0.
+      int color = this.blockColorProvider.getColor(state);
+      visible = !IGNORED_BLOCKS.contains(block.id())
+          && (state.hasCollision() || state.isFluid() || state.isRail())
+          && color != 0 && color != -1;
+      this.visibilityCache.put(block, visible);
+    }
+
+    return visible;
+  }
+
+  private boolean isOpen(BlockState state) {
+    return state == null || state.block().isAir() || !state.hasCollision();
   }
 
   private void compileOverworldChunk(
@@ -199,17 +209,26 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
     data.setHeight(x, z, defaultHeight);
     data.setLightLevel(x, z, lightLevelState);
     if (block.isWater()) {
+      int surfaceY = block.position().getY();
       BlockState blockStateUnderWater = this.getBlockBelow(
           data.getChunk(),
           block,
-          state -> !state.isWater()
+          state -> !state.isWater() && this.isVisible(state)
       );
 
-      baseColor = format.pack(baseColor, 220);
+      // Deeper water hides more of the floor and gets darker
+      int depth = Math.min(surfaceY - blockStateUnderWater.position().getY(), WATER_MAX_DEPTH);
+      float brightness = 1.0F - 0.35F * depth / WATER_MAX_DEPTH;
+      int alpha = 150 + 95 * depth / WATER_MAX_DEPTH;
+      baseColor = format.pack(
+          format.mul(baseColor, brightness, brightness, brightness, 1.0F),
+          alpha
+      );
 
       int colorUnderWater = format.withAlpha(this.getColor(format, blockStateUnderWater), 255);
       baseColor = ColorUtil.blendColors(colorUnderWater, baseColor);
-      data.setHeight(x, z, blockStateUnderWater.position().getY());
+      // Surface height keeps the floor relief from shading the water
+      data.setHeight(x, z, surfaceY);
     }
 
     data.setColor(x, z, baseColor);
@@ -244,7 +263,7 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
     while (y > minBuildHeight) {
       blockState = chunk.getBlockState(x, y, z);
 
-      if (VISIBLE_BLOCKS.test(blockState)) {
+      if (this.isVisible(blockState)) {
         break;
       }
       y--;

@@ -2,7 +2,6 @@ package net.labymod.addons.minimap.util;
 
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.world.ClientWorld;
-import net.labymod.api.client.world.block.BlockState;
 import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.client.world.chunk.HeightmapType;
 import net.labymod.api.client.world.lighting.LightType;
@@ -12,13 +11,18 @@ import org.jetbrains.annotations.Nullable;
 
 public final class PlayerUtil {
 
+  /**
+   * A player counts as underground when no sky light reaches their eyes and the world surface is
+   * more than {@code threshold} blocks above their feet. Requiring both keeps houses, trees and
+   * walls from triggering cave mode.
+   */
   public static boolean isPlayerUnderground(
       ClientWorld level,
       @Nullable ClientPlayer player,
       int threshold
   ) {
     return isPlayerUndergroundBySkylight(level, player)
-        || isPlayerUndergroundByObstruction(level, player, threshold);
+        && isPlayerUndergroundBySurface(level, player, threshold);
   }
 
   private static boolean isPlayerUndergroundBySkylight(
@@ -64,36 +68,6 @@ public final class PlayerUtil {
 
     int surfaceY = chunk.heightmap(HeightmapType.WORLD_SURFACE).getHeight(inChunkX, inChunkZ);
     return (surfaceY - y) > threshold;
-  }
-
-  private static boolean isPlayerUndergroundByObstruction(
-      ClientWorld level,
-      @Nullable ClientPlayer player,
-      int scanUp
-  ) {
-    if (player == null) {
-      return false;
-    }
-
-    Position position = player.position();
-    int x = MathHelper.floor(position.getX());
-    int y = MathHelper.floor(position.getY() + player.getEyeHeight());
-    int z = MathHelper.floor(position.getZ());
-
-    int maxY = level.getMaxBuildHeight();
-
-    // scan a 3x3 area
-    for (int scanX = x - 1; x <= Math.min(maxY, x + scanUp); x++) {
-      for (int scanZ = z - 1; z <= Math.min(maxY, z + scanUp); z++) {
-        BlockState state = level.getBlockState(scanX, y, scanZ);
-        if (state != null && !state.block().isAir()) {
-          // Found a ceiling close above
-          return true;
-        }
-      }
-    }
-
-    return false;
   }
 
 }

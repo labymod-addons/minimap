@@ -40,6 +40,8 @@ public final class MinimapRenderer {
 
   private static final Logging LOGGER = Logging.getLogger();
   private static final long BUILD_BUDGET_NANOS = 3_000_000L;
+  private static final int UNDERGROUND_SURFACE_THRESHOLD = 4;
+  private static final int UNDERGROUND_SWITCH_TICKS = 10;
   private final MinimapBounds minimapBounds = new MinimapBounds();
   private final MinimapConfigProvider configProvider;
   private final SectionTextureRepository sectionTextureRepository;
@@ -50,6 +52,7 @@ public final class MinimapRenderer {
   private DaylightPeriod currentPeriod = DaylightPeriod.DAYTIME;
 
   private boolean lastUnderground = false;
+  private int undergroundSwitchTicks;
   private int lastMidChunkX;
   private int lastMidChunkZ;
   private int lastPlayerY;
@@ -121,15 +124,19 @@ public final class MinimapRenderer {
       return;
     }
 
-    minimap.sunPosition().set(new Vector3f(0.9F, -1.0F, 1F));
     float timeOfDay = this.getTimeOfDay();
     float normalizedDayTime = (float) (1.0F - (Math.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F
         + 0.2F));
     normalizedDayTime = MathHelper.clamp(normalizedDayTime, 0.0F, 1.0F);
     normalizedDayTime = 1.0F - normalizedDayTime;
 
-    minimap.pixelSize().set(new Vector3f(1.0F / width, 1.0F / height, 0F));
-    minimap.dayTime().set(normalizedDayTime);
+    // The shader samples neighbouring block heights one section texel apart
+    minimap.pixelSize().set(new Vector3f(
+        1.0F / (SectionTextureRepository.SECTION_SIZE * SectionTexture.CHUNK_SIZE_X),
+        1.0F / (SectionTextureRepository.SECTION_SIZE * SectionTexture.CHUNK_SIZE_Z),
+        0F
+    ));
+    minimap.dayTime().set(this.lastUnderground ? 1.0F : normalizedDayTime);
 
     // Convert view bounds to CHUNK coordinates (inclusive range)
     int minChunkX = Math.floorDiv(x1, SectionTexture.CHUNK_SIZE_X);
@@ -253,7 +260,6 @@ public final class MinimapRenderer {
 
     ClientWorld level = Laby.labyAPI().minecraft().clientWorld();
     int minBuildHeight = level.getMinBuildHeight();
-    int maxBuildHeight = level.getMaxBuildHeight();
 
     Position position = player.position();
     int midX = MathHelper.floor(position.getX());
@@ -271,7 +277,13 @@ public final class MinimapRenderer {
     boolean underground = false;
 
     if (this.configProvider.hudWidgetConfig().caveMode().get()) {
-      underground = PlayerUtil.isPlayerUnderground(level, player, 2);
+      underground = this.lastUnderground;
+      if (PlayerUtil.isPlayerUnderground(level, player, UNDERGROUND_SURFACE_THRESHOLD) == underground) {
+        this.undergroundSwitchTicks = 0;
+      } else if (++this.undergroundSwitchTicks >= UNDERGROUND_SWITCH_TICKS) {
+        this.undergroundSwitchTicks = 0;
+        underground = !underground;
+      }
     }
 
     this.storage.setPlayerPosition(player.position(), underground);
@@ -313,11 +325,11 @@ public final class MinimapRenderer {
                 int tileColor = chunk.getColor(pixelX, pixelZ);
                 int height = chunk.getHeight(pixelX, pixelZ);
 
-                float normalized =
-                    (height - minBuildHeight) * (1.0F - 0.0F) / (maxBuildHeight - minBuildHeight)
-                        + 0.0F;
-
-                int heightmapColor = format.pack(normalized, normalized, normalized, 1.0F);
+                // 16 bit block height. Red holds the low byte, green the high byte.
+                int relativeHeight = Math.max(0, Math.min(height - minBuildHeight, 0xFFFF));
+                int heightmapColor = 0xFF000000
+                    | (relativeHeight & 0xFF) << 16
+                    | (relativeHeight >> 8) << 8;
                 colorTexture.image().setARGB(destX, destZ, tileColor);
                 heightmapTexture.image().setARGB(destX, destZ, heightmapColor);
 

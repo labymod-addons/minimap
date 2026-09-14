@@ -44,26 +44,32 @@ vec4 getLighting(sampler2D lightmapSampler) {
   return mix(lightColor, skyColor, max(dayTime, black));
 }
 
+// Decodes the 16 bit block height. Red holds the low byte, green the high byte.
+float getHeight(sampler2D heightmapSampler, vec2 coord) {
+  vec2 halfTexel = PixelSize.xy * 0.5;
+  vec4 encoded = TEXTURE(heightmapSampler, clamp(coord, halfTexel, 1.0 - halfTexel));
+  return round(encoded.r * 255.0) + round(encoded.g * 255.0) * 256.0;
+}
+
 vec4 shade(sampler2D diffuseSampler, sampler2D heightmapSampler, sampler2D lightmapSampler) {
-  float height = TEXTURE(heightmapSampler, texCoord).r;
   vec4 baseColor = TEXTURE(diffuseSampler, texCoord);
 
-  vec3 sunDirection = SunPosition - vec3(0.5, 0.5, 0.0);
+  float height = getHeight(heightmapSampler, texCoord);
+  float north = getHeight(heightmapSampler, texCoord - vec2(0.0, PixelSize.y));
+  float west = getHeight(heightmapSampler, texCoord - vec2(PixelSize.x, 0.0));
 
-  float dx = TEXTURE(heightmapSampler, texCoord + vec2(PixelSize.x, 0.0)).r - height;
-  float dy = TEXTURE(heightmapSampler, texCoord + vec2(0.0, PixelSize.y)).r - height;
+  // Blocks lower than their north and west neighbours lose 10% per block, higher ones gain 4%
+  float slope = (height - north) + (height - west);
+  float lightIntensity = slope < 0.0
+      ? 1.0 + max(slope, -5.0) * 0.1
+      : 1.0 + min(slope, 3.0) * 0.04;
 
-  // Reconstruct the normal from the gradients
-  vec3 normal = normalize(vec3(-dx, -dy, 0.03));
+  // Pull colors 20% towards gray
+  vec3 color = baseColor.rgb * lightIntensity;
+  float luminance = dot(color, vec3(0.299, 0.587, 0.114));
+  color = mix(vec3(luminance), color, 0.8) * 0.92;
 
-  // Calculate lighting using the sun direction and normal
-  float lightIntensity = max(dot(normal, sunDirection), 0.0);
-  lightIntensity = lightIntensity * 0.5 + 0.5;
-
-  // Apply shadows and highlights to the base color
-  vec3 litColor = baseColor.rgb * lightIntensity;
-
-  return vec4(litColor, baseColor.a) * getLighting(lightmapSampler);
+  return vec4(color, baseColor.a) * getLighting(lightmapSampler);
 }
 
 void main() {
