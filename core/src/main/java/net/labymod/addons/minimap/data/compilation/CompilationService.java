@@ -67,6 +67,10 @@ public class CompilationService {
     this.compiled.remove(this.getChunkId(data));
   }
 
+  public void resetCompilation(int chunkX, int chunkZ) {
+    this.compiled.remove(Util.getChunkId(chunkX, chunkZ));
+  }
+
   public boolean isCompiled(ChunkData data) {
     return this.compiled.containsKey(this.getChunkId(data));
   }

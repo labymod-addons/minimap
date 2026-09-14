@@ -45,10 +45,12 @@ public class SectionTextureRepository {
     return texture;
   }
 
-  public void clear() {
+  public void disposeAll() {
     for (CompositeSectionTexture texture : this.textures.values()) {
-      texture.clearTextures();
+      texture.dispose();
     }
+
+    this.textures.clear();
   }
 
   public Collection<CompositeSectionTexture> textures() {

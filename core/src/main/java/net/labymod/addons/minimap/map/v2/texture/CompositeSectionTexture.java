@@ -75,19 +75,20 @@ public class CompositeSectionTexture {
     this.getTexture(variant).clearTexture(clearColor);
   }
 
-  public void clearTextures() {
+  /**
+   * Frees the GPU and CPU memory of every texture. The section can't be used afterwards.
+   */
+  public void dispose() {
     for (SectionTexture texture : this.textures.values()) {
-      texture.clearTexture(0);
+      texture.dispose();
     }
 
     for (SectionTexture texture : this.previousTextures.values()) {
-      texture.clearTexture(0);
+      texture.dispose();
     }
 
-    Arrays.fill(this.fadeStarts, HIDDEN);
-    this.fading = true;
-    this.previousDirty = true;
-    this.updateTexture();
+    this.fadeTexture.release();
+    this.fadeTexture.close();
   }
 
   public void updateTexture() {

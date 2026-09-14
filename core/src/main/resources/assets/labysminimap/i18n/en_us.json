@@ -4,6 +4,24 @@
       "name": "Laby's Minimap",
       "enabled": {
         "name": "Enabled"
+      },
+      "worldMapKey": {
+        "name": "World Map Key"
+      }
+    },
+    "worldMap": {
+      "follow": "Follow Player",
+      "caveOn": "Cave Layer: On",
+      "caveOff": "Cave Layer: Off",
+      "close": "Close",
+      "empty": "Nothing explored here yet",
+      "subWorld": "World %s",
+      "menu": {
+        "createWaypoint": "Create waypoint here",
+        "editWaypoint": "Edit waypoint",
+        "hideWaypoint": "Hide waypoint",
+        "copyCoordinates": "Copy coordinates",
+        "centerPlayer": "Center on player"
       }
     },
     "hudWidget": {

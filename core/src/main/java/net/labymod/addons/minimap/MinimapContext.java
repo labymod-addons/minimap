@@ -16,7 +16,7 @@ public record MinimapContext(
   }
 
   public void reload(ClientWorld world) {
-    this.sectionTextureRepository.clear();
+    this.sectionTextureRepository.disposeAll();
     this.storage.reload(world);
   }
 }
