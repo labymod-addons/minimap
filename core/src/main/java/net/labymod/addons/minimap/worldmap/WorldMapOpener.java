@@ -18,6 +18,7 @@ public class WorldMapOpener {
 
   private final MinimapAddon addon;
   private final ConfigProperty<Key> openKey;
+  private final ConfigProperty<Boolean> atlasOpen;
   private final WorldMapService service;
   private final MinimapRenderer minimapRenderer;
   private final MinimapUniformBlocks uniformBlocks;
@@ -26,12 +27,14 @@ public class WorldMapOpener {
   public WorldMapOpener(
       MinimapAddon addon,
       ConfigProperty<Key> openKey,
+      ConfigProperty<Boolean> atlasOpen,
       WorldMapService service,
       MinimapRenderer minimapRenderer,
       MinimapUniformBlocks uniformBlocks
   ) {
     this.addon = addon;
     this.openKey = openKey;
+    this.atlasOpen = atlasOpen;
     this.service = service;
     this.minimapRenderer = minimapRenderer;
     this.uniformBlocks = uniformBlocks;
@@ -56,6 +59,7 @@ public class WorldMapOpener {
         this.addon,
         this.service,
         this,
+        this.atlasOpen,
         this.minimapRenderer,
         this.uniformBlocks
     ));

@@ -1,5 +1,6 @@
 package net.labymod.addons.minimap.worldmap;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
@@ -15,11 +16,13 @@ import net.labymod.addons.minimap.world.WorldMapService;
 import net.labymod.addons.minimap.world.WorldMapWaypoint;
 import net.labymod.addons.minimap.world.WorldMapWaypoints;
 import net.labymod.api.Laby;
+import net.labymod.api.Textures.SpriteCommon;
 import net.labymod.api.client.Minecraft;
 import net.labymod.api.client.component.Component;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.entity.player.Player;
 import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
+import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.gui.mouse.MutableMouse;
 import net.labymod.api.client.gui.screen.Parent;
 import net.labymod.api.client.gui.screen.ScreenContext;
@@ -29,12 +32,13 @@ import net.labymod.api.client.gui.screen.key.InputType;
 import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.gui.screen.key.MouseButton;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
-import net.labymod.api.client.gui.screen.widget.context.ContextMenu;
-import net.labymod.api.client.gui.screen.widget.context.ContextMenuEntry;
+import net.labymod.api.client.gui.screen.widget.attributes.bounds.BoundsType;
+import net.labymod.api.client.gui.screen.widget.widgets.DivWidget;
 import net.labymod.api.client.gui.screen.widget.widgets.activity.Document;
-import net.labymod.api.client.gui.screen.widget.widgets.input.ButtonWidget;
+import net.labymod.api.client.gui.screen.widget.widgets.renderer.IconWidget;
 import net.labymod.api.client.gui.window.Window;
 import net.labymod.api.client.world.MinecraftCamera;
+import net.labymod.api.configuration.loader.property.ConfigProperty;
 import net.labymod.api.util.I18n;
 import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.position.Position;
@@ -42,16 +46,22 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Full screen map of everything explored. Drag to pan, scroll to zoom towards the cursor, right
- * click for waypoint and coordinate actions.
+ * click for a wheel with waypoint and coordinate actions. Tab slides in the atlas panel.
  */
 @Link("world-map.lss")
-public class WorldMapActivity extends SimpleActivity {
+public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWidget.Actions {
 
   private static final String I18N_PREFIX = Util.NAMESPACE + ".worldMap.";
   private static final int BACKGROUND_COLOR = 0xFF0C0D10;
   private static final int TEXT_COLOR = 0xFFFFFFFF;
   private static final int CAVE_UNBUILT_DIM_COLOR = 0xB0000000;
-  private static final float TEXT_PADDING = 6.0F;
+  private static final int TOOLTIP_COLOR = 0xC8080A0C;
+  private static final int KEY_BACKGROUND_COLOR = 0x80000000;
+  private static final int HINT_TEXT_COLOR = 0xDCFFFFFF;
+  private static final int HINT_BACKGROUND_COLOR = 0xA00C0F12;
+  private static final int ATLAS_COLOR = 0xEB101513;
+  private static final int ATLAS_BORDER_COLOR = 0xFF222B27;
+  private static final int ATLAS_HANDLE_HOVER_COLOR = 0xFF1C2622;
   private static final float PLAYER_ICON_SIZE = 8.0F;
   private static final float PLAYER_HEAD_SIZE = 8.0F;
   private static final float WAYPOINT_ICON_SIZE = 12.0F;
@@ -59,14 +69,22 @@ public class WorldMapActivity extends SimpleActivity {
   private static final float WAYPOINT_TITLE_SCALE = 0.75F;
   private static final float WAYPOINT_TITLE_MIN_MAP_SCALE = 1.0F;
   private static final float HOVER_DETAIL_MIN_MAP_SCALE = 0.75F;
+  private static final float CHROME_MARGIN = 8.0F;
+  private static final float SMALL_TEXT_SCALE = 0.75F;
+  private static final float DIMENSION_SPACING = 14.0F;
+  private static final float TOOLTIP_OFFSET = 10.0F;
+  private static final float TOOLTIP_PADDING = 3.0F;
   private static final float CLICK_TOLERANCE = 3.0F;
   private static final long FLING_WINDOW_NANOS = 60_000_000L;
   private static final double FLING_SMOOTHING = 0.5D;
+  private static final float ATLAS_ANIMATION_SECONDS = 0.18F;
+  private static final int ATLAS_REFRESH_TICKS = 10;
   private static final int FALLBACK_WAYPOINT_Y = 64;
 
   private final MinimapConfigProvider configProvider;
   private final WorldMapService service;
   private final WorldMapOpener opener;
+  private final ConfigProperty<Boolean> atlasOpen;
   private final WorldMapRenderer renderer;
   private final CaveLayer caveLayer;
   private final WorldMapCamera camera = new WorldMapCamera();
@@ -88,16 +106,46 @@ public class WorldMapActivity extends SimpleActivity {
   @Nullable
   private WorldMapWaypoint hoveredWaypoint;
 
+  private List<MapWorldKey> dimensionTabs = List.of();
+  private float[] dimensionTabX = new float[0];
+  private float[] dimensionTabWidth = new float[0];
+  private int subWorldIndex;
+  private int subWorldCount;
+  private boolean chromeClickable;
+  private float dimensionBarLineHeight;
+  private float followPillX;
+  private float cavePillX;
+  private float pillY;
+  private float followPillWidth;
+  private float cavePillWidth;
+  private float pillHeight;
+
+  @Nullable
+  private WorldMapAtlasWidget atlas;
+  @Nullable
+  private DivWidget atlasHandle;
+  @Nullable
+  private IconWidget atlasHandleIcon;
+  private float atlasProgress = -1.0F;
+  private long lastFrameNanos;
+  private String waypointFilter = "";
+  private int ticks;
+
+  @Nullable
+  private WorldMapWheel wheel;
+
   public WorldMapActivity(
       MinimapConfigProvider configProvider,
       WorldMapService service,
       WorldMapOpener opener,
+      ConfigProperty<Boolean> atlasOpen,
       MinimapRenderer minimapRenderer,
       MinimapUniformBlocks uniformBlocks
   ) {
     this.configProvider = configProvider;
     this.service = service;
     this.opener = opener;
+    this.atlasOpen = atlasOpen;
     this.renderer = new WorldMapRenderer(minimapRenderer, uniformBlocks);
     this.caveLayer = new CaveLayer(minimapRenderer, uniformBlocks);
     this.viewKey = service.activeKey();
@@ -107,37 +155,50 @@ public class WorldMapActivity extends SimpleActivity {
   public void initialize(Parent parent) {
     super.initialize(parent);
     this.initializedKey = this.viewKey;
+    this.wheel = null;
+    this.atlas = null;
+    this.atlasHandle = null;
+    this.atlasHandleIcon = null;
+    this.dimensionTabs = List.of();
+    this.subWorldCount = 0;
+    if (this.viewKey == null) {
+      return;
+    }
+
+    List<MapWorldKey> keys = this.service.dimensions(this.viewKey);
+    this.dimensionTabs = WorldMapNames.dimensionTabs(keys, this.viewKey, this.service.activeKey());
+    this.dimensionTabX = new float[this.dimensionTabs.size()];
+    this.dimensionTabWidth = new float[this.dimensionTabs.size()];
+    List<MapWorldKey> subWorlds = WorldMapNames.subWorlds(keys, this.viewKey.dimension());
+    this.subWorldCount = subWorlds.size();
+    this.subWorldIndex = subWorlds.indexOf(this.viewKey) + 1;
+
+    WorldMapWaypoints waypoints = this.service.waypoints();
+    WorldMapAtlasWidget atlas = new WorldMapAtlasWidget(
+        this,
+        this.service,
+        keys,
+        this.viewKey,
+        this.isViewingActive(),
+        this.camera.isFollowing(),
+        this.caveLayerEnabled,
+        waypoints == null ? null : waypoints.waypoints(this.viewKey),
+        this.waypointFilter
+    );
+    atlas.addId("atlas");
+
+    IconWidget handleIcon = new IconWidget(SpriteCommon.WHITE_GREATER_THAN);
+    DivWidget handle = new DivWidget();
+    handle.addId("atlas-handle");
+    handle.addChild(handleIcon);
+    handle.setPressable(this::toggleAtlas);
 
     Document document = this.document();
-    int slot = 0;
-    if (this.isViewingActive()) {
-      ButtonWidget followButton = ButtonWidget.i18n(
-          I18N_PREFIX + "follow",
-          () -> this.camera.setFollowing(true)
-      );
-      followButton.addId("slot-" + slot++);
-      document.addChild(followButton);
-
-      ButtonWidget caveButton = ButtonWidget.i18n(
-          I18N_PREFIX + (this.caveLayerEnabled ? "caveOn" : "caveOff"),
-          this::toggleCaveLayer
-      );
-      caveButton.addId("slot-" + slot++);
-      document.addChild(caveButton);
-    }
-
-    if (this.viewKey != null && this.service.dimensions(this.viewKey).size() > 1) {
-      ButtonWidget dimensionButton = ButtonWidget.component(
-          Component.text(this.describe(this.viewKey)),
-          this::showNextDimension
-      );
-      dimensionButton.addId("slot-" + slot);
-      document.addChild(dimensionButton);
-    }
-
-    ButtonWidget closeButton = ButtonWidget.i18n(I18N_PREFIX + "close", this::closeScreen);
-    closeButton.addId("close");
-    document.addChild(closeButton);
+    document.addChild(atlas);
+    document.addChild(handle);
+    this.atlas = atlas;
+    this.atlasHandle = handle;
+    this.atlasHandleIcon = handleIcon;
   }
 
   @Override
@@ -163,6 +224,7 @@ public class WorldMapActivity extends SimpleActivity {
   @Override
   public void tick() {
     super.tick();
+    this.ticks++;
     if (this.followActive) {
       this.viewKey = this.service.activeKey();
     }
@@ -171,12 +233,34 @@ public class WorldMapActivity extends SimpleActivity {
       // The cave layer tracks built chunks by position only and would keep the previous world
       this.caveLayer.dispose();
       this.reload();
+      return;
     }
 
     Minecraft minecraft = Laby.labyAPI().minecraft();
     ClientPlayer player = minecraft.getClientPlayer();
-    if (this.caveLayerEnabled && player != null && this.isViewingActive()) {
+    boolean current = this.isViewingActive();
+    if (this.caveLayerEnabled && player != null && current) {
       this.caveLayer.tick(minecraft.clientWorld(), player);
+    }
+
+    if (this.atlas == null) {
+      return;
+    }
+
+    this.atlas.update(this.camera.isFollowing(), this.caveLayerEnabled);
+    if (this.ticks % ATLAS_REFRESH_TICKS != 0) {
+      return;
+    }
+
+    WorldMapWaypoints waypoints = this.service.waypoints();
+    if (!this.atlas.shows(waypoints == null ? null : waypoints.waypoints(this.viewKey))) {
+      this.reload();
+      return;
+    }
+
+    if (current && player != null) {
+      Position position = player.position();
+      this.atlas.updateDistances(position.getX(), position.getZ());
     }
   }
 
@@ -193,8 +277,10 @@ public class WorldMapActivity extends SimpleActivity {
       this.viewKey = this.service.activeKey();
     }
 
+    this.updateAtlasProgress();
     if (this.viewKey == null) {
       this.hoveredWaypoint = null;
+      this.chromeClickable = false;
       canvas.submitText(
           I18n.getTranslation(I18N_PREFIX + "empty"),
           width / 2.0F, height / 2.0F,
@@ -207,15 +293,37 @@ public class WorldMapActivity extends SimpleActivity {
     }
 
     super.render(context);
+    if (this.wheel != null) {
+      MutableMouse mouse = context.mouse();
+      this.wheel.render(canvas, mouse.getX(), mouse.getY());
+    }
   }
 
   @Override
   public boolean mouseClicked(MutableMouse mouse, MouseButton mouseButton) {
+    if (this.wheel != null) {
+      Runnable action = mouseButton.isLeft() ? this.wheel.actionAt(mouse.getX(), mouse.getY()) : null;
+      this.wheel = null;
+      if (action != null) {
+        action.run();
+      }
+
+      return true;
+    }
+
     if (super.mouseClicked(mouse, mouseButton) || this.viewKey == null) {
       return true;
     }
 
+    if (mouse.getX() < this.atlasRight()) {
+      return true;
+    }
+
     if (mouseButton.isLeft()) {
+      if (this.clickChrome(mouse.getX(), mouse.getY())) {
+        return true;
+      }
+
       this.dragging = true;
       this.dragDistance = 0.0F;
       this.pendingDeltaX = 0.0D;
@@ -228,7 +336,7 @@ public class WorldMapActivity extends SimpleActivity {
     }
 
     if (mouseButton.isRight()) {
-      this.openContextMenu(mouse.getX(), mouse.getY());
+      this.openWheel(mouse.getX(), mouse.getY());
       return true;
     }
 
@@ -284,7 +392,9 @@ public class WorldMapActivity extends SimpleActivity {
 
   @Override
   public boolean mouseScrolled(MutableMouse mouse, double scrollDelta) {
-    if (!super.mouseScrolled(mouse, scrollDelta)) {
+    if (this.wheel == null
+        && !super.mouseScrolled(mouse, scrollDelta)
+        && mouse.getX() >= this.atlasRight()) {
       this.camera.zoom(mouse.getX(), mouse.getY(), scrollDelta);
     }
 
@@ -293,9 +403,23 @@ public class WorldMapActivity extends SimpleActivity {
 
   @Override
   public boolean keyPressed(Key key, InputType type) {
+    if (this.wheel != null && key == Key.ESCAPE) {
+      this.wheel = null;
+      return true;
+    }
+
+    if (this.atlas != null && this.atlas.isSearchFocused()) {
+      return super.keyPressed(key, type);
+    }
+
     if (key == this.opener.openKey()) {
       this.opener.suppressOpen();
       //this.closeScreen();
+      return true;
+    }
+
+    if (key == Key.TAB && this.atlas != null) {
+      this.toggleAtlas();
       return true;
     }
 
@@ -304,7 +428,53 @@ public class WorldMapActivity extends SimpleActivity {
       return true;
     }
 
+    if (key == Key.C && this.isViewingActive()) {
+      this.setCaveLayer(!this.caveLayerEnabled);
+      return true;
+    }
+
     return super.keyPressed(key, type);
+  }
+
+  @Override
+  public void showWorld(MapWorldKey key) {
+    this.viewKey = key;
+    this.followActive = key.equals(this.service.activeKey());
+    this.camera.setFollowing(this.followActive);
+    if (!this.followActive && this.caveLayerEnabled) {
+      this.caveLayerEnabled = false;
+      this.caveLayer.dispose();
+    }
+
+    this.reload();
+  }
+
+  @Override
+  public void setFollowing(boolean following) {
+    this.camera.setFollowing(following);
+  }
+
+  @Override
+  public void setCaveLayer(boolean enabled) {
+    if (this.caveLayerEnabled == enabled) {
+      return;
+    }
+
+    this.caveLayerEnabled = enabled;
+    if (!enabled) {
+      this.caveLayer.dispose();
+    }
+  }
+
+  @Override
+  public void focusWaypoint(WorldMapWaypoint waypoint) {
+    this.camera.setFollowing(false);
+    this.camera.reset(waypoint.x(), waypoint.z());
+  }
+
+  @Override
+  public void filterWaypoints(String filter) {
+    this.waypointFilter = filter;
   }
 
   private void renderMap(ScreenContext context, Minecraft minecraft, float width, float height) {
@@ -347,24 +517,211 @@ public class WorldMapActivity extends SimpleActivity {
     }
 
     ScreenCanvas canvas = context.canvas();
+    float atlasShown = this.atlasEase();
+    int chromeAlpha = (int) ((1.0F - atlasShown) * 255.0F);
+    this.chromeClickable = chromeAlpha > 128;
+    if (chromeAlpha > 0) {
+      this.renderDimensionBar(canvas, width, chromeAlpha);
+      if (current) {
+        this.renderStatePills(canvas, width, height, chromeAlpha);
+      }
+    }
+
+    this.renderAtlasBackground(canvas, height);
+    this.renderHints(canvas, this.atlasRight(), height, current);
+    if (!this.dragging && this.wheel == null && mouse.getX() >= this.atlasRight()) {
+      this.renderTooltip(canvas, store, width, height, mouse.getX(), mouse.getY());
+    }
+  }
+
+  private void renderAtlasBackground(ScreenCanvas canvas, float height) {
+    if (this.atlasHandle == null) {
+      return;
+    }
+
+    float atlasRight = this.atlasRight();
+    if (atlasRight > 0.0F) {
+      canvas.submitRelativeRect(0.0F, 0.0F, atlasRight, height, ATLAS_COLOR);
+      canvas.submitRelativeRect(atlasRight - 1.0F, 0.0F, 1.0F, height, ATLAS_BORDER_COLOR);
+    }
+
+    float handleHeight = this.atlasHandle.bounds().getHeight(BoundsType.OUTER);
+    float handleWidth = this.atlasHandle.bounds().getWidth(BoundsType.OUTER);
+    canvas.submitRelativeRect(
+        atlasRight, (height - handleHeight) / 2.0F,
+        handleWidth, handleHeight,
+        this.atlasHandle.isHovered() ? ATLAS_HANDLE_HOVER_COLOR : ATLAS_COLOR
+    );
+  }
+
+  private void renderDimensionBar(ScreenCanvas canvas, float width, int alpha) {
+    float totalWidth = DIMENSION_SPACING * (this.dimensionTabs.size() - 1);
+    for (int index = 0; index < this.dimensionTabs.size(); index++) {
+      this.dimensionTabWidth[index] = canvas.getTextWidth(
+          WorldMapNames.dimension(this.dimensionTabs.get(index).dimension())
+      );
+      totalWidth += this.dimensionTabWidth[index];
+    }
+
+    float lineHeight = canvas.getLineHeight();
+    this.dimensionBarLineHeight = lineHeight;
+    float x = (width - totalWidth) / 2.0F;
+    for (int index = 0; index < this.dimensionTabs.size(); index++) {
+      MapWorldKey key = this.dimensionTabs.get(index);
+      boolean shown = key.dimension().equals(this.viewKey.dimension());
+      this.dimensionTabX[index] = x;
+      canvas.submitText(
+          WorldMapNames.dimension(key.dimension()),
+          x, CHROME_MARGIN,
+          withAlpha(TEXT_COLOR, shown ? alpha : alpha / 2),
+          1.0F,
+          TextRenderingOptions.SHADOW
+      );
+      if (shown) {
+        canvas.submitRelativeRect(
+            x, CHROME_MARGIN + lineHeight + 1.0F,
+            this.dimensionTabWidth[index], 1.0F,
+            withAlpha(TEXT_COLOR, alpha)
+        );
+      }
+
+      x += this.dimensionTabWidth[index] + DIMENSION_SPACING;
+    }
+
+    if (this.subWorldCount > 1) {
+      canvas.submitText(
+          I18n.getTranslation(I18N_PREFIX + "subWorldOf", this.subWorldIndex, this.subWorldCount),
+          width / 2.0F, CHROME_MARGIN + lineHeight + 5.0F,
+          withAlpha(TEXT_COLOR, alpha * 3 / 5),
+          SMALL_TEXT_SCALE,
+          TextRenderingOptions.SHADOW | TextRenderingOptions.CENTERED
+      );
+    }
+  }
+
+  private void renderStatePills(ScreenCanvas canvas, float width, float height, int alpha) {
+    float lineHeight = canvas.getLineHeight() * SMALL_TEXT_SCALE;
+    this.pillHeight = lineHeight + 5.0F;
+    this.pillY = height - CHROME_MARGIN - this.pillHeight;
+
+    boolean following = this.camera.isFollowing();
+    String caveText = I18n.getTranslation(I18N_PREFIX + (this.caveLayerEnabled ? "caveOn" : "caveOff"));
+    this.cavePillWidth = canvas.getTextWidth(caveText) * SMALL_TEXT_SCALE + 10.0F;
+    this.cavePillX = width - CHROME_MARGIN - this.cavePillWidth;
+    this.renderPill(canvas, caveText, this.cavePillX, this.cavePillWidth, this.caveLayerEnabled, alpha);
+
+    String followText = I18n.getTranslation(I18N_PREFIX + (following ? "following" : "freeCamera"));
+    this.followPillWidth = canvas.getTextWidth(followText) * SMALL_TEXT_SCALE + 10.0F;
+    this.followPillX = this.cavePillX - 4.0F - this.followPillWidth;
+    this.renderPill(canvas, followText, this.followPillX, this.followPillWidth, following, alpha);
+  }
+
+  private void renderPill(ScreenCanvas canvas, String text, float x, float width, boolean active, int alpha) {
+    canvas.submitRelativeRect(x, this.pillY, width, this.pillHeight, withAlpha(KEY_BACKGROUND_COLOR, alpha / 2));
+    outline(canvas, x, this.pillY, width, this.pillHeight, withAlpha(TEXT_COLOR, active ? alpha : alpha / 4));
     canvas.submitText(
-        this.describe(this.viewKey),
-        TEXT_PADDING, TEXT_PADDING,
-        TEXT_COLOR,
-        1.0F,
+        text,
+        x + 5.0F, this.pillY + 3.0F,
+        withAlpha(TEXT_COLOR, active ? alpha : alpha * 3 / 5),
+        SMALL_TEXT_SCALE,
         TextRenderingOptions.SHADOW
     );
+  }
+
+  private void renderHints(ScreenCanvas canvas, float left, float height, boolean current) {
+    float lineHeight = canvas.getLineHeight() * SMALL_TEXT_SCALE;
+    float y = height - CHROME_MARGIN - lineHeight - 5.0F;
+    float x = left + CHROME_MARGIN;
+    if (current) {
+      x = this.renderHint(canvas, "Space", "hint.follow", x, y, lineHeight);
+      x = this.renderHint(canvas, "C", "hint.caves", x, y, lineHeight);
+    }
+
+    x = this.renderHint(canvas, "Tab", "hint.atlas", x, y, lineHeight);
+    this.renderHint(canvas, I18n.getTranslation(I18N_PREFIX + "hint.rightClick"), "hint.actions", x, y, lineHeight);
+  }
+
+  private float renderHint(ScreenCanvas canvas, String key, String label, float x, float y, float lineHeight) {
+    float keyWidth = canvas.getTextWidth(key) * SMALL_TEXT_SCALE + 6.0F;
+    String text = I18n.getTranslation(I18N_PREFIX + label);
+    float textWidth = canvas.getTextWidth(text) * SMALL_TEXT_SCALE;
+    float hintHeight = lineHeight + 5.0F;
+    canvas.submitRelativeRect(x, y, keyWidth + textWidth + 7.0F, hintHeight, HINT_BACKGROUND_COLOR);
+    outline(canvas, x, y, keyWidth, hintHeight, 0x60FFFFFF);
+    canvas.submitText(key, x + 3.0F, y + 3.0F, TEXT_COLOR, SMALL_TEXT_SCALE, TextRenderingOptions.SHADOW);
+
+    float textX = x + keyWidth + 3.0F;
+    canvas.submitText(text, textX, y + 3.0F, HINT_TEXT_COLOR, SMALL_TEXT_SCALE, TextRenderingOptions.SHADOW);
+    return textX + textWidth + 8.0F;
+  }
+
+  private void renderTooltip(
+      ScreenCanvas canvas,
+      MapRegionStore store,
+      float width, float height,
+      float mouseX, float mouseY
+  ) {
+    Component text = this.describeLocation(
+        store,
+        MathHelper.floor(this.camera.screenToWorldX(mouseX, width)),
+        MathHelper.floor(this.camera.screenToWorldZ(mouseY, height))
+    );
+    float tooltipWidth = canvas.getTextWidth(text) * SMALL_TEXT_SCALE + TOOLTIP_PADDING * 2.0F;
+    float tooltipHeight = canvas.getLineHeight() * SMALL_TEXT_SCALE + TOOLTIP_PADDING * 2.0F;
+    float x = mouseX + TOOLTIP_OFFSET;
+    float y = mouseY + TOOLTIP_OFFSET;
+    if (x + tooltipWidth > width) {
+      x = mouseX - TOOLTIP_OFFSET - tooltipWidth;
+    }
+
+    if (y + tooltipHeight > height) {
+      y = mouseY - TOOLTIP_OFFSET - tooltipHeight;
+    }
+
+    canvas.submitRelativeRect(x, y, tooltipWidth, tooltipHeight, TOOLTIP_COLOR);
     canvas.submitComponent(
-        this.describeLocation(
-            store,
-            MathHelper.floor(this.camera.screenToWorldX(mouse.getX(), width)),
-            MathHelper.floor(this.camera.screenToWorldZ(mouse.getY(), height))
-        ),
-        TEXT_PADDING, height - TEXT_PADDING - canvas.getLineHeight(),
+        text,
+        x + TOOLTIP_PADDING, y + TOOLTIP_PADDING,
         TEXT_COLOR,
-        1.0F,
+        SMALL_TEXT_SCALE,
         TextRenderingOptions.SHADOW
     );
+  }
+
+  private boolean clickChrome(float mouseX, float mouseY) {
+    if (!this.chromeClickable) {
+      return false;
+    }
+
+    if (this.dimensionTabs.size() > 1
+        && mouseY >= CHROME_MARGIN - 2.0F
+        && mouseY <= CHROME_MARGIN + this.dimensionBarLineHeight + 2.0F) {
+      for (int index = 0; index < this.dimensionTabs.size(); index++) {
+        MapWorldKey key = this.dimensionTabs.get(index);
+        if (mouseX >= this.dimensionTabX[index]
+            && mouseX <= this.dimensionTabX[index] + this.dimensionTabWidth[index]
+            && !key.dimension().equals(this.viewKey.dimension())) {
+          this.showWorld(key);
+          return true;
+        }
+      }
+    }
+
+    if (!this.isViewingActive() || mouseY < this.pillY || mouseY > this.pillY + this.pillHeight) {
+      return false;
+    }
+
+    if (mouseX >= this.followPillX && mouseX <= this.followPillX + this.followPillWidth) {
+      this.camera.setFollowing(!this.camera.isFollowing());
+      return true;
+    }
+
+    if (mouseX >= this.cavePillX && mouseX <= this.cavePillX + this.cavePillWidth) {
+      this.setCaveLayer(!this.caveLayerEnabled);
+      return true;
+    }
+
+    return false;
   }
 
   private void renderWaypoints(
@@ -498,7 +855,7 @@ public class WorldMapActivity extends SimpleActivity {
   }
 
   private Component describeLocation(MapRegionStore store, int blockX, int blockZ) {
-    Component coordinates = Component.text("X: " + blockX + "  Z: " + blockZ);
+    Component coordinates = Component.text("X " + blockX + "  Z " + blockZ);
     // Looking up columns zoomed out would load whole regions just for the hovered block
     if (this.camera.scale() < HOVER_DETAIL_MIN_MAP_SCALE) {
       return coordinates;
@@ -512,7 +869,7 @@ public class WorldMapActivity extends SimpleActivity {
     }
 
     Component text = Component.text(
-        "X: " + blockX + "  Y: " + region.height(localX, localZ) + "  Z: " + blockZ
+        "X " + blockX + "  Y " + region.height(localX, localZ) + "  Z " + blockZ
     );
     String biome = region.biome(localX, localZ);
     if (biome == null) {
@@ -523,62 +880,57 @@ public class WorldMapActivity extends SimpleActivity {
     String translationKey = separator == -1
         ? "biome.minecraft." + biome
         : "biome." + biome.substring(0, separator) + "." + biome.substring(separator + 1);
-    return text.append(Component.text("  ")).append(Component.translatable(translationKey));
+    return text.append(Component.text("  ·  ")).append(Component.translatable(translationKey));
   }
 
-  private String describe(MapWorldKey key) {
-    String dimension = key.dimension();
-    String path = dimension.substring(dimension.indexOf(':') + 1);
-    StringBuilder name = new StringBuilder(path.length());
-    boolean capitalize = true;
-    for (int index = 0; index < path.length(); index++) {
-      char character = path.charAt(index);
-      if (character == '_' || character == '/') {
-        name.append(' ');
-        capitalize = true;
-      } else {
-        name.append(capitalize ? Character.toUpperCase(character) : character);
-        capitalize = false;
-      }
-    }
-
-    if (key.subWorld() == 0) {
-      return name.toString();
-    }
-
-    return name + " - " + I18n.getTranslation(I18N_PREFIX + "subWorld", key.subWorld() + 1);
-  }
-
-  private void openContextMenu(float mouseX, float mouseY) {
+  private void openWheel(float mouseX, float mouseY) {
     Window window = Laby.labyAPI().minecraft().minecraftWindow();
-    int blockX = MathHelper.floor(this.camera.screenToWorldX(mouseX, window.getScaledWidth()));
-    int blockZ = MathHelper.floor(this.camera.screenToWorldZ(mouseY, window.getScaledHeight()));
+    float width = window.getScaledWidth();
+    float height = window.getScaledHeight();
+    int blockX = MathHelper.floor(this.camera.screenToWorldX(mouseX, width));
+    int blockZ = MathHelper.floor(this.camera.screenToWorldZ(mouseY, height));
     int blockY = this.waypointY(blockX, blockZ);
     MapWorldKey key = this.viewKey;
 
-    ContextMenu menu = new ContextMenu();
+    List<WorldMapWheel.Entry> entries = new ArrayList<>();
     WorldMapWaypoints waypoints = this.service.waypoints();
     WorldMapWaypoint waypoint = this.hoveredWaypoint;
+    Component title;
     if (waypoints != null && waypoint != null) {
-      menu.addEntry(entry("menu.editWaypoint", () -> waypoints.edit(waypoint.id())));
-      menu.addEntry(entry("menu.hideWaypoint", () -> waypoints.hide(waypoint.id())));
-    } else if (waypoints != null) {
-      menu.addEntry(entry(
-          "menu.createWaypoint",
-          () -> waypoints.create(key, blockX, blockY, blockZ)
-      ));
+      title = waypoint.title();
+      entries.add(wheelEntry(SpriteCommon.EDIT, "edit", () -> waypoints.edit(waypoint.id())));
+      entries.add(wheelEntry(SpriteCommon.X, "hide", () -> {
+        waypoints.hide(waypoint.id());
+        this.reload();
+      }));
+    } else {
+      title = Component.text("X " + blockX + "  Z " + blockZ);
+      if (waypoints != null) {
+        entries.add(wheelEntry(SpriteCommon.ADD, "create", () -> {
+          waypoints.create(key, blockX, blockY, blockZ);
+          this.reload();
+        }));
+      }
     }
 
-    menu.addEntry(entry(
-        "menu.copyCoordinates",
+    entries.add(wheelEntry(
+        SpriteCommon.COPY, "copy",
         () -> Laby.labyAPI().minecraft().setClipboard(blockX + " " + blockY + " " + blockZ)
     ));
-
     if (this.isViewingActive()) {
-      menu.addEntry(entry("menu.centerPlayer", () -> this.camera.setFollowing(true)));
+      entries.add(wheelEntry(SpriteCommon.MOVE, "follow", () -> this.camera.setFollowing(true)));
     }
 
-    menu.open();
+    this.wheel = new WorldMapWheel(
+        MathHelper.clamp(mouseX, WorldMapWheel.RADIUS, width - WorldMapWheel.RADIUS),
+        MathHelper.clamp(mouseY, WorldMapWheel.RADIUS, height - WorldMapWheel.RADIUS - WorldMapWheel.TITLE_SPACE),
+        title,
+        entries
+    );
+  }
+
+  private static WorldMapWheel.Entry wheelEntry(Icon icon, String key, Runnable action) {
+    return new WorldMapWheel.Entry(icon, I18n.getTranslation(I18N_PREFIX + "wheel." + key), action);
   }
 
   private int waypointY(int blockX, int blockZ) {
@@ -596,26 +948,49 @@ public class WorldMapActivity extends SimpleActivity {
     return player == null ? FALLBACK_WAYPOINT_Y : MathHelper.floor(player.position().getY());
   }
 
-  private void toggleCaveLayer() {
-    this.caveLayerEnabled = !this.caveLayerEnabled;
-    if (!this.caveLayerEnabled) {
-      this.caveLayer.dispose();
+  private void toggleAtlas() {
+    boolean open = !this.atlasOpen.get();
+    this.atlasOpen.set(open);
+    if (!open && this.atlas != null) {
+      this.atlas.unfocusSearch();
     }
-
-    this.reload();
   }
 
-  private void showNextDimension() {
-    List<MapWorldKey> keys = this.service.dimensions(this.viewKey);
-    this.viewKey = keys.get((keys.indexOf(this.viewKey) + 1) % keys.size());
-    this.followActive = this.viewKey.equals(this.service.activeKey());
-    this.camera.setFollowing(this.followActive);
-    if (!this.followActive && this.caveLayerEnabled) {
-      this.caveLayerEnabled = false;
-      this.caveLayer.dispose();
+  private void updateAtlasProgress() {
+    long now = System.nanoTime();
+    float seconds = this.lastFrameNanos == 0L ? 0.0F : (now - this.lastFrameNanos) / 1.0E9F;
+    this.lastFrameNanos = now;
+
+    float target = this.atlasOpen.get() ? 1.0F : 0.0F;
+    if (this.atlasProgress < 0.0F) {
+      this.atlasProgress = target;
+    } else if (this.atlasProgress < target) {
+      this.atlasProgress = Math.min(target, this.atlasProgress + seconds / ATLAS_ANIMATION_SECONDS);
+    } else if (this.atlasProgress > target) {
+      this.atlasProgress = Math.max(target, this.atlasProgress - seconds / ATLAS_ANIMATION_SECONDS);
     }
 
-    this.reload();
+    if (this.atlas == null || this.atlasHandle == null) {
+      return;
+    }
+
+    float offset = this.atlasRight() - this.atlas.bounds().getWidth(BoundsType.OUTER);
+    this.atlas.setTranslateX(offset);
+    this.atlasHandle.setTranslateX(offset);
+    this.atlas.setVisible(this.atlasProgress > 0.0F);
+    Icon handleIcon = this.atlasOpen.get() ? SpriteCommon.WHITE_LESS_THAN : SpriteCommon.WHITE_GREATER_THAN;
+    if (this.atlasHandleIcon.icon().get() != handleIcon) {
+      this.atlasHandleIcon.icon().set(handleIcon);
+    }
+  }
+
+  private float atlasEase() {
+    float progress = Math.max(this.atlasProgress, 0.0F);
+    return progress * progress * (3.0F - 2.0F * progress);
+  }
+
+  private float atlasRight() {
+    return this.atlas == null ? 0.0F : this.atlasEase() * this.atlas.bounds().getWidth(BoundsType.OUTER);
   }
 
   private boolean isViewingActive() {
@@ -626,13 +1001,15 @@ public class WorldMapActivity extends SimpleActivity {
     return x >= -margin && x <= width + margin && y >= -margin && y <= height + margin;
   }
 
-  private static ContextMenuEntry entry(String key, Runnable action) {
-    return ContextMenuEntry.builder()
-        .text(Component.translatable(I18N_PREFIX + key))
-        .clickHandler(entry -> {
-          action.run();
-          return true;
-        })
-        .build();
+  private static void outline(ScreenCanvas canvas, float x, float y, float width, float height, int color) {
+    canvas.submitRelativeRect(x, y, width, 1.0F, color);
+    canvas.submitRelativeRect(x, y + height - 1.0F, width, 1.0F, color);
+    canvas.submitRelativeRect(x, y + 1.0F, 1.0F, height - 2.0F, color);
+    canvas.submitRelativeRect(x + width - 1.0F, y + 1.0F, 1.0F, height - 2.0F, color);
+  }
+
+  private static int withAlpha(int color, int alpha) {
+    int base = color >>> 24;
+    return (base * alpha / 255) << 24 | (color & 0xFFFFFF);
   }
 }

@@ -266,6 +266,13 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
     return keys;
   }
 
+  /**
+   * @return when the player last recorded into the key's sub-world in epoch millis, 0 if unknown
+   */
+  public long lastUsed(MapWorldKey key) {
+    return SubWorldMatcher.lastUsed(key.directory(this.root));
+  }
+
   @Nullable
   public WorldMapWaypoints waypoints() {
     return this.waypoints;

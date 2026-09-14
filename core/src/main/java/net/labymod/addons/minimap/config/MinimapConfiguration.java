@@ -15,6 +15,8 @@ public class MinimapConfiguration extends AddonConfig implements MinimapConfig {
   @KeyBindSetting
   private final ConfigProperty<Key> worldMapKey = new ConfigProperty<>(Key.J);
 
+  private final ConfigProperty<Boolean> worldMapAtlasOpen = new ConfigProperty<>(false);
+
   @Override
   public ConfigProperty<Boolean> enabled() {
     return this.enabled;
@@ -22,6 +24,10 @@ public class MinimapConfiguration extends AddonConfig implements MinimapConfig {
 
   public ConfigProperty<Key> worldMapKey() {
     return this.worldMapKey;
+  }
+
+  public ConfigProperty<Boolean> worldMapAtlasOpen() {
+    return this.worldMapAtlasOpen;
   }
 
   @Override
