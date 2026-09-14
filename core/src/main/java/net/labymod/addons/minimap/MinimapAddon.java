@@ -71,6 +71,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
         this,
         this.configuration().worldMapKey(),
         this.configuration().worldMapAtlasOpen(),
+        this.configuration().worldMapChunkGrid(),
         this.worldMapService,
         this.minimapRenderer,
         this.minimapContext.uniformBlocks()

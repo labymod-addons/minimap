@@ -17,6 +17,8 @@ public class MinimapConfiguration extends AddonConfig implements MinimapConfig {
 
   private final ConfigProperty<Boolean> worldMapAtlasOpen = new ConfigProperty<>(false);
 
+  private final ConfigProperty<Boolean> worldMapChunkGrid = new ConfigProperty<>(false);
+
   @Override
   public ConfigProperty<Boolean> enabled() {
     return this.enabled;
@@ -28,6 +30,10 @@ public class MinimapConfiguration extends AddonConfig implements MinimapConfig {
 
   public ConfigProperty<Boolean> worldMapAtlasOpen() {
     return this.worldMapAtlasOpen;
+  }
+
+  public ConfigProperty<Boolean> worldMapChunkGrid() {
+    return this.worldMapChunkGrid;
   }
 
   @Override
