@@ -304,9 +304,6 @@ public final class MinimapRenderer {
 
                 int heightmapColor = format.pack(normalized, normalized, normalized, 1.0F);
                 colorTexture.image().setARGB(destX, destZ, tileColor);
-                colorTexture.image().setARGB(destX, destZ, tileColor);
-                colorTexture.image().setARGB(destX, destZ, tileColor);
-                colorTexture.image().setARGB(destX, destZ, tileColor);
                 heightmapTexture.image().setARGB(destX, destZ, heightmapColor);
 
                 int blockLightLevel = chunk.getBlockLightLevel(pixelX, pixelZ);

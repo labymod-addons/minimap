@@ -1,5 +1,7 @@
 package net.labymod.addons.minimap.data.compilation;
 
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -25,6 +27,7 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
       ResourceLocation.create("minecraft", "barrier"),
       ResourceLocation.create("minecraft", "light")
   );
+  private static final Map<Block, Boolean> VISIBILITY_CACHE = new IdentityHashMap<>();
   private static final Predicate<BlockState> VISIBLE_BLOCKS = state -> {
     if (state == null) {
       return false;
@@ -35,7 +38,13 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
       return false;
     }
 
-    return !IGNORED_BLOCKS.contains(block.id());
+    Boolean visible = VISIBILITY_CACHE.get(block);
+    if (visible == null) {
+      visible = !IGNORED_BLOCKS.contains(block.id());
+      VISIBILITY_CACHE.put(block, visible);
+    }
+
+    return visible;
   };
   private final BlockColorProvider blockColorProvider;
   private final ClientWorld level;
@@ -142,9 +151,8 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
       int x, int z
   ) {
     Chunk chunk = data.getChunk();
-    BlockState highestBlock = this.getBlockState(chunk, x, z);
     BlockState block = this.getBlockState(chunk, x, z);
-    if (highestBlock == null || block == null) {
+    if (block == null) {
       data.setColor(x, z, 0xFF000000);
       return;
     }
@@ -155,7 +163,7 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
         format,
         x, z,
         block,
-        () -> highestBlock.position().getY() - (highestBlock.hasCollision() ? 0 : 1),
+        () -> block.position().getY() - (block.hasCollision() ? 0 : 1),
         () -> above
     );
   }
