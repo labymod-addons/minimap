@@ -188,7 +188,10 @@ public class ChunkDataStorage {
   }
 
   private void putChunk(Chunk chunk) {
-    this.chunks.put(this.getChunkId(chunk), new GameChunkData(chunk));
+    GameChunkData data = new GameChunkData(chunk);
+    this.chunks.put(this.getChunkId(chunk), data);
+    // A reloaded chunk starts with empty data
+    this.compilationService.resetCompilation(data);
   }
 
   private void resetNeighboringChunks(Chunk currentChunk) {
@@ -286,9 +289,7 @@ public class ChunkDataStorage {
   }
 
   public void compile(ChunkData data) {
-    if (this.compilationService.compile(data)) {
-      //this.writer.write(data);
-    }
+    this.compilationService.compile(data);
   }
 
   public boolean isCompiled(ChunkData data) {
@@ -297,6 +298,14 @@ public class ChunkDataStorage {
 
   public void resetCompilations() {
     this.compilationService.resetCompilations();
+  }
+
+  public void resetCompilations(int minChunkX, int minChunkZ, int size) {
+    for (int chunkX = minChunkX; chunkX < minChunkX + size; chunkX++) {
+      for (int chunkZ = minChunkZ; chunkZ < minChunkZ + size; chunkZ++) {
+        this.compilationService.resetCompilation(chunkX, chunkZ);
+      }
+    }
   }
 
 }

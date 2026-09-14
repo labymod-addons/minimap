@@ -7,8 +7,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -20,6 +22,9 @@ import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
+import net.labymod.addons.minimap.world.MapRegion;
+import net.labymod.addons.minimap.world.MapRegionStore;
+import net.labymod.addons.minimap.world.WorldMapService;
 import net.labymod.addons.waypoints.Waypoints;
 import net.labymod.api.Laby;
 import net.labymod.api.client.Minecraft;
@@ -56,6 +61,8 @@ public class MinimapPublisher {
   private static final int MAX_TILES_PER_TICK = 8;
   /** Tiles waiting to be encoded; a full queue rejects the submission, see submitTile. */
   private static final int MAX_QUEUED_TILES = 64;
+  /** Keeps only the newest tile requests. The app only needs its current viewport. */
+  private static final int MAX_PENDING_REQUESTS = 4;
   /**
    * Nearest-neighbour upscale factor for tile PNGs (16&times;16 blocks &rarr; 128&times;128 px).
    * The phone renders tiles at ~12+ physical px per block and its image pipeline only smooths
@@ -68,6 +75,7 @@ public class MinimapPublisher {
   private final MinimapRenderer renderer;
   private final MinimapHudWidget hudWidget;
   private final ChunkDataStorage storage;
+  private final WorldMapService worldMap;
   /** Written from the game thread, entries dropped from the encoder when a tile fails. */
   private final Map<Long, Integer> tileHashes = new ConcurrentHashMap<>();
   /**
@@ -87,6 +95,7 @@ public class MinimapPublisher {
         return thread;
       }
   );
+  private final Queue<TileRequest> tileRequests = new ConcurrentLinkedQueue<>();
 
   private int tickCounter;
   /** A device paired since the last pass: it needs every tile, not the deltas it never saw. */
@@ -102,12 +111,17 @@ public class MinimapPublisher {
       MinimapAddon addon,
       MinimapContext context,
       MinimapRenderer renderer,
-      MinimapHudWidget hudWidget
+      MinimapHudWidget hudWidget,
+      WorldMapService worldMap
   ) {
     this.addon = addon;
     this.renderer = renderer;
     this.hudWidget = hudWidget;
     this.storage = context.storage();
+    this.worldMap = worldMap;
+
+    Laby.references().externalDeviceService().control()
+        .registerCommand(MinimapChannel.CMD_TILES, this::requestTiles);
   }
 
   /** Fires on a network thread, so the tile cache is dropped on the next tick instead of here. */
@@ -124,6 +138,7 @@ public class MinimapPublisher {
     ExternalDeviceService service = Laby.references().externalDeviceService();
     if (!service.hasConnectedDevice()) {
       this.renderer.setMinimumBuildRadius(0);
+      this.tileRequests.clear();
       return;
     }
     ExternalDeviceStream stream = service.stream();
@@ -148,8 +163,11 @@ public class MinimapPublisher {
       stream.publishText(buildState(allowed));
     }
 
-    if (allowed && this.tickCounter % Math.max(1, 20 / MinimapChannel.TILE_HZ) == 0) {
-      streamTiles(stream);
+    if (!allowed) {
+      this.tileRequests.clear();
+    } else if (this.tickCounter % Math.max(1, 20 / MinimapChannel.TILE_HZ) == 0) {
+      int sent = this.streamTiles(stream);
+      this.streamRequestedTiles(stream, sent);
     }
   }
 
@@ -216,10 +234,13 @@ public class MinimapPublisher {
 
   // ---- tiles -------------------------------------------------------------------------------------
 
-  private void streamTiles(ExternalDeviceStream stream) {
+  /**
+   * @return the number of tiles sent
+   */
+  private int streamTiles(ExternalDeviceStream stream) {
     ClientPlayer player = Laby.labyAPI().minecraft().getClientPlayer();
     if (player == null) {
-      return;
+      return 0;
     }
     int centerChunkX = MathHelper.floor(player.position().getX()) >> 4;
     int centerChunkZ = MathHelper.floor(player.position().getZ()) >> 4;
@@ -258,6 +279,72 @@ public class MinimapPublisher {
         break;
       }
     }
+    return sent;
+  }
+
+  /**
+   * Sends saved tiles the app asked for with {@link MinimapChannel#CMD_TILES}, sharing the per pass
+   * tile cap with the live tiles. Waits while a region is still loading from disk.
+   */
+  private void streamRequestedTiles(ExternalDeviceStream stream, int sent) {
+    MapRegionStore store = this.worldMap.activeStore();
+    if (store == null || !store.isIndexed()) {
+      return;
+    }
+
+    TileRequest request;
+    while (sent < MAX_TILES_PER_TICK && (request = this.tileRequests.peek()) != null) {
+      if (request.cursor >= request.size()) {
+        this.tileRequests.poll();
+        continue;
+      }
+
+      int chunkX = request.chunkX();
+      int chunkZ = request.chunkZ();
+      int regionX = chunkX >> MapRegion.CHUNK_SHIFT;
+      int regionZ = chunkZ >> MapRegion.CHUNK_SHIFT;
+      MapRegion region = store.getRegion(regionX, regionZ);
+      if (region == null && store.isLoading(regionX, regionZ)) {
+        return;
+      }
+
+      request.cursor++;
+      int localChunkX = chunkX & (MapRegion.CHUNKS - 1);
+      int localChunkZ = chunkZ & (MapRegion.CHUNKS - 1);
+      if (region == null || !region.hasChunk(localChunkX, localChunkZ)) {
+        continue;
+      }
+
+      ChunkData data = region.chunk(localChunkX, localChunkZ);
+      long key = chunkKey(chunkX, chunkZ);
+      this.tileHashes.put(key, colorHash(data));
+      this.submitTile(stream, key, chunkX, chunkZ, colors(data));
+      sent++;
+    }
+  }
+
+  /** Runs on a network thread. */
+  private JsonObject requestTiles(JsonObject request) {
+    int minChunkX = request.get("minX").getAsInt();
+    int minChunkZ = request.get("minZ").getAsInt();
+    int width = request.get("maxX").getAsInt() - minChunkX + 1;
+    int height = request.get("maxZ").getAsInt() - minChunkZ + 1;
+    if (width <= 0 || height <= 0
+        || width > MinimapChannel.MAX_REQUEST_CHUNKS
+        || height > MinimapChannel.MAX_REQUEST_CHUNKS) {
+      throw new IllegalArgumentException(
+          "A tile request must span 1 to " + MinimapChannel.MAX_REQUEST_CHUNKS + " chunks per axis"
+      );
+    }
+
+    this.tileRequests.add(new TileRequest(minChunkX, minChunkZ, width, height));
+    while (this.tileRequests.size() > MAX_PENDING_REQUESTS) {
+      this.tileRequests.poll();
+    }
+
+    JsonObject result = new JsonObject();
+    result.addProperty("chunks", width * height);
+    return result;
   }
 
   /**
@@ -354,5 +441,33 @@ public class MinimapPublisher {
   /** Two decimals are enough for a map on a phone and keep the state message small. */
   private static double num(double value) {
     return Math.round(value * 100.0D) / 100.0D;
+  }
+
+  private static final class TileRequest {
+
+    private final int minChunkX;
+    private final int minChunkZ;
+    private final int width;
+    private final int height;
+    private int cursor;
+
+    private TileRequest(int minChunkX, int minChunkZ, int width, int height) {
+      this.minChunkX = minChunkX;
+      this.minChunkZ = minChunkZ;
+      this.width = width;
+      this.height = height;
+    }
+
+    private int size() {
+      return this.width * this.height;
+    }
+
+    private int chunkX() {
+      return this.minChunkX + this.cursor % this.width;
+    }
+
+    private int chunkZ() {
+      return this.minChunkZ + this.cursor / this.width;
+    }
   }
 }

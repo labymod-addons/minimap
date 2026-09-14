@@ -12,6 +12,8 @@ import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.addons.minimap.server.MinimapServers;
 import net.labymod.addons.minimap.stream.MinimapPublisher;
+import net.labymod.addons.minimap.world.WorldMapService;
+import net.labymod.addons.minimap.worldmap.WorldMapOpener;
 import net.labymod.api.Laby;
 import net.labymod.api.addon.LabyAddon;
 import net.labymod.api.client.Minecraft;
@@ -26,10 +28,12 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
 
   private final MinimapServers servers = new MinimapServers();
   private static ReferenceStorage references;
+  private static WorldMapService worldMap;
 
   private MinimapContext minimapContext;
   private MinimapRenderer minimapRenderer;
   private MinimapHudWidget hudWidget;
+  private WorldMapService worldMapService;
 
   @Override
   protected void enable() {
@@ -43,7 +47,12 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
 
     var references = Laby.references();
     this.minimapRenderer = new MinimapRenderer(this, this.minimapContext);
+    this.registerListener(this.minimapRenderer);
     references.hudWidgetRegistry().register(this.hudWidget = new MinimapHudWidget(this, this.minimapRenderer));
+
+    this.worldMapService = new WorldMapService(this);
+    MinimapAddon.worldMap = this.worldMapService;
+    this.registerListener(this.worldMapService);
 
     this.servers.init();
 
@@ -51,17 +60,20 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
         .registerIntegration("labyswaypoints", WaypointsIntegration.class);
 
     this.registerListener(getReferences().tileRendererDispatcher());
-    this.registerListener(new MinimapPublisher(this, this.minimapContext, this.minimapRenderer, this.hudWidget));
-
-    /*
-    references.hotkeyService()
-        .register(
-            Util.NAMESPACE + "-open-full-map",
-            () -> Key.U,
-            () -> Type.TOGGLE, pressed -> {
-              Laby.labyAPI().minecraft().minecraftWindow().displayScreen(new MapActivity(new MinimapRenderer(this::configuration, "activity", storage)));
-            }
-        );*/
+    this.registerListener(new MinimapPublisher(
+        this,
+        this.minimapContext,
+        this.minimapRenderer,
+        this.hudWidget,
+        this.worldMapService
+    ));
+    this.registerListener(new WorldMapOpener(
+        this,
+        this.configuration().worldMapKey(),
+        this.worldMapService,
+        this.minimapRenderer,
+        this.minimapContext.uniformBlocks()
+    ));
 
     references.controlEntryRegistry().registerEntry(false, ImGuiMinimapDebug::new);
   }
@@ -71,6 +83,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     // Every listener of this addon was muted while it was disabled, so the collected world state is
     // stale.
     this.servers.refreshAllowedState();
+    this.worldMapService.close();
 
     Minecraft minecraft = this.labyAPI().minecraft();
     if (minecraft.isIngame()) {
@@ -85,6 +98,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     }
 
     this.minimapContext.storage().clearAll();
+    this.worldMapService.close();
   }
 
   @Override
@@ -98,6 +112,10 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
 
   public static ReferenceStorage getReferences() {
     return MinimapAddon.references;
+  }
+
+  public static WorldMapService worldMap() {
+    return MinimapAddon.worldMap;
   }
 
   @Override

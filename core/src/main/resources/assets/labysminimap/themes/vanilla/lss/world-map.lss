@@ -1,0 +1,27 @@
+.slot-0 {
+  right: 8;
+  top: 8;
+  width: 110;
+  height: 20;
+}
+
+.slot-1 {
+  right: 8;
+  top: 32;
+  width: 110;
+  height: 20;
+}
+
+.slot-2 {
+  right: 8;
+  top: 56;
+  width: 110;
+  height: 20;
+}
+
+.close {
+  right: 8;
+  bottom: 8;
+  width: 110;
+  height: 20;
+}

@@ -1,8 +1,7 @@
 package net.labymod.addons.minimap.map.v2;
 
 import java.util.Arrays;
-import java.util.function.BooleanSupplier;
-import java.util.function.IntSupplier;
+import java.util.Iterator;
 import net.labymod.addons.minimap.MinimapContext;
 import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.map.MinimapBounds;
@@ -28,6 +27,9 @@ import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.gui.screen.state.states.GuiTextureSet;
 import net.labymod.api.client.world.ClientWorld;
+import net.labymod.api.event.Subscribe;
+import net.labymod.api.event.client.network.server.ServerSwitchEvent;
+import net.labymod.api.event.client.world.DimensionChangeEvent;
 import net.labymod.api.laby3d.pipeline.material.GuiMaterial;
 import net.labymod.api.util.Lazy;
 import net.labymod.api.util.color.format.ColorFormat;
@@ -42,6 +44,8 @@ public final class MinimapRenderer {
   private static final long BUILD_BUDGET_NANOS = 3_000_000L;
   private static final int UNDERGROUND_SURFACE_THRESHOLD = 4;
   private static final int UNDERGROUND_SWITCH_TICKS = 10;
+  private static final int EVICTION_INTERVAL_TICKS = 20;
+  private static final int EVICTION_MARGIN_SECTIONS = 2;
   private final MinimapBounds minimapBounds = new MinimapBounds();
   private final MinimapConfigProvider configProvider;
   private final SectionTextureRepository sectionTextureRepository;
@@ -62,6 +66,7 @@ public final class MinimapRenderer {
   private boolean changed = true;
   private int[] chunkOrder = new int[0];
   private int chunkOrderRadius = -1;
+  private int ticks;
 
   public MinimapRenderer(
       MinimapConfigProvider configProvider,
@@ -80,9 +85,6 @@ public final class MinimapRenderer {
     this.refreshMinimap();
   }
 
-  public void setZoomSupplier(IntSupplier zoomSupplier) {
-  }
-
   /**
    * Builds chunks at least this many blocks around the player, even if the zoom shows less.
    */
@@ -94,12 +96,14 @@ public final class MinimapRenderer {
     return this.minimapBounds;
   }
 
-  public void renderMinimap(BooleanSupplier allowed, Runnable renderer) {
-    if (!allowed.getAsBoolean()) {
-      return;
-    }
+  @Subscribe
+  public void onDimensionChange(DimensionChangeEvent event) {
+    this.resetSections();
+  }
 
-    renderer.run();
+  @Subscribe
+  public void onServerSwitch(ServerSwitchEvent event) {
+    this.resetSections();
   }
 
   public void renderDummyMinimap(
@@ -111,26 +115,31 @@ public final class MinimapRenderer {
   }
 
   public void render(ScreenContext context, float x, float y, float width, float height) {
-    ScreenCanvas canvas = context.canvas();
-
-    // Bounds are in BLOCK coordinates
-    int x1 = this.minimapBounds.getX1();
-    int z1 = this.minimapBounds.getZ1();
-    int x2 = this.minimapBounds.getX2();
-    int z2 = this.minimapBounds.getZ2();
-
-    // Skip only when bounds are invalid (note the correct inequality)
-    if (x2 <= x1 || z2 <= z1) {
+    if (!this.applyUniforms()) {
       return;
     }
 
-    // Pixels per BLOCK
-    float pxPerBlockX = width / (float) (x2 - x1);
-    float pxPerBlockZ = height / (float) (z2 - z1);
+    renderSections(
+        context,
+        this.sectionTextureRepository,
+        this.uniformBlocks,
+        this.minimapBounds.getX1(),
+        this.minimapBounds.getZ1(),
+        this.minimapBounds.getX2(),
+        this.minimapBounds.getZ2(),
+        x, y, width, height
+    );
+  }
 
+  /**
+   * Updates the uniforms shared by every draw with the minimap shader.
+   *
+   * @return {@code false} while the uniform block isn't registered yet
+   */
+  public boolean applyUniforms() {
     MinimapUniformBlock minimap = this.uniformBlocks.minimap();
     if (minimap == null) {
-      return;
+      return false;
     }
 
     float timeOfDay = this.getTimeOfDay();
@@ -146,6 +155,30 @@ public final class MinimapRenderer {
         0F
     ));
     minimap.dayTime().set(this.lastUnderground ? 1.0F : normalizedDayTime);
+    return true;
+  }
+
+  /**
+   * Draws the part of the sections inside the block bounds {@code x1..x2}, {@code z1..z2} into the
+   * screen rectangle. Call {@link #applyUniforms()} first.
+   */
+  public static void renderSections(
+      ScreenContext context,
+      SectionTextureRepository repository,
+      MinimapUniformBlocks uniformBlocks,
+      int x1, int z1, int x2, int z2,
+      float x, float y, float width, float height
+  ) {
+    ScreenCanvas canvas = context.canvas();
+
+    // Skip only when bounds are invalid (note the correct inequality)
+    if (x2 <= x1 || z2 <= z1) {
+      return;
+    }
+
+    // Pixels per BLOCK
+    float pxPerBlockX = width / (float) (x2 - x1);
+    float pxPerBlockZ = height / (float) (z2 - z1);
 
     // Convert view bounds to CHUNK coordinates (inclusive range)
     int minChunkX = Math.floorDiv(x1, SectionTexture.CHUNK_SIZE_X);
@@ -164,7 +197,7 @@ public final class MinimapRenderer {
     // Iterate only visible sections and render the intersecting part
     for (int secX = minSecX; secX <= maxSecX; secX++) {
       for (int secZ = minSecZ; secZ <= maxSecZ; secZ++) {
-        CompositeSectionTexture composite = this.sectionTextureRepository.getSectionTexture(
+        CompositeSectionTexture composite = repository.getSectionTexture(
             secX,
             secZ
         );
@@ -227,7 +260,7 @@ public final class MinimapRenderer {
                     u0, v0, u1, v1,
                     -1,
                     scissorArea,
-                    this.uniformBlocks
+                    uniformBlocks
                 )
         );
 
@@ -252,6 +285,66 @@ public final class MinimapRenderer {
         }
       }
     }
+  }
+
+  /**
+   * Writes the chunk's pixels into its section textures and uploads them.
+   */
+  public static void writeChunk(
+      SectionTextureRepository repository,
+      int chunkX, int chunkZ,
+      ChunkData chunk,
+      int minBuildHeight
+  ) {
+    CompositeSectionTexture texture = repository.getOrCreateSectionTexture(chunkX, chunkZ);
+    SectionTexture colorTexture = texture.getTexture(Variant.COLOR);
+    SectionTexture heightmapTexture = texture.getTexture(Variant.HEIGHTMAP);
+    SectionTexture lightmapTexture = texture.getTexture(Variant.LIGHTMAP);
+
+    int localChunkX = Math.floorMod(chunkX, SectionTextureRepository.SECTION_SIZE);
+    int localChunkZ = Math.floorMod(chunkZ, SectionTextureRepository.SECTION_SIZE);
+
+    int basePixelX = localChunkX * SectionTexture.CHUNK_SIZE_X;
+    int basePixelZ = localChunkZ * SectionTexture.CHUNK_SIZE_Z;
+
+    texture.beginChunkFade(localChunkX, localChunkZ);
+
+    for (int pixelX = 0; pixelX < SectionTexture.CHUNK_SIZE_X; pixelX++) {
+      for (int pixelZ = 0; pixelZ < SectionTexture.CHUNK_SIZE_Z; pixelZ++) {
+        int destX = basePixelX + pixelX;
+        int destZ = basePixelZ + pixelZ;
+
+        int tileColor = chunk.getColor(pixelX, pixelZ);
+        int height = chunk.getHeight(pixelX, pixelZ);
+
+        // 16 bit block height. Red holds the low byte, green the high byte.
+        int relativeHeight = Math.max(0, Math.min(height - minBuildHeight, 0xFFFF));
+        int heightmapColor = 0xFF000000
+            | (relativeHeight & 0xFF) << 16
+            | (relativeHeight >> 8) << 8;
+        colorTexture.image().setARGB(destX, destZ, tileColor);
+        heightmapTexture.image().setARGB(destX, destZ, heightmapColor);
+        lightmapTexture.image().setARGB(
+            destX, destZ,
+            lightmapColor(chunk.getBlockLightLevel(pixelX, pixelZ))
+        );
+      }
+    }
+
+    texture.updateTexture();
+  }
+
+  public static int lightmapColor(int blockLightLevel) {
+    int normalizedLightLevel = normalize(blockLightLevel);
+
+    boolean noBlockLighting = normalizedLightLevel == 150;
+
+    return ColorFormat.ARGB32.pack(
+        noBlockLighting ? 0 : normalizedLightLevel,
+        noBlockLighting ? 0 : normalizedLightLevel,
+        noBlockLighting ? 0 : normalizedLightLevel,
+        noBlockLighting ? 0 : 255
+    );
   }
 
   private void refreshMinimap() {
@@ -304,7 +397,6 @@ public final class MinimapRenderer {
     int maxChunkX = (midX + buildRadius) >> 4;
     int maxChunkZ = (midZ + buildRadius) >> 4;
 
-    ColorFormat format = ColorFormat.ARGB32;
     if (this.changed || this.storage.shouldProcess()) {
       boolean completed = this.forEach(
           midChunkX, midChunkZ,
@@ -312,61 +404,16 @@ public final class MinimapRenderer {
           maxChunkX, maxChunkZ,
           (chunkX, chunkZ, chunk) -> {
             this.storage.compile(chunk);
-
-            CompositeSectionTexture texture = this.sectionTextureRepository.getOrCreateSectionTexture(
-                chunkX, chunkZ);
-            SectionTexture colorTexture = texture.getTexture(Variant.COLOR);
-            SectionTexture heightmapTexture = texture.getTexture(Variant.HEIGHTMAP);
-            SectionTexture lightmapTexture = texture.getTexture(Variant.LIGHTMAP);
-
-            int localChunkX = Math.floorMod(chunkX, SectionTextureRepository.SECTION_SIZE);
-            int localChunkZ = Math.floorMod(chunkZ, SectionTextureRepository.SECTION_SIZE);
-
-            int basePixelX = localChunkX * SectionTexture.CHUNK_SIZE_X;
-            int basePixelZ = localChunkZ * SectionTexture.CHUNK_SIZE_Z;
-
-            texture.beginChunkFade(localChunkX, localChunkZ);
-
-            for (int pixelX = 0; pixelX < SectionTexture.CHUNK_SIZE_X; pixelX++) {
-              for (int pixelZ = 0; pixelZ < SectionTexture.CHUNK_SIZE_Z; pixelZ++) {
-                int destX = basePixelX + pixelX;
-                int destZ = basePixelZ + pixelZ;
-
-                int tileColor = chunk.getColor(pixelX, pixelZ);
-                int height = chunk.getHeight(pixelX, pixelZ);
-
-                // 16 bit block height. Red holds the low byte, green the high byte.
-                int relativeHeight = Math.max(0, Math.min(height - minBuildHeight, 0xFFFF));
-                int heightmapColor = 0xFF000000
-                    | (relativeHeight & 0xFF) << 16
-                    | (relativeHeight >> 8) << 8;
-                colorTexture.image().setARGB(destX, destZ, tileColor);
-                heightmapTexture.image().setARGB(destX, destZ, heightmapColor);
-
-                int blockLightLevel = chunk.getBlockLightLevel(pixelX, pixelZ);
-
-                int normalizedLightLevel = this.normalize(blockLightLevel);
-
-                boolean noBlockLighting = normalizedLightLevel == 150;
-
-                lightmapTexture.image().setARGB(
-                    destX, destZ,
-                    format.pack(
-                        noBlockLighting ? 0 : normalizedLightLevel,
-                        noBlockLighting ? 0 : normalizedLightLevel,
-                        noBlockLighting ? 0 : normalizedLightLevel,
-                        noBlockLighting ? 0 : 255
-                    )
-                );
-              }
-            }
-
-            texture.updateTexture();
+            writeChunk(this.sectionTextureRepository, chunkX, chunkZ, chunk, minBuildHeight);
           });
 
       this.minimapBounds.update(minX, minZ, maxX, maxZ, 0);
       this.storage.processed();
       this.changed = !completed;
+    }
+
+    if (++this.ticks % EVICTION_INTERVAL_TICKS == 0) {
+      this.evictDistantSections(midChunkX, midChunkZ, buildRadius);
     }
 
     int py = MathHelper.floor(position.getY());
@@ -401,6 +448,37 @@ public final class MinimapRenderer {
       this.lastBuildRadius = buildRadius;
       this.changed = true;
     }
+  }
+
+  /**
+   * Frees the textures of sections outside the build radius. The renderer compiles their chunks
+   * again when the player returns.
+   */
+  private void evictDistantSections(int midChunkX, int midChunkZ, int buildRadius) {
+    int radius = (buildRadius >> 4) / SectionTextureRepository.SECTION_SIZE + EVICTION_MARGIN_SECTIONS;
+    int centerX = Math.floorDiv(midChunkX, SectionTextureRepository.SECTION_SIZE);
+    int centerZ = Math.floorDiv(midChunkZ, SectionTextureRepository.SECTION_SIZE);
+    Iterator<CompositeSectionTexture> iterator = this.sectionTextureRepository.textures().iterator();
+    while (iterator.hasNext()) {
+      CompositeSectionTexture texture = iterator.next();
+      if (Math.abs(texture.x() - centerX) <= radius && Math.abs(texture.z() - centerZ) <= radius) {
+        continue;
+      }
+
+      iterator.remove();
+      texture.dispose();
+      this.storage.resetCompilations(
+          texture.x() * SectionTextureRepository.SECTION_SIZE,
+          texture.z() * SectionTextureRepository.SECTION_SIZE,
+          SectionTextureRepository.SECTION_SIZE
+      );
+    }
+  }
+
+  private void resetSections() {
+    this.sectionTextureRepository.disposeAll();
+    this.storage.resetCompilations();
+    this.changed = true;
   }
 
   /**
@@ -472,11 +550,11 @@ public final class MinimapRenderer {
     }
   }
 
-  private int normalize(int value) {
-    return this.normalize(value, 0, 15, 10, 255);
+  private static int normalize(int value) {
+    return normalize(value, 0, 15, 10, 255);
   }
 
-  private int normalize(int value, int oldMin, int oldMax, int newMin, int newMax) {
+  private static int normalize(int value, int oldMin, int oldMax, int newMin, int newMax) {
     return (value - oldMin) * (newMax - newMin) / (oldMax - oldMin) + newMin;
   }
 

@@ -18,6 +18,7 @@ import net.labymod.api.util.math.vector.DoubleVector3;
 public class WaypointsIntegration implements AddonIntegration {
 
   private final List<WaypointContainer> waypointContainers = new ArrayList<>();
+  private final WaypointsWorldMap worldMap = new WaypointsWorldMap();
 
   @Override
   public void load() {
@@ -28,15 +29,18 @@ public class WaypointsIntegration implements AddonIntegration {
     Laby.labyAPI().eventBus().registerListener(this);
     MinimapAddon.getReferences().tileRendererDispatcher().register(
         configProvider -> new WaypointsTileRenderer(this, configProvider));
+    MinimapAddon.worldMap().setWaypoints(this.worldMap);
   }
 
   @Override
   public void onIntegratedAddonDisable() {
     Laby.labyAPI().eventBus().unregisterListener(this);
+    MinimapAddon.worldMap().setWaypoints(null);
   }
 
   @Subscribe
   public void onRefreshWaypoints(RefreshWaypointsEvent event) {
+    this.worldMap.invalidate();
     this.waypointContainers.clear();
     for (var visibleWaypoint : Waypoints.references().waypointService().getVisible()) {
       this.waypointContainers.add(new WaypointContainer(visibleWaypoint));

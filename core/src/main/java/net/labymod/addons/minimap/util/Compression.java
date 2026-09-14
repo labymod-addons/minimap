@@ -43,6 +43,12 @@ public final class Compression {
 
       while (!inflater.finished()) {
         int length = inflater.inflate(buffer);
+        if (length == 0 && (inflater.needsInput() || inflater.needsDictionary())) {
+          // Truncated data would otherwise loop forever
+          inflater.end();
+          throw new DataFormatException("Unexpected end of compressed data");
+        }
+
         outputStream.write(buffer, 0, length);
       }
 
