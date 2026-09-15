@@ -8,7 +8,7 @@ package net.labymod.addons.minimap.stream;
  * <ul>
  *   <li><b>Text</b> {@value #MSG_STATE} ({@value #STATE_HZ}&nbsp;Hz): {@code {"t":"state",
  *       "allowed":true,"x":..,"y":..,"z":..,"yaw":..,"players":[{"u":"..","n":"..","x":..,
- *       "z":..}],"waypoints":[{"x":..,"z":..,"color":..}]}}. {@code allowed} is {@code false} on
+ *       "z":..}],"waypoints":[{"n":"..","x":..,"z":..,"color":..}]}}. {@code allowed} is {@code false} on
  *       blacklisted servers, the app greys the map out and tiles stop.</li>
  *   <li><b>Binary</b> tile frames ({@value #TILE_HZ}&nbsp;Hz, delta-only): one 16&times;16-block
  *       chunk as {@code [1 byte type={@value #BINARY_TILE}][int32 chunkX][int32 chunkZ][PNG

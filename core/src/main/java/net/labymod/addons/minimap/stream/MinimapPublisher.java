@@ -19,6 +19,7 @@ import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.addons.waypoints.Waypoints;
 import net.labymod.api.Laby;
 import net.labymod.api.client.Minecraft;
+import net.labymod.api.client.component.serializer.plain.PlainTextComponentSerializer;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.entity.player.Player;
 import net.labymod.api.client.world.MinecraftCamera;
@@ -179,6 +180,7 @@ public class MinimapPublisher {
       for (var waypoint : Waypoints.references().waypointService().getVisible()) {
         DoubleVector3 position = waypoint.position();
         JsonObject entry = new JsonObject();
+        entry.addProperty("n", PlainTextComponentSerializer.plainText().serialize(waypoint.title()));
         entry.addProperty("x", num(position.getX()));
         entry.addProperty("z", num(position.getZ()));
         entry.addProperty("color", waypoint.meta().iconColor());
