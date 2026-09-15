@@ -133,11 +133,6 @@ public final class MinimapRenderer {
       return;
     }
 
-    float timeOfDay = this.getTimeOfDay();
-    float normalizedDayTime = (float) (1.0F - (Math.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F
-        + 0.2F));
-    normalizedDayTime = MathHelper.clamp(normalizedDayTime, 0.0F, 1.0F);
-    normalizedDayTime = 1.0F - normalizedDayTime;
 
     // The shader samples neighbouring block heights one section texel apart
     minimap.pixelSize().set(new Vector3f(
@@ -145,7 +140,7 @@ public final class MinimapRenderer {
         1.0F / (SectionTextureRepository.SECTION_SIZE * SectionTexture.CHUNK_SIZE_Z),
         0F
     ));
-    minimap.dayTime().set(this.lastUnderground ? 1.0F : normalizedDayTime);
+    minimap.dayTime().set(this.dayTime());
 
     // Convert view bounds to CHUNK coordinates (inclusive range)
     int minChunkX = Math.floorDiv(x1, SectionTexture.CHUNK_SIZE_X);
@@ -478,6 +473,27 @@ public final class MinimapRenderer {
 
   private int normalize(int value, int oldMin, int oldMax, int newMin, int newMax) {
     return (value - oldMin) * (newMax - newMin) / (oldMax - oldMin) + newMin;
+  }
+
+  /**
+   * Sky brightness as the shader sees it: 1 at noon, towards 0 at night, and always 1 while the
+   * cave view is active (there is no sky underground). External devices receive the same value so
+   * their map darkens in step with the HUD widget.
+   */
+  public float dayTime() {
+    if (this.lastUnderground) {
+      return 1.0F;
+    }
+    float timeOfDay = this.getTimeOfDay();
+    float normalizedDayTime = (float) (1.0F - (Math.cos(timeOfDay * (float) (Math.PI * 2)) * 2.0F
+        + 0.2F));
+    normalizedDayTime = MathHelper.clamp(normalizedDayTime, 0.0F, 1.0F);
+    return 1.0F - normalizedDayTime;
+  }
+
+  /** Whether the map currently shows the cave view instead of the surface. */
+  public boolean isUnderground() {
+    return this.lastUnderground;
   }
 
   private float getTimeOfDay() {

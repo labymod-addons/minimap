@@ -16,12 +16,22 @@ package net.labymod.addons.minimap.stream;
  *       {@code MinimapPublisher#TILE_SCALE}) so the phone gets crisp block edges; its pixel size
  *       is therefore a multiple of 16. Chunk world bounds are
  *       {@code [chunkX*16 .. chunkX*16+15]}.</li>
+ *   <li><b>Binary</b> plane frames (same cadence, same delta rule): the raw per-block data the
+ *       HUD widget's shader works from, so a device can shade the map itself (slope relief,
+ *       day/night, block light) instead of showing flat colours. Layout, big-endian, block index
+ *       {@code x * 16 + z}: {@code [1 byte type={@value #BINARY_PLANES}][int32 chunkX][int32
+ *       chunkZ][256 &times; int32 ARGB colour][256 &times; int16 block Y][256 &times; uint8 light
+ *       (sky &lt;&lt; 4 | block)]}. Devices that only know the PNG frame ignore this type.</li>
  * </ul>
+ *
+ * <p>The state additionally carries {@code day} (sky brightness 0..1 as the HUD shader uses it, 1
+ * while the cave view is active) and {@code underground} (cave view on).
  */
 public final class MinimapChannel {
 
   public static final String MSG_STATE = "state";
   public static final byte BINARY_TILE = 0x01;
+  public static final byte BINARY_PLANES = 0x02;
 
   /** Player position/heading + overlays, in Hz (20 = every game tick). */
   public static final int STATE_HZ = 20;
