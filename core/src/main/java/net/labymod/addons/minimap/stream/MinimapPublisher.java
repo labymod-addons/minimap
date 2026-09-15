@@ -6,6 +6,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -43,9 +44,10 @@ import net.labymod.api.util.math.vector.DoubleVector3;
 
 /**
  * Publishes the minimap to phones via the core {@link ExternalDeviceService}: throttled live state
- * (position, heading, players, waypoints) plus delta-encoded map tiles (see
- * {@link MinimapChannel}). Transport, pairing and generic widget streaming live in the core, this
- * class only contributes the minimap's frames while a device is connected.
+ * (position, heading, sky brightness, players, waypoints) plus delta-encoded map tiles as colour
+ * PNGs and raw colour/height/light planes (see {@link MinimapChannel}). Transport, pairing and
+ * generic widget streaming live in the core, this class only contributes the minimap's frames
+ * while a device is connected.
  *
  * <p>The game thread only picks the changed chunks and copies their colours; encoding and
  * publishing happen on {@link #encoder}, see the field for why.
@@ -59,7 +61,7 @@ public class MinimapPublisher {
   private static final int TILE_RADIUS_CHUNKS = 12;
   /** Cap tiles per pass so a fresh area streams over a few ticks instead of one huge burst. */
   private static final int MAX_TILES_PER_TICK = 8;
-  /** Tiles waiting to be encoded; a full queue rejects the submission, see submitTile. */
+  /** Tiles waiting to be encoded; a full queue rejects the submission, see submitChunk. */
   private static final int MAX_QUEUED_TILES = 64;
   /** Keeps only the newest tile requests. The app only needs its current viewport. */
   private static final int MAX_PENDING_REQUESTS = 4;
@@ -183,6 +185,9 @@ public class MinimapPublisher {
     // so neither delivery jitter nor wall-clock tick scheduling can distort the motion.
     state.addProperty("ts", this.streamTime);
     state.addProperty("allowed", allowed);
+    // Same sky brightness the HUD widget shades with, so both maps darken together at night.
+    state.addProperty("day", num(this.renderer.dayTime()));
+    state.addProperty("underground", this.renderer.isUnderground());
 
     if (player != null) {
       Position position = player.position();
@@ -265,16 +270,16 @@ public class MinimapPublisher {
         continue;
       }
       long key = chunkKey(data.getX(), data.getZ());
-      int hash = colorHash(data);
+      int hash = dataHash(data);
       Integer previous = this.tileHashes.get(key);
       if (previous != null && previous == hash) {
         continue;
       }
 
       this.tileHashes.put(key, hash);
-      // Copy the colours out here: the renderer rebuilds ChunkData in place, so the encoder must
+      // Copy the planes out here: the renderer rebuilds ChunkData in place, so the encoder must
       // not read it once this tick is over.
-      submitTile(stream, key, data.getX(), data.getZ(), colors(data));
+      this.submitChunk(stream, key, ChunkSnapshot.of(data));
       if (++sent >= MAX_TILES_PER_TICK) {
         break;
       }
@@ -317,8 +322,8 @@ public class MinimapPublisher {
 
       ChunkData data = region.chunk(localChunkX, localChunkZ);
       long key = chunkKey(chunkX, chunkZ);
-      this.tileHashes.put(key, colorHash(data));
-      this.submitTile(stream, key, chunkX, chunkZ, colors(data));
+      this.tileHashes.put(key, dataHash(data));
+      this.submitChunk(stream, key, ChunkSnapshot.of(data));
       sent++;
     }
   }
@@ -348,43 +353,53 @@ public class MinimapPublisher {
   }
 
   /**
-   * Hands one chunk to the encoder thread. Whenever the tile does not go out (encoder backed up,
-   * encoding failed) its hash is dropped again, so the next pass retries the chunk.
+   * Hands one chunk to the encoder thread: the colour PNG for devices that paint tiles as images,
+   * and the raw planes for those that shade the map themselves. A device ignores the frame type it
+   * does not understand. Whenever the chunk does not go out (encoder backed up, encoding failed)
+   * its hash is dropped again, so the next pass retries the chunk.
    */
-  private void submitTile(
-      ExternalDeviceStream stream,
-      long key,
-      int chunkX,
-      int chunkZ,
-      int[] colors
-  ) {
+  private void submitChunk(ExternalDeviceStream stream, long key, ChunkSnapshot snapshot) {
     try {
       this.encoder.execute(() -> {
-        byte[] frame = encodeTile(chunkX, chunkZ, colors);
-        if (frame == null) {
+        byte[] tile = encodeTile(snapshot);
+        if (tile == null) {
           this.tileHashes.remove(key);
           return;
         }
-        stream.publishBinary(frame);
+        stream.publishBinary(tile);
+        stream.publishBinary(encodePlanes(snapshot));
       });
     } catch (RejectedExecutionException exception) {
       this.tileHashes.remove(key);
     }
   }
 
-  /** Snapshot of a chunk's colours, taken on the game thread. */
-  private static int[] colors(ChunkData data) {
-    int[] colors = new int[16 * 16];
-    for (int x = 0; x < 16; x++) {
-      for (int z = 0; z < 16; z++) {
-        colors[x * 16 + z] = data.getColor(x, z);
-      }
+  /**
+   * Colour, height and light planes of one chunk, see {@link MinimapChannel#BINARY_PLANES}. Runs on
+   * the encoder thread.
+   */
+  private static byte[] encodePlanes(ChunkSnapshot snapshot) {
+    ByteBuffer buffer = ByteBuffer.allocate(9 + 256 * (4 + 2 + 1));
+    buffer.put(MinimapChannel.BINARY_PLANES);
+    buffer.putInt(snapshot.chunkX());
+    buffer.putInt(snapshot.chunkZ());
+    for (int index = 0; index < 256; index++) {
+      buffer.putInt(snapshot.colors()[index]);
     }
-    return colors;
+    for (int index = 0; index < 256; index++) {
+      buffer.putShort(snapshot.heights()[index]);
+    }
+    for (int index = 0; index < 256; index++) {
+      buffer.put(snapshot.lights()[index]);
+    }
+    return buffer.array();
   }
 
   /** Runs on the encoder thread. */
-  private static byte[] encodeTile(int chunkX, int chunkZ, int[] colors) {
+  private static byte[] encodeTile(ChunkSnapshot snapshot) {
+    int chunkX = snapshot.chunkX();
+    int chunkZ = snapshot.chunkZ();
+    int[] colors = snapshot.colors();
     try {
       int size = 16 * TILE_SCALE;
       int[] pixels = new int[size * size];
@@ -424,11 +439,14 @@ public class MinimapPublisher {
     }
   }
 
-  private static int colorHash(ChunkData data) {
+  /** Change detection over everything a device may render: colour, height and light. */
+  private static int dataHash(ChunkData data) {
     int hash = 1;
     for (int x = 0; x < 16; x++) {
       for (int z = 0; z < 16; z++) {
         hash = 31 * hash + data.getColor(x, z);
+        hash = 31 * hash + data.getHeight(x, z);
+        hash = 31 * hash + data.getLightLevel(x, z);
       }
     }
     return hash;
@@ -441,6 +459,29 @@ public class MinimapPublisher {
   /** Two decimals are enough for a map on a phone and keep the state message small. */
   private static double num(double value) {
     return Math.round(value * 100.0D) / 100.0D;
+  }
+
+  /**
+   * Snapshot of one chunk's planes, taken on the game thread: the renderer rebuilds
+   * {@link ChunkData} in place, so the encoder thread must not read it.
+   */
+  private record ChunkSnapshot(int chunkX, int chunkZ, int[] colors, short[] heights, byte[] lights) {
+
+    private static ChunkSnapshot of(ChunkData data) {
+      int[] colors = new int[256];
+      short[] heights = new short[256];
+      byte[] lights = new byte[256];
+      for (int x = 0; x < 16; x++) {
+        for (int z = 0; z < 16; z++) {
+          int index = x * 16 + z;
+          colors[index] = data.getColor(x, z);
+          int height = data.getHeight(x, z);
+          heights[index] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, height));
+          lights[index] = (byte) data.getLightLevel(x, z);
+        }
+      }
+      return new ChunkSnapshot(data.getX(), data.getZ(), colors, heights, lights);
+    }
   }
 
   private static final class TileRequest {
