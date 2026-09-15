@@ -6,6 +6,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
@@ -38,9 +39,10 @@ import net.labymod.api.util.math.vector.DoubleVector3;
 
 /**
  * Publishes the minimap to phones via the core {@link ExternalDeviceService}: throttled live state
- * (position, heading, players, waypoints) plus delta-encoded map tiles (see
- * {@link MinimapChannel}). Transport, pairing and generic widget streaming live in the core, this
- * class only contributes the minimap's frames while a device is connected.
+ * (position, heading, sky brightness, players, waypoints) plus delta-encoded map tiles as colour
+ * PNGs and raw colour/height/light planes (see {@link MinimapChannel}). Transport, pairing and
+ * generic widget streaming live in the core, this class only contributes the minimap's frames
+ * while a device is connected.
  *
  * <p>Respects {@link MinimapAddon#isMinimapAllowed()}: on blacklisted servers no tiles are sent and
  * the state carries {@code allowed:false}.
@@ -155,6 +157,9 @@ public class MinimapPublisher {
     // so neither delivery jitter nor wall-clock tick scheduling can distort the motion.
     state.addProperty("ts", this.streamTime);
     state.addProperty("allowed", allowed);
+    // Same sky brightness the HUD widget shades with, so both maps darken together at night.
+    state.addProperty("day", num(this.renderer.dayTime()));
+    state.addProperty("underground", this.renderer.isUnderground());
 
     if (player != null) {
       Position position = player.position();
@@ -237,15 +242,13 @@ public class MinimapPublisher {
         continue;
       }
       long key = chunkKey(data.getX(), data.getZ());
-      int hash = colorHash(data);
+      int hash = dataHash(data);
       Integer previous = this.tileHashes.get(key);
       if (previous != null && previous == hash) {
         continue;
       }
 
-      byte[] frame = encodeTile(data);
-      if (frame != null) {
-        stream.publishBinary(frame);
+      if (publishChunk(stream, data)) {
         this.tileHashes.put(key, hash);
         if (++sent >= MAX_TILES_PER_TICK) {
           break;
@@ -289,10 +292,8 @@ public class MinimapPublisher {
       }
 
       ChunkData data = region.chunk(localChunkX, localChunkZ);
-      byte[] frame = encodeTile(data);
-      if (frame != null) {
-        stream.publishBinary(frame);
-        this.tileHashes.put(chunkKey(chunkX, chunkZ), colorHash(data));
+      if (publishChunk(stream, data)) {
+        this.tileHashes.put(chunkKey(chunkX, chunkZ), dataHash(data));
         sent++;
       }
     }
@@ -320,6 +321,47 @@ public class MinimapPublisher {
     JsonObject result = new JsonObject();
     result.addProperty("chunks", width * height);
     return result;
+  }
+
+  /**
+   * Sends one chunk: the colour PNG for devices that paint tiles as images, and the raw planes for
+   * those that shade the map themselves. A device ignores the frame type it does not understand.
+   *
+   * @return whether the chunk went out
+   */
+  private boolean publishChunk(ExternalDeviceStream stream, ChunkData data) {
+    byte[] tile = encodeTile(data);
+    if (tile == null) {
+      return false;
+    }
+    stream.publishBinary(tile);
+    stream.publishBinary(encodePlanes(data));
+    return true;
+  }
+
+  /** Colour, height and light planes of one chunk, see {@link MinimapChannel#BINARY_PLANES}. */
+  private static byte[] encodePlanes(ChunkData data) {
+    ByteBuffer buffer = ByteBuffer.allocate(9 + 256 * (4 + 2 + 1));
+    buffer.put(MinimapChannel.BINARY_PLANES);
+    buffer.putInt(data.getX());
+    buffer.putInt(data.getZ());
+    for (int x = 0; x < 16; x++) {
+      for (int z = 0; z < 16; z++) {
+        buffer.putInt(data.getColor(x, z));
+      }
+    }
+    for (int x = 0; x < 16; x++) {
+      for (int z = 0; z < 16; z++) {
+        int height = data.getHeight(x, z);
+        buffer.putShort((short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, height)));
+      }
+    }
+    for (int x = 0; x < 16; x++) {
+      for (int z = 0; z < 16; z++) {
+        buffer.put((byte) data.getLightLevel(x, z));
+      }
+    }
+    return buffer.array();
   }
 
   private byte[] encodeTile(ChunkData data) {
@@ -357,11 +399,14 @@ public class MinimapPublisher {
     }
   }
 
-  private static int colorHash(ChunkData data) {
+  /** Change detection over everything a device may render: colour, height and light. */
+  private static int dataHash(ChunkData data) {
     int hash = 1;
     for (int x = 0; x < 16; x++) {
       for (int z = 0; z < 16; z++) {
         hash = 31 * hash + data.getColor(x, z);
+        hash = 31 * hash + data.getHeight(x, z);
+        hash = 31 * hash + data.getLightLevel(x, z);
       }
     }
     return hash;
