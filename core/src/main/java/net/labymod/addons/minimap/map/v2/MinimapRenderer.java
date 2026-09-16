@@ -8,6 +8,7 @@ import net.labymod.addons.minimap.api.map.MinimapBounds;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.data.ChunkDataStorage;
+import net.labymod.addons.minimap.data.compilation.RoofDetector;
 import net.labymod.addons.minimap.gui.state.MinimapGuiBlitRenderState;
 import net.labymod.addons.minimap.laby3d.MinimapRenderStates;
 import net.labymod.addons.minimap.laby3d.MinimapUniformBlocks;
@@ -27,6 +28,7 @@ import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.gui.screen.state.states.GuiTextureSet;
 import net.labymod.api.client.world.ClientWorld;
+import net.labymod.api.client.world.chunk.Chunk;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.network.server.ServerSwitchEvent;
 import net.labymod.api.event.client.world.DimensionChangeEvent;
@@ -46,17 +48,21 @@ public final class MinimapRenderer {
   private static final int UNDERGROUND_SWITCH_TICKS = 10;
   private static final int EVICTION_INTERVAL_TICKS = 20;
   private static final int EVICTION_MARGIN_SECTIONS = 2;
+  private static final int ROOF_SAMPLE_RADIUS_CHUNKS = 2;
   private final MinimapBounds minimapBounds = new MinimapBounds();
   private final MinimapConfigProvider configProvider;
   private final SectionTextureRepository sectionTextureRepository;
   private final ChunkDataStorage storage;
   private final MinimapUniformBlocks uniformBlocks;
   private final Lazy<Icon> dummyMinimap;
+  private final RoofDetector roofDetector = new RoofDetector();
 
   private DaylightPeriod currentPeriod = DaylightPeriod.DAYTIME;
 
   private boolean lastUnderground = false;
   private int undergroundSwitchTicks;
+  private boolean lastRoofView;
+  private int roofSwitchTicks;
   private int lastMidChunkX;
   private int lastMidChunkZ;
   private int lastPlayerY;
@@ -98,11 +104,13 @@ public final class MinimapRenderer {
 
   @Subscribe
   public void onDimensionChange(DimensionChangeEvent event) {
+    this.roofDetector.reset();
     this.resetSections();
   }
 
   @Subscribe
   public void onServerSwitch(ServerSwitchEvent event) {
+    this.roofDetector.reset();
     this.resetSections();
   }
 
@@ -390,6 +398,8 @@ public final class MinimapRenderer {
     }
 
     this.storage.setPlayerPosition(player.position(), underground);
+    boolean roofView = this.updateRoofView(level, midX, MathHelper.floor(position.getY()), midZ);
+    this.storage.setRoofed(roofView);
 
     int minChunkX = (midX - buildRadius) >> 4;
     int minChunkZ = (midZ - buildRadius) >> 4;
@@ -421,13 +431,14 @@ public final class MinimapRenderer {
     if ((this.lastMidChunkX != midChunkX
         && this.lastMidChunkZ != midChunkZ)
         || this.lastUnderground != underground
+        || this.lastRoofView != roofView
         || this.lastZoom != zoom
         || this.lastBuildRadius != buildRadius
         || changeLevel) {
       this.lastMidChunkX = midChunkX;
       this.lastMidChunkZ = midChunkZ;
 
-      if (this.lastUnderground != underground) {
+      if (this.lastUnderground != underground || this.lastRoofView != roofView) {
         this.storage.resetCompilations();
         this.beginTransition();
       }
@@ -441,6 +452,7 @@ public final class MinimapRenderer {
 
 
       this.lastUnderground = underground;
+      this.lastRoofView = roofView;
       this.lastPlayerY = py;
 
 
@@ -448,6 +460,43 @@ public final class MinimapRenderer {
       this.lastBuildRadius = buildRadius;
       this.changed = true;
     }
+  }
+
+  /**
+   * In a roofed dimension the minimap shows the floor below the roof, unless the player stands on
+   * top of the roof. Like cave mode, it waits {@value #UNDERGROUND_SWITCH_TICKS} ticks before
+   * switching.
+   */
+  private boolean updateRoofView(ClientWorld level, int blockX, int blockY, int blockZ) {
+    this.roofDetector.tick();
+    int chunkX = blockX >> 4;
+    int chunkZ = blockZ >> 4;
+    if (!this.roofDetector.isDecided()) {
+      for (int offsetX = -ROOF_SAMPLE_RADIUS_CHUNKS; offsetX <= ROOF_SAMPLE_RADIUS_CHUNKS; offsetX++) {
+        for (int offsetZ = -ROOF_SAMPLE_RADIUS_CHUNKS; offsetZ <= ROOF_SAMPLE_RADIUS_CHUNKS; offsetZ++) {
+          Chunk chunk = level.getChunk(chunkX + offsetX, chunkZ + offsetZ);
+          if (chunk != null) {
+            this.roofDetector.sample(chunk);
+          }
+        }
+      }
+    }
+
+    if (!this.roofDetector.isRoofed()) {
+      this.roofSwitchTicks = 0;
+      return false;
+    }
+
+    Chunk chunk = level.getChunk(chunkX, chunkZ);
+    boolean roofView = chunk == null
+        ? this.lastRoofView
+        : !this.roofDetector.isAboveTop(chunk, blockX, blockY, blockZ);
+    if (roofView == this.lastRoofView || ++this.roofSwitchTicks >= UNDERGROUND_SWITCH_TICKS) {
+      this.roofSwitchTicks = 0;
+      return roofView;
+    }
+
+    return this.lastRoofView;
   }
 
   /**

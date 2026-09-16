@@ -288,7 +288,7 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
   public void close() {
     this.closeActive();
     this.viewStore = null;
-    this.recorder.clear();
+    this.recorder.reset();
   }
 
   private void processCompletions() {
@@ -377,7 +377,7 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
     this.matching = false;
     this.resolveTicks = 0;
     this.samples.clear();
-    this.recorder.clear();
+    this.recorder.reset();
     this.recorder.enqueueAll(Laby.labyAPI().minecraft().clientWorld());
 
     Path dimensionDirectory = key.dimensionDirectory(this.root);

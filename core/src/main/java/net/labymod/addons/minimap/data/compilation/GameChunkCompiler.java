@@ -19,6 +19,7 @@ import net.labymod.api.generated.ReferenceStorage;
 import net.labymod.api.util.ColorUtil;
 import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.math.vector.IntVector3;
+import org.jetbrains.annotations.Nullable;
 
 public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
 
@@ -30,6 +31,8 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
   private static final int CAVE_DEPTH = 24;
   private static final float CAVE_MIN_BRIGHTNESS = 0.35F;
   private static final int CAVE_ROCK_COLOR = 0xFF000000;
+  // Not pure black, so fully solid chunks aren't mistaken for chunks without blocks
+  private static final int ROOF_ROCK_COLOR = 0xFF1C1616;
   private static final int WATER_MAX_DEPTH = 10;
   private final Map<Block, Boolean> visibilityCache = new IdentityHashMap<>();
   private final BlockColorProvider blockColorProvider;
@@ -38,6 +41,7 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
   private int playerY;
   private int playerZ;
   private boolean underground;
+  private boolean roofed;
 
   public GameChunkCompiler() {
     ReferenceStorage references = Laby.references();
@@ -69,6 +73,23 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
     this.playerY = y;
     this.playerZ = z;
     this.underground = underground;
+  }
+
+  /**
+   * In a roofed dimension like the nether the surface is the first floor below the roof.
+   */
+  @Override
+  public void setRoofed(boolean roofed) {
+    this.roofed = roofed;
+  }
+
+  /**
+   * @return the highest visible block of the column, or {@code null} if it has none
+   */
+  @Nullable
+  public BlockState topVisibleBlock(Chunk chunk, int x, int z) {
+    BlockState top = this.getBlockState(chunk, x, z);
+    return top != null && this.isVisible(top) ? top : null;
   }
 
   /**
@@ -161,7 +182,14 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
       int x, int z
   ) {
     Chunk chunk = data.getChunk();
-    BlockState block = this.getBlockState(chunk, x, z);
+    BlockState block = this.roofed ? this.getBlockUnderRoof(chunk, x, z) : this.getBlockState(chunk, x, z);
+    if (block == null && this.roofed) {
+      data.setHeight(x, z, this.level.getMinBuildHeight());
+      data.setLightLevel(x, z, 0);
+      data.setColor(x, z, ROOF_ROCK_COLOR);
+      return;
+    }
+
     if (block == null) {
       data.setColor(x, z, 0xFF000000);
       return;
@@ -270,6 +298,35 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
     }
 
     return blockState;
+  }
+
+  /**
+   * Skips the open space above the roof and the solid roof itself.
+   *
+   * @return the first visible block below the roof, or {@code null} for a column that is solid
+   *     down to the bottom
+   */
+  private BlockState getBlockUnderRoof(Chunk chunk, int x, int z) {
+    int y = chunk.getHeightBasedOnSection(64);
+    int minBuildHeight = this.level.getMinBuildHeight();
+    while (y > minBuildHeight && this.isOpen(chunk.getBlockState(x, y, z))) {
+      y--;
+    }
+
+    while (y > minBuildHeight && !this.isOpen(chunk.getBlockState(x, y, z))) {
+      y--;
+    }
+
+    while (y > minBuildHeight) {
+      BlockState state = chunk.getBlockState(x, y, z);
+      if (this.isVisible(state)) {
+        return state;
+      }
+
+      y--;
+    }
+
+    return null;
   }
 
   private BlockState getBlockBelow(
