@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.data.GameChunkData;
 import net.labymod.addons.minimap.data.compilation.GameChunkCompiler;
+import net.labymod.addons.minimap.data.compilation.RoofDetector;
 import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.client.world.chunk.Chunk;
 
@@ -20,6 +21,7 @@ public final class SurfaceRecorder {
   private static final int EMPTY_COLOR = 0xFF000000;
 
   private final GameChunkCompiler compiler = new GameChunkCompiler();
+  private final RoofDetector roofDetector = new RoofDetector();
   private final LongLinkedOpenHashSet queue = new LongLinkedOpenHashSet();
   private final LongSet delayed = new LongOpenHashSet();
   private final String[] biomes = new String[MapRegion.BIOME_CELLS * MapRegion.BIOME_CELLS];
@@ -48,6 +50,14 @@ public final class SurfaceRecorder {
     this.delayed.clear();
   }
 
+  /**
+   * Clears the queue and detects the roof again. Call it when the dimension changes.
+   */
+  public void reset() {
+    this.clear();
+    this.roofDetector.reset();
+  }
+
   public void enqueueAll(ClientWorld world) {
     for (Chunk chunk : world.getChunks()) {
       this.enqueue(chunk.getChunkX(), chunk.getChunkZ());
@@ -60,19 +70,33 @@ public final class SurfaceRecorder {
       this.delayed.clear();
     }
 
+    this.roofDetector.tick();
+    this.compiler.setRoofed(this.roofDetector.isRoofed());
+
     long deadline = System.nanoTime() + BUILD_BUDGET_NANOS;
     int remaining = this.queue.size();
     while (remaining-- > 0) {
       long key = this.queue.removeFirstLong();
       int chunkX = MapRegion.keyX(key);
       int chunkZ = MapRegion.keyZ(key);
-      if (!sink.isReady(chunkX, chunkZ)) {
-        this.queue.add(key);
+      Chunk chunk = world.getChunk(chunkX, chunkZ);
+      if (chunk == null) {
         continue;
       }
 
-      Chunk chunk = world.getChunk(chunkX, chunkZ);
-      if (chunk == null) {
+      // Recording before the roof is known would save the wrong layer
+      if (!this.roofDetector.isDecided()) {
+        this.roofDetector.sample(chunk);
+        this.queue.add(key);
+        if (System.nanoTime() >= deadline) {
+          return;
+        }
+
+        continue;
+      }
+
+      if (!sink.isReady(chunkX, chunkZ)) {
+        this.queue.add(key);
         continue;
       }
 

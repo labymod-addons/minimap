@@ -169,6 +169,10 @@ public class ChunkDataStorage {
     this.compilationService.setPlayerPosition(position, underground);
   }
 
+  public void setRoofed(boolean roofed) {
+    this.compilationService.setRoofed(roofed);
+  }
+
   public boolean shouldProcess() {
     return this.shouldProcess;
   }
