@@ -6,9 +6,14 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
+import javax.imageio.stream.MemoryCacheImageOutputStream;
 import net.labymod.addons.minimap.MinimapAddon;
 import net.labymod.addons.minimap.MinimapContext;
 import net.labymod.addons.minimap.data.ChunkData;
@@ -37,6 +42,9 @@ import net.labymod.api.util.math.vector.DoubleVector3;
  * {@link MinimapChannel}). Transport, pairing and generic widget streaming live in the core, this
  * class only contributes the minimap's frames while a device is connected.
  *
+ * <p>The game thread only picks the changed chunks and copies their colours; encoding and
+ * publishing happen on {@link #encoder}, see the field for why.
+ *
  * <p>Respects {@link MinimapAddon#isMinimapAllowed()}: on blacklisted servers no tiles are sent and
  * the state carries {@code allowed:false}.
  */
@@ -46,6 +54,8 @@ public class MinimapPublisher {
   private static final int TILE_RADIUS_CHUNKS = 12;
   /** Cap tiles per pass so a fresh area streams over a few ticks instead of one huge burst. */
   private static final int MAX_TILES_PER_TICK = 8;
+  /** Tiles waiting to be encoded; a full queue rejects the submission, see submitTile. */
+  private static final int MAX_QUEUED_TILES = 64;
   /**
    * Nearest-neighbour upscale factor for tile PNGs (16&times;16 blocks &rarr; 128&times;128 px).
    * The phone renders tiles at ~12+ physical px per block and its image pipeline only smooths
@@ -58,7 +68,25 @@ public class MinimapPublisher {
   private final MinimapRenderer renderer;
   private final MinimapHudWidget hudWidget;
   private final ChunkDataStorage storage;
-  private final Map<Long, Integer> tileHashes = new HashMap<>();
+  /** Written from the game thread, entries dropped from the encoder when a tile fails. */
+  private final Map<Long, Integer> tileHashes = new ConcurrentHashMap<>();
+  /**
+   * PNG encoding never runs on the game thread: {@link ImageIO} spills the image through a temp
+   * FILE, and that disk write stalled the render thread for seconds at a time (watchdog "RENDER
+   * THREAD HANG DETECTED"). Single-threaded, so tiles still reach the device in order.
+   */
+  private final ThreadPoolExecutor encoder = new ThreadPoolExecutor(
+      1,
+      1,
+      0L,
+      TimeUnit.MILLISECONDS,
+      new ArrayBlockingQueue<>(MAX_QUEUED_TILES),
+      runnable -> {
+        Thread thread = new Thread(runnable, "Minimap Tile Encoder");
+        thread.setDaemon(true);
+        return thread;
+      }
+  );
 
   private int tickCounter;
   /** A device paired since the last pass: it needs every tile, not the deltas it never saw. */
@@ -222,24 +250,60 @@ public class MinimapPublisher {
         continue;
       }
 
-      byte[] frame = encodeTile(data);
-      if (frame != null) {
-        stream.publishBinary(frame);
-        this.tileHashes.put(key, hash);
-        if (++sent >= MAX_TILES_PER_TICK) {
-          break;
-        }
+      this.tileHashes.put(key, hash);
+      // Copy the colours out here: the renderer rebuilds ChunkData in place, so the encoder must
+      // not read it once this tick is over.
+      submitTile(stream, key, data.getX(), data.getZ(), colors(data));
+      if (++sent >= MAX_TILES_PER_TICK) {
+        break;
       }
     }
   }
 
-  private byte[] encodeTile(ChunkData data) {
+  /**
+   * Hands one chunk to the encoder thread. Whenever the tile does not go out (encoder backed up,
+   * encoding failed) its hash is dropped again, so the next pass retries the chunk.
+   */
+  private void submitTile(
+      ExternalDeviceStream stream,
+      long key,
+      int chunkX,
+      int chunkZ,
+      int[] colors
+  ) {
+    try {
+      this.encoder.execute(() -> {
+        byte[] frame = encodeTile(chunkX, chunkZ, colors);
+        if (frame == null) {
+          this.tileHashes.remove(key);
+          return;
+        }
+        stream.publishBinary(frame);
+      });
+    } catch (RejectedExecutionException exception) {
+      this.tileHashes.remove(key);
+    }
+  }
+
+  /** Snapshot of a chunk's colours, taken on the game thread. */
+  private static int[] colors(ChunkData data) {
+    int[] colors = new int[16 * 16];
+    for (int x = 0; x < 16; x++) {
+      for (int z = 0; z < 16; z++) {
+        colors[x * 16 + z] = data.getColor(x, z);
+      }
+    }
+    return colors;
+  }
+
+  /** Runs on the encoder thread. */
+  private static byte[] encodeTile(int chunkX, int chunkZ, int[] colors) {
     try {
       int size = 16 * TILE_SCALE;
       int[] pixels = new int[size * size];
       for (int z = 0; z < 16; z++) {
         for (int x = 0; x < 16; x++) {
-          int color = data.getColor(x, z);
+          int color = colors[x * 16 + z];
           int baseX = x * TILE_SCALE;
           int baseY = z * TILE_SCALE;
           for (int dy = 0; dy < TILE_SCALE; dy++) {
@@ -252,15 +316,20 @@ public class MinimapPublisher {
       }
       BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
       image.setRGB(0, 0, size, size, pixels, 0, size);
+
       ByteArrayOutputStream png = new ByteArrayOutputStream();
-      ImageIO.write(image, "png", png);
+      // Memory-cached on purpose: ImageIO.write(.., OutputStream) picks a
+      // FileCacheImageOutputStream, which creates and writes a temp file for every single tile.
+      try (MemoryCacheImageOutputStream output = new MemoryCacheImageOutputStream(png)) {
+        ImageIO.write(image, "png", output);
+      }
       byte[] pngBytes = png.toByteArray();
 
       ByteArrayOutputStream out = new ByteArrayOutputStream(pngBytes.length + 9);
       DataOutputStream frame = new DataOutputStream(out);
       frame.writeByte(MinimapChannel.BINARY_TILE);
-      frame.writeInt(data.getX());
-      frame.writeInt(data.getZ());
+      frame.writeInt(chunkX);
+      frame.writeInt(chunkZ);
       frame.write(pngBytes);
       return out.toByteArray();
     } catch (IOException exception) {
