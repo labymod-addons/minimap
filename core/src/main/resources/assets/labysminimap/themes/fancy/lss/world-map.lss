@@ -1,6 +1,7 @@
 @import super();
 
 .atlas {
+  filter: blur(25);
   .atlas-subtitle {
     font-size: 0.7;
     text-color: rgb(160, 160, 160);

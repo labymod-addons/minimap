@@ -15,6 +15,7 @@ import net.labymod.api.Laby;
 import net.labymod.api.client.component.Component;
 import net.labymod.api.client.component.serializer.plain.PlainTextComponentSerializer;
 import net.labymod.api.client.entity.player.ClientPlayer;
+import net.labymod.api.client.gui.lss.property.annotation.AutoWidget;
 import net.labymod.api.client.gui.screen.Parent;
 import net.labymod.api.client.gui.screen.widget.Widget;
 import net.labymod.api.client.gui.screen.widget.action.Switchable;
@@ -34,7 +35,8 @@ import org.jetbrains.annotations.Nullable;
  * Side panel of the world map with dimensions, sub-worlds, view options, the marked areas of the shown
  * sub-world and the waypoints of the shown dimension.
  */
-final class WorldMapAtlasWidget extends DivWidget {
+@AutoWidget
+public final class WorldMapAtlasWidget extends DivWidget {
 
   private static final String I18N_PREFIX = Util.NAMESPACE + ".worldMap.atlas.";
   private static final long MINUTE_MILLIS = 60_000L;
@@ -70,7 +72,7 @@ final class WorldMapAtlasWidget extends DivWidget {
    * @param current   whether the player is in the shown world
    * @param waypoints the shown dimension's waypoints, {@code null} without the waypoints addon
    */
-  WorldMapAtlasWidget(
+  public WorldMapAtlasWidget(
       Actions actions,
       WorldMapService service,
       List<MapWorldKey> keys,
