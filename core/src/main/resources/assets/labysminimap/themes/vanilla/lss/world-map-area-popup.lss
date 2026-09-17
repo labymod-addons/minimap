@@ -1,0 +1,13 @@
+.popup-container {
+  .area-name {
+    width: 150;
+    height: 20;
+    alignment-x: center;
+  }
+
+  .area-color {
+    width: 150;
+    height: 20;
+    alignment-x: center;
+  }
+}

@@ -7,7 +7,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -77,6 +79,7 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
   private MapRegionStore activeStore;
   @Nullable
   private MapRegionStore viewStore;
+  private final Map<MapWorldKey, MapAreaStore> areaStores = new HashMap<>();
   @Nullable
   private WorldMapWaypoints waypoints;
   private boolean viewing;
@@ -273,6 +276,19 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
     return SubWorldMatcher.lastUsed(key.directory(this.root));
   }
 
+  /**
+   * @return the marked areas of the key's sub-world, starts loading them on first use
+   */
+  public MapAreaStore areas(MapWorldKey key) {
+    MapAreaStore store = this.areaStores.get(key);
+    if (store == null) {
+      store = new MapAreaStore(key, this.root, this.executor);
+      this.areaStores.put(key, store);
+    }
+
+    return store;
+  }
+
   @Nullable
   public WorldMapWaypoints waypoints() {
     return this.waypoints;
@@ -299,6 +315,10 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
 
     if (this.activeStore != null) {
       this.activeStore.processCompletions();
+    }
+
+    for (MapAreaStore areaStore : this.areaStores.values()) {
+      areaStore.processCompletions();
     }
 
     if (this.viewStore != null) {
