@@ -57,7 +57,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
   private final List<WorldMapWaypoint> waypoints;
   private final List<WaypointRow> waypointRows = new ArrayList<>();
   private final MapAreaStore areas;
-  private final int areaRevision;
+  private int areaRevision;
   private boolean following;
   private boolean caveLayer;
   private boolean chunkGrid;
@@ -270,11 +270,11 @@ public final class WorldMapAtlasWidget extends DivWidget {
 
       WorldMapToggleWidget toggle = new WorldMapToggleWidget(area.isVisible());
         toggle.setHoverCursor(CursorTypes.POINTING_HAND);
-      toggle.setPressable(() -> this.actions.setAreaVisible(area, !area.isVisible()));
+      toggle.setPressable(() -> this.toggleArea(area, toggle));
       row.addChild(toggle);
 
       this.makePressable(row, () -> this.actions.focusArea(area));
-      row.createContextMenuLazy(menu -> this.fillAreaMenu(menu, area));
+      row.createContextMenuLazy(menu -> this.fillAreaMenu(menu, area, toggle));
       content.addChild(row);
     }
   }
@@ -340,7 +340,18 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.applyFilter();
   }
 
-  private void fillAreaMenu(ContextMenu menu, MapArea area) {
+  private void toggleArea(MapArea area, WorldMapToggleWidget toggle) {
+    boolean upToDate = this.areaRevision == this.areas.revision();
+    boolean visible = !area.isVisible();
+    toggle.setValue(visible);
+    this.actions.setAreaVisible(area, visible);
+    // Saving bumps the revision, rebuilding the panel would replace the toggle before it animates
+    if (upToDate) {
+      this.areaRevision = this.areas.revision();
+    }
+  }
+
+  private void fillAreaMenu(ContextMenu menu, MapArea area, WorldMapToggleWidget toggle) {
     menu.addEntry(menuEntry(
         Component.translatable(MENU_I18N_PREFIX + "edit"),
         () -> this.actions.editArea(area)
@@ -348,7 +359,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
     menu.addEntry(ContextMenuEntry.builder()
         .text(() -> Component.translatable(MENU_I18N_PREFIX + (area.isVisible() ? "hide" : "show")))
         .clickHandler(entry -> {
-          this.actions.setAreaVisible(area, !area.isVisible());
+          this.toggleArea(area, toggle);
           return true;
         })
         .build());
