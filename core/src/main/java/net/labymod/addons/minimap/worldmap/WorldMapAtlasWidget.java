@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import net.labymod.addons.minimap.api.util.Util;
+import net.labymod.addons.minimap.world.MapArea;
+import net.labymod.addons.minimap.world.MapAreaStore;
 import net.labymod.addons.minimap.world.MapWorldKey;
 import net.labymod.addons.minimap.world.WorldMapService;
 import net.labymod.addons.minimap.world.WorldMapWaypoint;
@@ -29,8 +31,8 @@ import net.labymod.api.util.math.position.Position;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Side panel of the world map with dimensions, sub-worlds, layers and the waypoints of the shown
- * dimension.
+ * Side panel of the world map with dimensions, sub-worlds, layers, the marked areas of the shown
+ * sub-world and the waypoints of the shown dimension.
  */
 final class WorldMapAtlasWidget extends DivWidget {
 
@@ -49,6 +51,8 @@ final class WorldMapAtlasWidget extends DivWidget {
   @Nullable
   private final List<WorldMapWaypoint> waypoints;
   private final List<WaypointRow> waypointRows = new ArrayList<>();
+  private final MapAreaStore areas;
+  private final int areaRevision;
   private boolean following;
   private boolean caveLayer;
   private boolean chunkGrid;
@@ -76,6 +80,7 @@ final class WorldMapAtlasWidget extends DivWidget {
       boolean caveLayer,
       boolean chunkGrid,
       @Nullable List<WorldMapWaypoint> waypoints,
+      MapAreaStore areas,
       String filter
   ) {
     this.actions = actions;
@@ -88,6 +93,8 @@ final class WorldMapAtlasWidget extends DivWidget {
     this.caveLayer = caveLayer;
     this.chunkGrid = chunkGrid;
     this.waypoints = waypoints == null ? null : new ArrayList<>(waypoints);
+    this.areas = areas;
+    this.areaRevision = areas.revision();
     this.filter = filter;
   }
 
@@ -107,6 +114,7 @@ final class WorldMapAtlasWidget extends DivWidget {
     this.addDimensions(content);
     this.addSubWorlds(content);
     this.addLayers(content);
+    this.addAreas(content);
 
     if (this.waypoints != null) {
       this.addWaypoints(content);
@@ -141,10 +149,12 @@ final class WorldMapAtlasWidget extends DivWidget {
   }
 
   /**
-   * @return whether the panel was built from these waypoints
+   * @return whether the panel was built from these waypoints and the current areas
    */
-  boolean shows(@Nullable List<WorldMapWaypoint> waypoints) {
-    return Objects.equals(this.waypoints, waypoints);
+  boolean shows(@Nullable List<WorldMapWaypoint> waypoints, MapAreaStore areas) {
+    return Objects.equals(this.waypoints, waypoints)
+        && this.areas == areas
+        && this.areaRevision == areas.revision();
   }
 
   boolean isSearchFocused() {
@@ -230,6 +240,39 @@ final class WorldMapAtlasWidget extends DivWidget {
     });
     content.addChild(row);
     return toggle;
+  }
+
+  private void addAreas(VerticalListWidget<Widget> content) {
+    List<MapArea> areas = this.areas.areas();
+    content.addChild(ComponentWidget.component(Component.translatable(
+        I18N_PREFIX + "areas",
+        Component.text(String.valueOf(areas.size()))
+    )).addId("atlas-label"));
+
+    if (areas.isEmpty()) {
+      content.addChild(ComponentWidget.i18n(I18N_PREFIX + "noAreas").addId("atlas-empty"));
+      return;
+    }
+
+    for (MapArea area : areas) {
+      DivWidget swatch = new DivWidget();
+      swatch.addId("atlas-row-swatch");
+      swatch.backgroundColor().set(0xFF000000 | area.color());
+
+      ComponentWidget name = ComponentWidget.text(area.name());
+      name.addId("atlas-row-name-indented");
+      DivWidget row = row(name, null);
+      row.addChild(swatch);
+
+      WorldMapToggleWidget toggle = new WorldMapToggleWidget(area.isVisible());
+      toggle.addId("atlas-toggle");
+      toggle.setHoverCursor(CursorTypes.POINTING_HAND);
+      toggle.setPressable(() -> this.actions.setAreaVisible(area, !area.isVisible()));
+      row.addChild(toggle);
+
+      this.makePressable(row, () -> this.actions.focusArea(area));
+      content.addChild(row);
+    }
   }
 
   private void addWaypoints(VerticalListWidget<Widget> content) {
@@ -364,6 +407,10 @@ final class WorldMapAtlasWidget extends DivWidget {
     void setChunkGrid(boolean enabled);
 
     void focusWaypoint(WorldMapWaypoint waypoint);
+
+    void focusArea(MapArea area);
+
+    void setAreaVisible(MapArea area, boolean visible);
 
     void filterWaypoints(String filter);
   }

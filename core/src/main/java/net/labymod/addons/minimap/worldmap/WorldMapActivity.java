@@ -10,6 +10,9 @@ import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.laby3d.MinimapUniformBlocks;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
+import net.labymod.addons.minimap.world.MapArea;
+import net.labymod.addons.minimap.world.MapArea.Shape;
+import net.labymod.addons.minimap.world.MapAreaStore;
 import net.labymod.addons.minimap.world.MapRegion;
 import net.labymod.addons.minimap.world.MapRegionStore;
 import net.labymod.addons.minimap.world.MapWorldKey;
@@ -31,6 +34,7 @@ import net.labymod.api.client.gui.screen.activity.Link;
 import net.labymod.api.client.gui.screen.activity.types.SimpleActivity;
 import net.labymod.api.client.gui.screen.key.InputType;
 import net.labymod.api.client.gui.screen.key.Key;
+import net.labymod.api.client.gui.screen.key.KeyHandler;
 import net.labymod.api.client.gui.screen.key.MouseButton;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.gui.screen.widget.attributes.bounds.BoundsType;
@@ -47,7 +51,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Full screen map of everything explored. Drag to pan, scroll to zoom towards the cursor, right
- * click for a wheel with waypoint and coordinate actions. Tab slides in the atlas panel.
+ * click for a wheel with waypoint, area and coordinate actions. Tab slides in the atlas panel.
  */
 @Link("world-map.lss")
 public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWidget.Actions {
@@ -98,6 +102,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private final WorldMapRenderer renderer;
   private final CaveLayer caveLayer;
   private final WorldMapCamera camera = new WorldMapCamera();
+  private final WorldMapAreaEditor areaEditor = new WorldMapAreaEditor();
 
   @Nullable
   private MapWorldKey viewKey;
@@ -119,6 +124,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private WorldMapWaypoint pressedWaypoint;
   @Nullable
   private WorldMapWaypoint draggedWaypoint;
+  private boolean areaOperation;
 
   private List<MapWorldKey> dimensionTabs = List.of();
   private float[] dimensionTabX = new float[0];
@@ -201,6 +207,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         this.caveLayerEnabled,
         this.chunkGrid.get(),
         waypoints == null ? null : waypoints.waypoints(this.viewKey),
+        this.service.areas(this.viewKey),
         this.waypointFilter
     );
     atlas.addId("atlas");
@@ -271,7 +278,10 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     WorldMapWaypoints waypoints = this.service.waypoints();
-    if (!this.atlas.shows(waypoints == null ? null : waypoints.waypoints(this.viewKey))) {
+    if (!this.atlas.shows(
+        waypoints == null ? null : waypoints.waypoints(this.viewKey),
+        this.service.areas(this.viewKey)
+    )) {
       this.reload();
       return;
     }
@@ -319,6 +329,10 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
   @Override
   public boolean mouseClicked(MutableMouse mouse, MouseButton mouseButton) {
+    if (this.areaEditor.isRenaming()) {
+      this.areaEditor.finishRenaming();
+    }
+
     if (this.wheel != null) {
       Runnable action = mouseButton.isLeft() ? this.wheel.actionAt(mouse.getX(), mouse.getY()) : null;
       this.wheel = null;
@@ -342,13 +356,32 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return true;
     }
 
+    if (this.areaEditor.isDrawing() && mouseButton.isLeft()) {
+      this.finishArea(mouse.getX(), mouse.getY());
+      return true;
+    }
+
+    if (this.areaEditor.isPlacing() && !mouseButton.isLeft()) {
+      this.areaEditor.cancel();
+      return true;
+    }
+
     if (mouseButton.isLeft()) {
       if (this.clickChrome(mouse.getX(), mouse.getY())) {
         return true;
       }
 
       this.dragging = true;
-      this.pressedWaypoint = this.hoveredWaypoint;
+      if (this.areaEditor.isPlacing()) {
+        this.areaEditor.startDrawing(this.mouseWorldX(mouse.getX()), this.mouseWorldZ(mouse.getY()));
+      }
+
+      boolean drawing = this.areaEditor.isDrawing();
+      this.pressedWaypoint = drawing ? null : this.hoveredWaypoint;
+      this.areaOperation = drawing || this.hoveredWaypoint == null && this.areaEditor.press(
+          this.mouseWorldX(mouse.getX()),
+          this.mouseWorldZ(mouse.getY())
+      );
       this.dragDistance = 0.0F;
       this.pendingDeltaX = 0.0D;
       this.pendingDeltaY = 0.0D;
@@ -385,6 +418,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return true;
     }
 
+    if (this.areaOperation) {
+      this.areaEditor.drag(this.mouseWorldX(mouse.getX()), this.mouseWorldZ(mouse.getY()));
+      return true;
+    }
+
     if (this.pressedWaypoint != null && this.pressedWaypoint.movable()) {
       this.draggedWaypoint = this.pressedWaypoint;
       return true;
@@ -409,13 +447,28 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.dragging = false;
     WorldMapWaypoint pressed = this.pressedWaypoint;
     WorldMapWaypoint dragged = this.draggedWaypoint;
+    boolean areaOperation = this.areaOperation;
     this.pressedWaypoint = null;
     this.draggedWaypoint = null;
+    this.areaOperation = false;
     if (dragged != null) {
       this.dropWaypoint(dragged, mouse.getX(), mouse.getY());
+    } else if (areaOperation) {
+      if (!this.areaEditor.isDrawing()) {
+        this.areaEditor.release();
+        if (this.dragDistance < CLICK_TOLERANCE) {
+          this.areaEditor.click(this.mouseWorldX(mouse.getX()), this.mouseWorldZ(mouse.getY()));
+        }
+      } else if (this.dragDistance >= CLICK_TOLERANCE) {
+        this.finishArea(mouse.getX(), mouse.getY());
+      }
+
+      // A click without dragging keeps drawing until the next click
     } else if (this.dragDistance < CLICK_TOLERANCE) {
       WorldMapWaypoints waypoints = this.service.waypoints();
-      if (waypoints != null && pressed != null) {
+      if (pressed == null) {
+        this.areaEditor.click(this.mouseWorldX(mouse.getX()), this.mouseWorldZ(mouse.getY()));
+      } else if (waypoints != null) {
         waypoints.edit(pressed.id());
       }
     } else if (System.nanoTime() - this.lastDragNanos <= FLING_WINDOW_NANOS) {
@@ -423,6 +476,16 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     return true;
+  }
+
+  @Override
+  public boolean charTyped(Key key, char character) {
+    if (this.areaEditor.isRenaming()) {
+      this.areaEditor.type(character);
+      return true;
+    }
+
+    return super.charTyped(key, character);
   }
 
   @Override
@@ -438,6 +501,19 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
   @Override
   public boolean keyPressed(Key key, InputType type) {
+    if (this.areaEditor.isRenaming()) {
+      if (key == Key.ENTER || key == Key.NUMPAD_ENTER) {
+        this.areaEditor.finishRenaming();
+      } else if (key == Key.ESCAPE) {
+        this.areaEditor.cancelRenaming();
+      } else if (key == Key.BACK) {
+        this.areaEditor.erase();
+      }
+
+      // Shortcuts must not fire while typing
+      return true;
+    }
+
     if (this.wheel != null && key == Key.ESCAPE) {
       this.wheel = null;
       return true;
@@ -450,6 +526,25 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
     if (this.atlas != null && this.atlas.isSearchFocused()) {
       return super.keyPressed(key, type);
+    }
+
+    boolean areaEditing = this.areaEditor.isPlacing() || this.areaEditor.isOperating();
+    if (key == Key.ESCAPE && (areaEditing || this.areaEditor.selected() != null)) {
+      if (areaEditing) {
+        this.areaEditor.cancel();
+        this.areaOperation = false;
+        this.dragging = false;
+      } else {
+        this.areaEditor.select(null);
+      }
+
+      return true;
+    }
+
+    MapArea selectedArea = this.areaEditor.selected();
+    if (key == Key.DELETE && selectedArea != null && this.viewKey != null && !this.areaOperation) {
+      this.service.areas(this.viewKey).remove(selectedArea);
+      return true;
     }
 
     if (key == this.opener.openKey()) {
@@ -518,6 +613,25 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   }
 
   @Override
+  public void focusArea(MapArea area) {
+    this.camera.setFollowing(false);
+    this.camera.reset(area.centerX(), area.centerZ());
+    if (area.isVisible()) {
+      this.areaEditor.select(area);
+    }
+  }
+
+  @Override
+  public void setAreaVisible(MapArea area, boolean visible) {
+    area.setVisible(visible);
+    if (!visible && area == this.areaEditor.selected()) {
+      this.areaEditor.select(null);
+    }
+
+    this.service.areas(this.viewKey).save();
+  }
+
+  @Override
   public void filterWaypoints(String filter) {
     this.waypointFilter = filter;
   }
@@ -560,11 +674,19 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       this.caveLayer.render(context, this.camera, width, height);
     }
 
-    if (this.chunkGrid.get()) {
+    boolean snapGrid = KeyHandler.isShiftDown()
+        && (this.areaEditor.isPlacing() || this.areaEditor.selected() != null);
+    if (this.chunkGrid.get() || snapGrid) {
       this.renderChunkGrid(context.canvas(), width, height, (float) window.getRawWidth() / window.getScaledWidth());
     }
 
     MutableMouse mouse = context.mouse();
+    this.areaEditor.render(
+        context.canvas(), this.camera, this.service.areas(this.viewKey),
+        width, height,
+        mouse.getX(), mouse.getY(),
+        this.wheel == null && !this.dragging && mouse.getX() >= this.atlasRight()
+    );
     this.renderWaypoints(context, width, height, mouse.getX(), mouse.getY());
     if (current && player != null) {
       this.renderPlayers(context, minecraft, player, width, height, partialTicks, playerX, playerZ);
@@ -583,7 +705,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
     this.renderAtlasBackground(canvas, height);
     this.renderHints(canvas, this.atlasRight(), height, current);
-    if ((!this.dragging || this.draggedWaypoint != null) && this.wheel == null && mouse.getX() >= this.atlasRight()) {
+    boolean dragTooltip = this.draggedWaypoint != null || this.areaOperation;
+    if ((!this.dragging || dragTooltip) && this.wheel == null && mouse.getX() >= this.atlasRight()) {
       this.renderTooltip(canvas, store, width, height, mouse.getX(), mouse.getY());
     }
   }
@@ -686,6 +809,24 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     float lineHeight = canvas.getLineHeight() * SMALL_TEXT_SCALE;
     float y = height - CHROME_MARGIN - lineHeight - 5.0F;
     float x = left + CHROME_MARGIN;
+    if (this.areaEditor.isRenaming()) {
+      x = this.renderHint(canvas, "Enter", "hint.save", x, y, lineHeight);
+      this.renderHint(canvas, "Esc", "hint.cancel", x, y, lineHeight);
+      return;
+    }
+
+    if (this.areaEditor.isPlacing()) {
+      if (this.areaEditor.isDrawing()) {
+        x = this.renderHint(canvas, I18n.getTranslation(I18N_PREFIX + "hint.click"), "hint.finish", x, y, lineHeight);
+      } else {
+        x = this.renderHint(canvas, I18n.getTranslation(I18N_PREFIX + "hint.drag"), "hint.draw", x, y, lineHeight);
+      }
+
+      x = this.renderHint(canvas, "Shift", "hint.snap", x, y, lineHeight);
+      this.renderHint(canvas, "Esc", "hint.cancel", x, y, lineHeight);
+      return;
+    }
+
     if (current) {
       x = this.renderHint(canvas, "Space", "hint.follow", x, y, lineHeight);
       x = this.renderHint(canvas, "C", "hint.caves", x, y, lineHeight);
@@ -694,7 +835,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     x = this.renderHint(canvas, "G", "hint.grid", x, y, lineHeight);
 
     x = this.renderHint(canvas, "Tab", "hint.atlas", x, y, lineHeight);
-    this.renderHint(canvas, I18n.getTranslation(I18N_PREFIX + "hint.rightClick"), "hint.actions", x, y, lineHeight);
+    x = this.renderHint(canvas, I18n.getTranslation(I18N_PREFIX + "hint.rightClick"), "hint.actions", x, y, lineHeight);
+    if (this.areaEditor.selected() != null) {
+      x = this.renderHint(canvas, "Del", "hint.delete", x, y, lineHeight);
+      this.renderHint(canvas, "Shift", "hint.snap", x, y, lineHeight);
+    }
   }
 
   private float renderHint(ScreenCanvas canvas, String key, String label, float x, float y, float lineHeight) {
@@ -720,6 +865,14 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     int blockX = MathHelper.floor(this.camera.screenToWorldX(mouseX, width));
     int blockZ = MathHelper.floor(this.camera.screenToWorldZ(mouseY, height));
     Component text = this.describeLocation(store, blockX, blockZ);
+    MapArea editing = this.areaEditor.editing();
+    MapArea hoveredArea = this.areaEditor.hovered();
+    if (editing != null) {
+      text = text.append(Component.text("  ·  ")).append(describeSize(editing));
+    } else if (hoveredArea != null && !hoveredArea.name().isEmpty()) {
+      text = Component.text(hoveredArea.name() + "  ·  ").append(text);
+    }
+
     if (this.chunkGrid.get()) {
       text = text.append(Component.text("  ·  ")).append(Component.translatable(
           I18N_PREFIX + "chunk",
@@ -968,6 +1121,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     List<WorldMapWheel.Entry> entries = new ArrayList<>();
     WorldMapWaypoints waypoints = this.service.waypoints();
     WorldMapWaypoint waypoint = this.hoveredWaypoint;
+    MapAreaStore areas = this.service.areas(key);
+    MapArea area = this.areaEditor.hovered();
     Component title;
     if (waypoints != null && waypoint != null) {
       title = waypoint.title();
@@ -976,6 +1131,14 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         waypoints.hide(waypoint.id());
         this.reload();
       }));
+    } else if (area != null) {
+      title = Component.text(area.name().isEmpty() ? "X " + blockX + "  Z " + blockZ : area.name());
+      entries.add(wheelEntry(SpriteCommon.EDIT, "edit", () -> {
+        this.areaEditor.select(area);
+        new WorldMapAreaPopup(area, areas).displayInOverlay();
+      }));
+      entries.add(wheelEntry(SpriteCommon.X, "hide", () -> this.setAreaVisible(area, false)));
+      entries.add(wheelEntry(SpriteCommon.TRASH, "delete", () -> areas.remove(area)));
     } else {
       title = Component.text("X " + blockX + "  Z " + blockZ);
       if (waypoints != null) {
@@ -984,6 +1147,9 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
           this.reload();
         }));
       }
+
+      entries.add(this.areaWheelEntry(areas, Shape.RECTANGLE, "rectangle"));
+      entries.add(this.areaWheelEntry(areas, Shape.CIRCLE, "circle"));
     }
 
     entries.add(wheelEntry(
@@ -999,6 +1165,23 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         MathHelper.clamp(mouseY, WorldMapWheel.RADIUS, height - WorldMapWheel.RADIUS - WorldMapWheel.TITLE_SPACE),
         title,
         entries
+    );
+  }
+
+  private WorldMapWheel.Entry areaWheelEntry(
+      MapAreaStore areas,
+      Shape shape,
+      String key
+  ) {
+    return new WorldMapWheel.Entry(
+        null,
+        shape,
+        I18n.getTranslation(I18N_PREFIX + "wheel." + key),
+        () -> this.areaEditor.startPlacing(
+            areas,
+            shape,
+            I18n.getTranslation(I18N_PREFIX + "area.defaultName", areas.areas().size() + 1)
+        )
     );
   }
 
@@ -1053,6 +1236,34 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.pressedWaypoint = null;
     this.draggedWaypoint = null;
     this.dragging = false;
+    if (this.areaOperation) {
+      this.areaEditor.cancel();
+      this.areaOperation = false;
+    }
+  }
+
+  private void finishArea(float mouseX, float mouseY) {
+    MapArea area = this.areaEditor.finishDrawing(this.mouseWorldX(mouseX), this.mouseWorldZ(mouseY));
+    if (area != null) {
+      new WorldMapAreaPopup(area, this.service.areas(this.viewKey)).displayInOverlay();
+    }
+  }
+
+  private double mouseWorldX(float mouseX) {
+    return this.camera.screenToWorldX(mouseX, Laby.labyAPI().minecraft().minecraftWindow().getScaledWidth());
+  }
+
+  private double mouseWorldZ(float mouseY) {
+    return this.camera.screenToWorldZ(mouseY, Laby.labyAPI().minecraft().minecraftWindow().getScaledHeight());
+  }
+
+  private static Component describeSize(MapArea area) {
+    int width = area.maxX() - area.minX();
+    if (area.shape() == Shape.CIRCLE) {
+      return Component.translatable(I18N_PREFIX + "area.radius", Component.text(String.valueOf(width / 2)));
+    }
+
+    return Component.text(width + " × " + (area.maxZ() - area.minZ()));
   }
 
   /**

@@ -10,6 +10,7 @@ import net.labymod.addons.minimap.debug.ImGuiMinimapDebug;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
+import net.labymod.addons.minimap.map.v2.renderer.AreaMinimapRenderer;
 import net.labymod.addons.minimap.server.MinimapServers;
 import net.labymod.addons.minimap.stream.MinimapPublisher;
 import net.labymod.addons.minimap.world.WorldMapService;
@@ -53,6 +54,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     this.worldMapService = new WorldMapService(this);
     MinimapAddon.worldMap = this.worldMapService;
     this.registerListener(this.worldMapService);
+    this.registerListener(new AreaMinimapRenderer(this, this.worldMapService));
 
     this.servers.init();
 

@@ -24,14 +24,30 @@
         "grid": "Grid",
         "atlas": "Atlas",
         "actions": "Actions",
-        "rightClick": "Right click"
+        "rightClick": "Right click",
+        "click": "Click",
+        "finish": "Finish",
+        "save": "Save",
+        "drag": "Drag",
+        "draw": "Draw area",
+        "snap": "Snap to chunks",
+        "cancel": "Cancel",
+        "delete": "Delete"
       },
       "wheel": {
         "edit": "Edit",
         "hide": "Hide",
         "create": "Waypoint",
         "copy": "Copy",
-        "follow": "Follow"
+        "follow": "Follow",
+        "delete": "Delete",
+        "rectangle": "Rectangle",
+        "circle": "Circle"
+      },
+      "area": {
+        "defaultName": "Area %s",
+        "editTitle": "Edit area",
+        "radius": "Radius %s"
       },
       "atlas": {
         "title": "World map",
@@ -44,6 +60,8 @@
         "waypoints": "Waypoints (%s)",
         "search": "Search waypoints",
         "noWaypoints": "No waypoints in this dimension",
+        "areas": "Areas (%s)",
+        "noAreas": "Right click the map to mark an area",
         "hereNow": "here now",
         "justNow": "just now",
         "minutesAgo": "%s min ago",
@@ -107,6 +125,9 @@
         },
         "showWaypoints": {
           "name": "Show Waypoints"
+        },
+        "showAreas": {
+          "name": "Show Areas"
         },
         "playerIcon": {
           "name": "Icon"

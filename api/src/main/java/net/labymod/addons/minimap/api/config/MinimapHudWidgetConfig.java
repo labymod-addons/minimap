@@ -22,6 +22,8 @@ public interface MinimapHudWidgetConfig {
 
   ConfigProperty<Boolean> showWaypoints();
 
+  ConfigProperty<Boolean> showAreas();
+
   ConfigProperty<MinimapCardinalType> cardinalType();
 
   ConfigProperty<MinimapPlayerIcon> playerIcon();
