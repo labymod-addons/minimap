@@ -38,6 +38,7 @@ import net.labymod.api.client.gui.screen.key.KeyHandler;
 import net.labymod.api.client.gui.screen.key.MouseButton;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.gui.screen.widget.attributes.bounds.BoundsType;
+import net.labymod.api.client.gui.screen.widget.overlay.WidgetReference;
 import net.labymod.api.client.gui.screen.widget.widgets.DivWidget;
 import net.labymod.api.client.gui.screen.widget.widgets.activity.Document;
 import net.labymod.api.client.gui.screen.widget.widgets.popup.SimpleAdvancedPopup;
@@ -121,6 +122,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   @Nullable
   private WorldMapWaypoint draggedWaypoint;
   private boolean areaOperation;
+  @Nullable
+  private WidgetReference popup;
 
   private List<MapWorldKey> dimensionTabs = List.of();
   private float[] dimensionTabX = new float[0];
@@ -634,7 +637,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   @Override
   public void editArea(MapArea area) {
     this.areaEditor.select(area);
-    new WorldMapAreaPopup(area, this.service.areas(this.viewKey)).displayInOverlay();
+    this.popup = new WorldMapAreaPopup(area, this.service.areas(this.viewKey)).displayInOverlay();
   }
 
   @Override
@@ -643,7 +646,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     Component name = area.name().isEmpty()
         ? Component.translatable(I18N_PREFIX + "area.unnamed")
         : Component.text(area.name());
-    SimpleAdvancedPopup.builder()
+    this.popup = SimpleAdvancedPopup.builder()
         .title(Component.translatable(I18N_PREFIX + "area.deleteTitle"))
         .description(Component.translatable(I18N_PREFIX + "area.deleteConfirm", name))
         .addButton(SimplePopupButton.cancel())
@@ -727,7 +730,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         context.canvas(), this.camera, this.service.areas(this.viewKey),
         width, height,
         mouse.getX(), mouse.getY(),
-        this.wheel == null && !this.dragging && mouse.getX() >= this.atlasRight()
+        this.wheel == null && !this.dragging && !this.isPopupOpen() && mouse.getX() >= this.atlasRight()
     );
     this.renderWaypoints(context, width, height, mouse.getX(), mouse.getY());
     if (current && player != null) {
@@ -748,9 +751,13 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.renderAtlasBackground(canvas, height);
     this.renderHints(canvas, this.atlasRight(), height, current);
     boolean dragTooltip = this.draggedWaypoint != null || this.areaOperation;
-    if ((!this.dragging || dragTooltip) && this.wheel == null && mouse.getX() >= this.atlasRight()) {
+    if ((!this.dragging || dragTooltip) && this.wheel == null && !this.isPopupOpen() && mouse.getX() >= this.atlasRight()) {
       this.renderTooltip(canvas, store, width, height, mouse.getX(), mouse.getY());
     }
+  }
+
+  private boolean isPopupOpen() {
+    return this.popup != null && this.popup.isAlive();
   }
 
   private void renderAtlasBackground(ScreenCanvas canvas, float height) {
@@ -1019,7 +1026,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
       float deltaX = mouseX - x;
       float deltaY = mouseY - (y - WAYPOINT_ICON_SIZE / 2.0F);
-      boolean hovered = dragged || (this.draggedWaypoint == null
+      boolean hovered = dragged || (this.draggedWaypoint == null && !this.isPopupOpen()
           && deltaX * deltaX + deltaY * deltaY <= WAYPOINT_HIT_RADIUS * WAYPOINT_HIT_RADIUS);
       if (hovered) {
         this.hoveredWaypoint = waypoint;
@@ -1286,7 +1293,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private void finishArea(float mouseX, float mouseY) {
     MapArea area = this.areaEditor.finishDrawing(this.mouseWorldX(mouseX), this.mouseWorldZ(mouseY));
     if (area != null) {
-      new WorldMapAreaPopup(area, this.service.areas(this.viewKey)).displayInOverlay();
+      this.popup = new WorldMapAreaPopup(area, this.service.areas(this.viewKey)).displayInOverlay();
     }
   }
 
