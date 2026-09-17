@@ -10,6 +10,7 @@ import net.labymod.addons.minimap.world.WorldMapService;
 import net.labymod.api.Laby;
 import net.labymod.api.client.Minecraft;
 import net.labymod.api.client.entity.player.ClientPlayer;
+import net.labymod.api.client.gui.screen.ScreenContext;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.world.MinecraftCamera;
 import net.labymod.api.event.Subscribe;
@@ -18,6 +19,8 @@ import net.labymod.api.util.math.position.Position;
 
 /**
  * Draws the outlines of marked areas on the minimap, with the same rotation as the tile renderers.
+ * The outlines are axis aligned in world space, so they are drawn as rectangles in a rotated pose.
+ * Unlike triangle shapes, rectangles respect the clip shape of the minimap.
  */
 public class AreaMinimapRenderer {
 
@@ -27,13 +30,11 @@ public class AreaMinimapRenderer {
 
   private final MinimapConfigProvider configProvider;
   private final WorldMapService service;
-  private final float[] corners = new float[8];
   private float playerX;
   private float playerZ;
   private float pixelLength;
-  private float cos;
-  private float sin;
   private float radius;
+  private float lineWidth;
 
   public AreaMinimapRenderer(MinimapConfigProvider configProvider, WorldMapService service) {
     this.configProvider = configProvider;
@@ -64,13 +65,17 @@ public class AreaMinimapRenderer {
 
     MinecraftCamera camera = minecraft.getCamera();
     float yaw = camera == null ? 0.0F : camera.getYaw();
-    this.cos = MathHelper.cos(MathHelper.toRadiansFloat(-yaw));
-    this.sin = MathHelper.sin(MathHelper.toRadiansFloat(-yaw));
+    this.lineWidth = LINE_WIDTH / this.pixelLength;
 
     // Blocks from the player to a corner of the zoomed map
     float visibleBlocks = this.radius / event.zoom() * 1.5F / this.pixelLength;
-    ScreenCanvas canvas = event.context().canvas();
-    boolean layered = false;
+    ScreenContext context = event.context();
+    ScreenCanvas canvas = context.canvas();
+    context.pushStack();
+    // Maps block offsets from the player onto the minimap, rotated like the tile renderers
+    context.translate(this.radius, this.radius, 0.0F);
+    context.stack().rotate(-yaw, 0.0F, 0.0F, 1.0F);
+    context.scale(-this.pixelLength, -this.pixelLength, 1.0F);
     for (MapArea area : this.service.areas(key).areas()) {
       if (!area.isVisible()
           || area.maxX() < this.playerX - visibleBlocks
@@ -78,12 +83,6 @@ public class AreaMinimapRenderer {
           || area.maxZ() < this.playerZ - visibleBlocks
           || area.minZ() > this.playerZ + visibleBlocks) {
         continue;
-      }
-
-      if (!layered) {
-        // Line shapes only report a tiny bounding box, so the canvas could sort them below the terrain
-        canvas.nextLayer();
-        layered = true;
       }
 
       int color = LINE_ALPHA << 24 | area.color();
@@ -94,31 +93,24 @@ public class AreaMinimapRenderer {
 
       if (area.shape() == Shape.CIRCLE) {
         // A block is smaller than a pixel here, so the steps would not show
-        float circleRadius = (area.maxX() - area.minX()) / 2.0F * this.pixelLength;
+        float circleRadius = (area.maxX() - area.minX()) / 2.0F;
         canvas.submitCircle(
-            this.screenX((float) area.centerX(), (float) area.centerZ()),
-            this.screenY((float) area.centerX(), (float) area.centerZ()),
-            Math.max(0.0F, circleRadius - LINE_WIDTH),
+            (float) area.centerX() - this.playerX,
+            (float) area.centerZ() - this.playerZ,
+            Math.max(0.0F, circleRadius - this.lineWidth),
             circleRadius,
             color
         );
         continue;
       }
 
-      this.corner(0, area.minX(), area.minZ());
-      this.corner(2, area.maxX(), area.minZ());
-      this.corner(4, area.maxX(), area.maxZ());
-      this.corner(6, area.minX(), area.maxZ());
-      for (int index = 0; index < 8; index += 2) {
-        int next = (index + 2) % 8;
-        line(
-            canvas,
-            this.corners[index], this.corners[index + 1],
-            this.corners[next], this.corners[next + 1],
-            color
-        );
-      }
+      this.worldLine(canvas, area.minX(), area.minZ(), area.maxX(), area.minZ(), color);
+      this.worldLine(canvas, area.maxX(), area.minZ(), area.maxX(), area.maxZ(), color);
+      this.worldLine(canvas, area.maxX(), area.maxZ(), area.minX(), area.maxZ(), color);
+      this.worldLine(canvas, area.minX(), area.maxZ(), area.minX(), area.minZ(), color);
     }
+
+    context.popStack();
   }
 
   /**
@@ -176,50 +168,17 @@ public class AreaMinimapRenderer {
     this.worldLine(canvas, Math.max(area.maxX() - inner, middle), z, area.maxX() - outer, z, color);
   }
 
+  /**
+   * Draws an axis aligned line between two block positions, extended by half the width at both
+   * ends to close the corners.
+   */
   private void worldLine(ScreenCanvas canvas, float fromX, float fromZ, float toX, float toZ, int color) {
-    line(
-        canvas,
-        this.screenX(fromX, fromZ), this.screenY(fromX, fromZ),
-        this.screenX(toX, toZ), this.screenY(toX, toZ),
-        color
-    );
-  }
-
-  private void corner(int index, float x, float z) {
-    this.corners[index] = this.screenX(x, z);
-    this.corners[index + 1] = this.screenY(x, z);
-  }
-
-  private float screenX(float x, float z) {
-    float deltaX = (this.playerX - x) * this.pixelLength;
-    float deltaZ = (this.playerZ - z) * this.pixelLength;
-    return this.cos * deltaX - this.sin * deltaZ + this.radius;
-  }
-
-  private float screenY(float x, float z) {
-    float deltaX = (this.playerX - x) * this.pixelLength;
-    float deltaZ = (this.playerZ - z) * this.pixelLength;
-    return this.sin * deltaX + this.cos * deltaZ + this.radius;
-  }
-
-  private static void line(ScreenCanvas canvas, float fromX, float fromY, float toX, float toY, int color) {
-    float deltaX = toX - fromX;
-    float deltaY = toY - fromY;
-    float length = (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    if (length < 0.01F) {
-      return;
-    }
-
-    // Extending both ends by half the width closes the corners
-    float alongX = deltaX / length * LINE_WIDTH / 2.0F;
-    float alongY = deltaY / length * LINE_WIDTH / 2.0F;
-    float normalX = -alongY;
-    float normalY = alongX;
-    canvas.submitTrapezoid(
-        fromX - alongX + normalX, fromY - alongY + normalY,
-        toX + alongX + normalX, toY + alongY + normalY,
-        toX + alongX - normalX, toY + alongY - normalY,
-        fromX - alongX - normalX, fromY - alongY - normalY,
+    float halfWidth = this.lineWidth / 2.0F;
+    canvas.submitRelativeRect(
+        Math.min(fromX, toX) - this.playerX - halfWidth,
+        Math.min(fromZ, toZ) - this.playerZ - halfWidth,
+        Math.abs(toX - fromX) + this.lineWidth,
+        Math.abs(toZ - fromZ) + this.lineWidth,
         color
     );
   }
