@@ -42,6 +42,7 @@ import net.labymod.api.client.gui.screen.widget.widgets.DivWidget;
 import net.labymod.api.client.gui.screen.widget.widgets.activity.Document;
 import net.labymod.api.client.gui.screen.widget.widgets.renderer.IconWidget;
 import net.labymod.api.client.gui.window.Window;
+import net.labymod.api.client.render.font.FontSize.PredefinedFontSize;
 import net.labymod.api.client.world.MinecraftCamera;
 import net.labymod.api.configuration.loader.property.ConfigProperty;
 import net.labymod.api.util.I18n;
@@ -60,10 +61,6 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private static final int BACKGROUND_COLOR = 0xFF0C0D10;
   private static final int TEXT_COLOR = 0xFFFFFFFF;
   private static final int CAVE_UNBUILT_DIM_COLOR = 0xB0000000;
-  private static final int TOOLTIP_COLOR = 0xC8080A0C;
-  private static final int KEY_BACKGROUND_COLOR = 0x80000000;
-  private static final int HINT_TEXT_COLOR = 0xDCFFFFFF;
-  private static final int HINT_BACKGROUND_COLOR = 0xA00C0F12;
   private static final int DRAG_LINE_COLOR = 0xE6FFFFFF;
   private static final int DRAG_LINE_OUTLINE_COLOR = 0x99000000;
   private static final float DRAG_LINE_WIDTH = 1.0F;
@@ -72,9 +69,6 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private static final int REGION_LINE_ALPHA = 0x80;
   private static final float CHUNK_GRID_MIN_SCALE = 0.5F;
   private static final float CHUNK_GRID_FADE_SCALE = 1.0F;
-  private static final int ATLAS_COLOR = 0xEB101513;
-  private static final int ATLAS_BORDER_COLOR = 0xFF222B27;
-  private static final int ATLAS_HANDLE_HOVER_COLOR = 0xFF1C2622;
   private static final float PLAYER_ICON_SIZE = 8.0F;
   private static final float PLAYER_HEAD_SIZE = 8.0F;
   private static final float WAYPOINT_ICON_SIZE = 12.0F;
@@ -150,6 +144,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private long lastFrameNanos;
   private String waypointFilter = "";
   private int ticks;
+  private float textScale = SMALL_TEXT_SCALE;
 
   @Nullable
   private WorldMapWheel wheel;
@@ -300,6 +295,9 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     float height = window.getScaledHeight();
     ScreenCanvas canvas = context.canvas();
     canvas.submitRelativeRect(0.0F, 0.0F, width, height, BACKGROUND_COLOR);
+    WorldMapTheme theme = WorldMapTheme.get();
+    theme.refresh(window);
+    this.textScale = theme.textScale(SMALL_TEXT_SCALE, PredefinedFontSize.MEDIUM);
 
     if (this.followActive) {
       this.viewKey = this.service.activeKey();
@@ -716,18 +714,20 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return;
     }
 
+    WorldMapTheme theme = WorldMapTheme.get();
     float atlasRight = this.atlasRight();
     if (atlasRight > 0.0F) {
-      canvas.submitRelativeRect(0.0F, 0.0F, atlasRight, height, ATLAS_COLOR);
-      canvas.submitRelativeRect(atlasRight - 1.0F, 0.0F, 1.0F, height, ATLAS_BORDER_COLOR);
+      canvas.submitRelativeRect(0.0F, 0.0F, atlasRight, height, theme.panelColor());
+      canvas.submitRelativeRect(atlasRight - 1.0F, 0.0F, 1.0F, height, theme.panelEdgeColor());
     }
 
     float handleHeight = this.atlasHandle.bounds().getHeight(BoundsType.OUTER);
     float handleWidth = this.atlasHandle.bounds().getWidth(BoundsType.OUTER);
-    canvas.submitRelativeRect(
+    theme.handle(
+        canvas,
         atlasRight, (height - handleHeight) / 2.0F,
         handleWidth, handleHeight,
-        this.atlasHandle.isHovered() ? ATLAS_HANDLE_HOVER_COLOR : ATLAS_COLOR
+        this.atlasHandle.isHovered()
     );
   }
 
@@ -770,43 +770,43 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
           I18n.getTranslation(I18N_PREFIX + "subWorldOf", this.subWorldIndex, this.subWorldCount),
           width / 2.0F, CHROME_MARGIN + lineHeight + 5.0F,
           withAlpha(TEXT_COLOR, alpha * 3 / 5),
-          SMALL_TEXT_SCALE,
+          this.textScale,
           TextRenderingOptions.SHADOW | TextRenderingOptions.CENTERED
       );
     }
   }
 
   private void renderStatePills(ScreenCanvas canvas, float width, float height, int alpha) {
-    float lineHeight = canvas.getLineHeight() * SMALL_TEXT_SCALE;
+    float lineHeight = canvas.getLineHeight() * this.textScale;
     this.pillHeight = lineHeight + 5.0F;
     this.pillY = height - CHROME_MARGIN - this.pillHeight;
 
     boolean following = this.camera.isFollowing();
     String caveText = I18n.getTranslation(I18N_PREFIX + (this.caveLayerEnabled ? "caveOn" : "caveOff"));
-    this.cavePillWidth = canvas.getTextWidth(caveText) * SMALL_TEXT_SCALE + 10.0F;
+    this.cavePillWidth = canvas.getTextWidth(caveText) * this.textScale + 10.0F;
     this.cavePillX = width - CHROME_MARGIN - this.cavePillWidth;
     this.renderPill(canvas, caveText, this.cavePillX, this.cavePillWidth, this.caveLayerEnabled, alpha);
 
     String followText = I18n.getTranslation(I18N_PREFIX + (following ? "following" : "freeCamera"));
-    this.followPillWidth = canvas.getTextWidth(followText) * SMALL_TEXT_SCALE + 10.0F;
+    this.followPillWidth = canvas.getTextWidth(followText) * this.textScale + 10.0F;
     this.followPillX = this.cavePillX - 4.0F - this.followPillWidth;
     this.renderPill(canvas, followText, this.followPillX, this.followPillWidth, following, alpha);
   }
 
   private void renderPill(ScreenCanvas canvas, String text, float x, float width, boolean active, int alpha) {
-    canvas.submitRelativeRect(x, this.pillY, width, this.pillHeight, withAlpha(KEY_BACKGROUND_COLOR, alpha / 2));
-    outline(canvas, x, this.pillY, width, this.pillHeight, withAlpha(TEXT_COLOR, active ? alpha : alpha / 4));
+    WorldMapTheme theme = WorldMapTheme.get();
+    theme.pill(canvas, x, this.pillY, width, this.pillHeight, active, alpha);
     canvas.submitText(
         text,
         x + 5.0F, this.pillY + 3.0F,
-        withAlpha(TEXT_COLOR, active ? alpha : alpha * 3 / 5),
-        SMALL_TEXT_SCALE,
-        TextRenderingOptions.SHADOW
+        withAlpha(active ? theme.textColor() : theme.secondaryTextColor(), alpha),
+        this.textScale,
+        theme.textOptions()
     );
   }
 
   private void renderHints(ScreenCanvas canvas, float left, float height, boolean current) {
-    float lineHeight = canvas.getLineHeight() * SMALL_TEXT_SCALE;
+    float lineHeight = canvas.getLineHeight() * this.textScale;
     float y = height - CHROME_MARGIN - lineHeight - 5.0F;
     float x = left + CHROME_MARGIN;
     if (this.areaEditor.isRenaming()) {
@@ -843,16 +843,17 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   }
 
   private float renderHint(ScreenCanvas canvas, String key, String label, float x, float y, float lineHeight) {
-    float keyWidth = canvas.getTextWidth(key) * SMALL_TEXT_SCALE + 6.0F;
+    float keyWidth = canvas.getTextWidth(key) * this.textScale + 6.0F;
     String text = I18n.getTranslation(I18N_PREFIX + label);
-    float textWidth = canvas.getTextWidth(text) * SMALL_TEXT_SCALE;
+    float textWidth = canvas.getTextWidth(text) * this.textScale;
     float hintHeight = lineHeight + 5.0F;
-    canvas.submitRelativeRect(x, y, keyWidth + textWidth + 7.0F, hintHeight, HINT_BACKGROUND_COLOR);
-    outline(canvas, x, y, keyWidth, hintHeight, 0x60FFFFFF);
-    canvas.submitText(key, x + 3.0F, y + 3.0F, TEXT_COLOR, SMALL_TEXT_SCALE, TextRenderingOptions.SHADOW);
+    WorldMapTheme theme = WorldMapTheme.get();
+    theme.panel(canvas, x, y, keyWidth + textWidth + 7.0F, hintHeight, 255);
+    theme.key(canvas, x, y, keyWidth, hintHeight, 255);
+    canvas.submitText(key, x + 3.0F, y + 3.0F, theme.textColor(), this.textScale, theme.textOptions());
 
     float textX = x + keyWidth + 3.0F;
-    canvas.submitText(text, textX, y + 3.0F, HINT_TEXT_COLOR, SMALL_TEXT_SCALE, TextRenderingOptions.SHADOW);
+    canvas.submitText(text, textX, y + 3.0F, theme.secondaryTextColor(), this.textScale, theme.textOptions());
     return textX + textWidth + 8.0F;
   }
 
@@ -880,8 +881,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
           Component.text(String.valueOf(blockZ >> 4))
       ));
     }
-    float tooltipWidth = canvas.getTextWidth(text) * SMALL_TEXT_SCALE + TOOLTIP_PADDING * 2.0F;
-    float tooltipHeight = canvas.getLineHeight() * SMALL_TEXT_SCALE + TOOLTIP_PADDING * 2.0F;
+    float tooltipWidth = canvas.getTextWidth(text) * this.textScale + TOOLTIP_PADDING * 2.0F;
+    float tooltipHeight = canvas.getLineHeight() * this.textScale + TOOLTIP_PADDING * 2.0F;
     float x = mouseX + TOOLTIP_OFFSET;
     float y = mouseY + TOOLTIP_OFFSET;
     if (x + tooltipWidth > width) {
@@ -892,13 +893,14 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       y = mouseY - TOOLTIP_OFFSET - tooltipHeight;
     }
 
-    canvas.submitRelativeRect(x, y, tooltipWidth, tooltipHeight, TOOLTIP_COLOR);
+    WorldMapTheme theme = WorldMapTheme.get();
+    theme.panel(canvas, x, y, tooltipWidth, tooltipHeight, 255);
     canvas.submitComponent(
         text,
         x + TOOLTIP_PADDING, y + TOOLTIP_PADDING,
-        TEXT_COLOR,
-        SMALL_TEXT_SCALE,
-        TextRenderingOptions.SHADOW
+        theme.textColor(),
+        this.textScale,
+        theme.textOptions()
     );
   }
 
@@ -950,6 +952,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     ScreenCanvas canvas = context.canvas();
+    float titleScale = WorldMapTheme.get().textScale(WAYPOINT_TITLE_SCALE, PredefinedFontSize.MEDIUM);
     float left = -WAYPOINT_ICON_SIZE * 0.40625F;
     float top = -WAYPOINT_ICON_SIZE;
     for (WorldMapWaypoint waypoint : waypoints.waypoints(this.viewKey)) {
@@ -1001,9 +1004,9 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       if (hovered || this.camera.scale() >= WAYPOINT_TITLE_MIN_MAP_SCALE) {
         canvas.submitComponent(
             waypoint.title(),
-            0.0F, top - canvas.getLineHeight() * WAYPOINT_TITLE_SCALE - 1.0F,
+            0.0F, top - canvas.getLineHeight() * titleScale - 1.0F,
             TEXT_COLOR,
-            WAYPOINT_TITLE_SCALE,
+            titleScale,
             TextRenderingOptions.SHADOW | TextRenderingOptions.CENTERED
         );
       }
@@ -1390,13 +1393,6 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         fromX - normalX, fromY - normalY,
         color
     );
-  }
-
-  private static void outline(ScreenCanvas canvas, float x, float y, float width, float height, int color) {
-    canvas.submitRelativeRect(x, y, width, 1.0F, color);
-    canvas.submitRelativeRect(x, y + height - 1.0F, width, 1.0F, color);
-    canvas.submitRelativeRect(x, y + 1.0F, 1.0F, height - 2.0F, color);
-    canvas.submitRelativeRect(x + width - 1.0F, y + 1.0F, 1.0F, height - 2.0F, color);
   }
 
   private static int withAlpha(int color, int alpha) {

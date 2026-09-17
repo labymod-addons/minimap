@@ -9,6 +9,7 @@ import net.labymod.addons.minimap.world.MapAreaStore;
 import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
 import net.labymod.api.client.gui.screen.key.KeyHandler;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
+import net.labymod.api.client.render.font.FontSize.PredefinedFontSize;
 import net.labymod.api.util.Color;
 import net.labymod.api.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
@@ -36,8 +37,6 @@ final class WorldMapAreaEditor {
   private static final int CIRCLE_HANDLE = 5;
   private static final int HANDLE_COUNT = 8;
   private static final long DOUBLE_CLICK_NANOS = 400_000_000L;
-  private static final int RENAME_BACKGROUND_COLOR = 0xC8080A0C;
-  private static final int RENAME_SELECTION_COLOR = 0x803D7BD9;
   private static final float RENAME_PADDING = 3.0F;
   private static final float RENAME_MIN_WIDTH = 24.0F;
   private static final long CARET_BLINK_MILLIS = 500L;
@@ -441,25 +440,33 @@ final class WorldMapAreaEditor {
   }
 
   private void renderRenameField(ScreenCanvas canvas, float centerX, float centerY) {
+    WorldMapTheme theme = WorldMapTheme.get();
+    float nameScale = theme.textScale(NAME_SCALE, PredefinedFontSize.MEDIUM);
     String text = this.renameText.toString();
-    float textWidth = canvas.getTextWidth(text) * NAME_SCALE;
-    float lineHeight = canvas.getLineHeight() * NAME_SCALE;
+    float textWidth = canvas.getTextWidth(text) * nameScale;
+    float lineHeight = canvas.getLineHeight() * nameScale;
     float fieldWidth = Math.max(textWidth, RENAME_MIN_WIDTH) + RENAME_PADDING * 2.0F;
-    canvas.submitRelativeRect(
+    theme.field(
+        canvas,
         centerX - fieldWidth / 2.0F, centerY - lineHeight / 2.0F - RENAME_PADDING,
-        fieldWidth, lineHeight + RENAME_PADDING * 2.0F,
-        RENAME_BACKGROUND_COLOR
+        fieldWidth, lineHeight + RENAME_PADDING * 2.0F
     );
 
     float textX = centerX - textWidth / 2.0F;
     float textY = centerY - lineHeight / 2.0F;
     if (this.renameSelected && textWidth > 0.0F) {
-      canvas.submitRelativeRect(textX, textY - 1.0F, textWidth, lineHeight + 1.0F, RENAME_SELECTION_COLOR);
+      canvas.submitRelativeRect(textX, textY - 1.0F, textWidth, lineHeight + 1.0F, theme.selectionColor());
     }
 
-    canvas.submitText(text, centerX, textY, NAME_COLOR, NAME_SCALE, TextRenderingOptions.SHADOW | TextRenderingOptions.CENTERED);
+    canvas.submitText(
+        text,
+        centerX, textY,
+        theme.textColor(),
+        nameScale,
+        theme.textOptions() | TextRenderingOptions.CENTERED
+    );
     if (!this.renameSelected && System.currentTimeMillis() / CARET_BLINK_MILLIS % 2L == 0L) {
-      canvas.submitRelativeRect(textX + textWidth, textY - 1.0F, 1.0F, lineHeight + 1.0F, NAME_COLOR);
+      canvas.submitRelativeRect(textX + textWidth, textY - 1.0F, 1.0F, lineHeight + 1.0F, theme.textColor());
     }
   }
 
@@ -601,15 +608,16 @@ final class WorldMapAreaEditor {
       canvas.submitAbsoluteRect(right - thickness, clampedTop, right, clampedBottom, outline);
     }
 
-    float nameWidth = canvas.getTextWidth(area.name()) * NAME_SCALE;
+    float nameScale = WorldMapTheme.get().textScale(NAME_SCALE, PredefinedFontSize.MEDIUM);
+    float nameWidth = canvas.getTextWidth(area.name()) * nameScale;
     boolean renaming = area.id().equals(this.renamingId);
     if (!renaming && !area.name().isEmpty() && nameWidth + SCREEN_MARGIN * 2.0F < right - left) {
       canvas.submitText(
           area.name(),
           (left + right) / 2.0F,
-          (top + bottom) / 2.0F - canvas.getLineHeight() * NAME_SCALE / 2.0F,
+          (top + bottom) / 2.0F - canvas.getLineHeight() * nameScale / 2.0F,
           NAME_COLOR,
-          NAME_SCALE,
+          nameScale,
           TextRenderingOptions.SHADOW | TextRenderingOptions.CENTERED
       );
     }
