@@ -11,11 +11,8 @@ import net.labymod.api.client.gui.screen.widget.attributes.bounds.BoundsType;
  */
 final class WorldMapToggleWidget extends SimpleWidget {
 
-  private static final int TRACK_ON_COLOR = 0xFF3E7C55;
-  private static final int TRACK_OFF_COLOR = 0xFF2A3530;
-  private static final int KNOB_ON_COLOR = 0xFFFFFFFF;
-  private static final int KNOB_OFF_COLOR = 0xFF7D8983;
   private static final float KNOB_INSET = 1.5F;
+  private static final float VANILLA_BORDER = 1.0F;
 
   private boolean value;
 
@@ -43,12 +40,26 @@ final class WorldMapToggleWidget extends SimpleWidget {
     float centerY = y + radius;
 
     ScreenCanvas canvas = context.canvas();
-    int trackColor = this.value ? TRACK_ON_COLOR : TRACK_OFF_COLOR;
-    canvas.submitCircle(x + radius, centerY, radius, trackColor);
-    canvas.submitCircle(x + width - radius, centerY, radius, trackColor);
-    canvas.submitRelativeRect(x + radius, y, width - height, height, trackColor);
+    WorldMapTheme theme = WorldMapTheme.get();
+    int trackColor = theme.switchTrackColor(this.value);
+    int knobColor = theme.switchKnobColor(this.value);
+    if (theme.roundSwitch()) {
+      canvas.submitCircle(x + radius, centerY, radius, trackColor);
+      canvas.submitCircle(x + width - radius, centerY, radius, trackColor);
+      canvas.submitRelativeRect(x + radius, y, width - height, height, trackColor);
 
-    float knobX = this.value ? x + width - radius : x + radius;
-    canvas.submitCircle(knobX, centerY, radius - KNOB_INSET, this.value ? KNOB_ON_COLOR : KNOB_OFF_COLOR);
+      float knobX = this.value ? x + width - radius : x + radius;
+      canvas.submitCircle(knobX, centerY, radius - KNOB_INSET, knobColor);
+      return;
+    }
+
+    canvas.submitRelativeRect(x, y, width, height, theme.panelEdgeColor());
+    canvas.submitRelativeRect(
+        x + VANILLA_BORDER, y + VANILLA_BORDER,
+        width - VANILLA_BORDER * 2.0F, height - VANILLA_BORDER * 2.0F,
+        trackColor
+    );
+    float knobX = this.value ? x + width - height : x;
+    canvas.submitRelativeRect(knobX, y, height, height, knobColor);
   }
 }

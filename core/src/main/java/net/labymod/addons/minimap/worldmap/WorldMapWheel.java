@@ -6,6 +6,7 @@ import net.labymod.api.client.component.Component;
 import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
 import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
+import net.labymod.api.client.render.font.FontSize.PredefinedFontSize;
 import net.labymod.api.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,13 +35,6 @@ final class WorldMapWheel {
   private static final long OPEN_NANOS = 120_000_000L;
   private static final double FULL_TURN = Math.PI * 2.0D;
 
-  private static final int SEGMENT_COLOR = 0xC80C0F12;
-  private static final int HOVER_COLOR = 0xF0ECF0EE;
-  private static final int TITLE_BACKGROUND_COLOR = 0xC80C0F12;
-  private static final int TEXT_COLOR = 0xFFFFFFFF;
-  private static final int LABEL_COLOR = 0xC8FFFFFF;
-  private static final int HOVER_TEXT_COLOR = 0xFF111614;
-
   private final float centerX;
   private final float centerY;
   private final Component title;
@@ -59,6 +53,9 @@ final class WorldMapWheel {
     float eased = 1.0F - (1.0F - progress) * (1.0F - progress) * (1.0F - progress);
     float scale = OPEN_START_SCALE + (1.0F - OPEN_START_SCALE) * eased;
     int alpha = (int) (eased * 255.0F);
+    WorldMapTheme theme = WorldMapTheme.get();
+    float labelScale = theme.textScale(LABEL_SCALE, PredefinedFontSize.SMALL);
+    float titleScale = theme.textScale(TITLE_SCALE, PredefinedFontSize.MEDIUM);
 
     int hovered = this.entryAt(mouseX, mouseY);
     int count = this.entries.size();
@@ -74,12 +71,12 @@ final class WorldMapWheel {
           canvas,
           innerRadius, outerRadius,
           middle - turns / 2.0F + GAP_TURNS, middle + turns / 2.0F - GAP_TURNS,
-          withAlpha(selected ? HOVER_COLOR : SEGMENT_COLOR, alpha)
+          WorldMapTheme.withAlpha(selected ? theme.segmentHoverColor() : theme.panelColor(), alpha)
       );
 
       float x = this.centerX + (float) Math.sin(middle * FULL_TURN) * labelRadius;
       float y = this.centerY + (float) Math.cos(middle * FULL_TURN) * labelRadius;
-      int iconColor = withAlpha(selected ? HOVER_TEXT_COLOR : TEXT_COLOR, alpha);
+      int iconColor = WorldMapTheme.withAlpha(selected ? theme.segmentHoverTextColor() : theme.textColor(), alpha);
       if (entry.shape() != null) {
         shapeGlyph(canvas, entry.shape(), x, y - 3.0F, iconColor);
       } else {
@@ -94,26 +91,22 @@ final class WorldMapWheel {
       canvas.submitText(
           entry.label(),
           x, y + ICON_SIZE / 2.0F - 1.0F,
-          withAlpha(selected ? HOVER_TEXT_COLOR : LABEL_COLOR, alpha),
-          LABEL_SCALE,
-          selected ? TextRenderingOptions.CENTERED : TextRenderingOptions.SHADOW | TextRenderingOptions.CENTERED
+          WorldMapTheme.withAlpha(selected ? theme.segmentHoverTextColor() : theme.secondaryTextColor(), alpha),
+          labelScale,
+          selected ? TextRenderingOptions.CENTERED : theme.textOptions() | TextRenderingOptions.CENTERED
       );
     }
 
-    float titleWidth = canvas.getTextWidth(this.title) * TITLE_SCALE + TITLE_PADDING * 2.0F;
-    float titleHeight = canvas.getLineHeight() * TITLE_SCALE + TITLE_PADDING * 2.0F;
+    float titleWidth = canvas.getTextWidth(this.title) * titleScale + TITLE_PADDING * 2.0F;
+    float titleHeight = canvas.getLineHeight() * titleScale + TITLE_PADDING * 2.0F;
     float titleY = this.centerY + (OUTER_RADIUS + HOVER_GROWTH) * scale + 4.0F;
-    canvas.submitRelativeRect(
-        this.centerX - titleWidth / 2.0F, titleY,
-        titleWidth, titleHeight,
-        withAlpha(TITLE_BACKGROUND_COLOR, alpha)
-    );
+    theme.panel(canvas, this.centerX - titleWidth / 2.0F, titleY, titleWidth, titleHeight, alpha);
     canvas.submitComponent(
         this.title,
         this.centerX, titleY + TITLE_PADDING,
-        withAlpha(TEXT_COLOR, alpha),
-        TITLE_SCALE,
-        TextRenderingOptions.SHADOW | TextRenderingOptions.CENTERED
+        WorldMapTheme.withAlpha(theme.textColor(), alpha),
+        titleScale,
+        theme.textOptions() | TextRenderingOptions.CENTERED
     );
   }
 
@@ -173,10 +166,6 @@ final class WorldMapWheel {
         GLYPH_LINE_WIDTH, GLYPH_SIZE - GLYPH_LINE_WIDTH * 2.0F,
         color
     );
-  }
-
-  private static int withAlpha(int color, int alpha) {
-    return ((color >>> 24) * alpha / 255) << 24 | (color & 0xFFFFFF);
   }
 
   /**
