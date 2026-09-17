@@ -1,23 +1,48 @@
 package net.labymod.addons.minimap.worldmap;
 
+import net.labymod.api.client.gui.lss.property.annotation.AutoWidget;
+import net.labymod.api.client.gui.screen.Parent;
 import net.labymod.api.client.gui.screen.ScreenContext;
-import net.labymod.api.client.gui.screen.state.ScreenCanvas;
-import net.labymod.api.client.gui.screen.widget.SimpleWidget;
-import net.labymod.api.client.gui.screen.widget.attributes.bounds.Bounds;
 import net.labymod.api.client.gui.screen.widget.attributes.bounds.BoundsType;
+import net.labymod.api.client.gui.screen.widget.widgets.DivWidget;
+import net.labymod.api.util.time.TimeUtil;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Pill shaped on/off indicator. The surrounding row handles clicks.
+ * On/off indicator styled by the theme through the selected state. The surrounding row handles
+ * clicks. The fancy look slides the knob, the vanilla look places it by the theme alone.
  */
-final class WorldMapToggleWidget extends SimpleWidget {
+@AutoWidget
+public final class WorldMapToggleWidget extends DivWidget {
 
-  private static final float KNOB_INSET = 1.5F;
-  private static final float VANILLA_BORDER = 1.0F;
+  private static final float KNOB_GAP = 1.0F;
+  private static final float ANIMATION_MILLIS = 120.0F;
 
   private boolean value;
+  @Nullable
+  private DivWidget knob;
+  private float progress = -1.0F;
+  private long lastFrameMillis;
 
-  WorldMapToggleWidget(boolean value) {
+  public WorldMapToggleWidget(boolean value) {
     this.value = value;
+    this.addId("atlas-toggle");
+  }
+
+  @Override
+  public void initialize(Parent parent) {
+    super.initialize(parent);
+    DivWidget knob = new DivWidget();
+    knob.addId("atlas-toggle-knob");
+    this.addChild(knob);
+    this.knob = knob;
+    this.setSelected(this.value);
+  }
+
+  @Override
+  public void renderWidget(ScreenContext context) {
+    this.updateKnob();
+    super.renderWidget(context);
   }
 
   boolean value() {
@@ -26,40 +51,36 @@ final class WorldMapToggleWidget extends SimpleWidget {
 
   void setValue(boolean value) {
     this.value = value;
+    this.setSelected(value);
   }
 
-  @Override
-  public void renderWidget(ScreenContext context) {
-    super.renderWidget(context);
-    Bounds bounds = this.bounds();
-    float x = bounds.getX(BoundsType.INNER);
-    float y = bounds.getY(BoundsType.INNER);
-    float width = bounds.getWidth(BoundsType.INNER);
-    float height = bounds.getHeight(BoundsType.INNER);
-    float radius = height / 2.0F;
-    float centerY = y + radius;
-
-    ScreenCanvas canvas = context.canvas();
-    WorldMapTheme theme = WorldMapTheme.get();
-    int trackColor = theme.switchTrackColor(this.value);
-    int knobColor = theme.switchKnobColor(this.value);
-    if (theme.roundSwitch()) {
-      canvas.submitCircle(x + radius, centerY, radius, trackColor);
-      canvas.submitCircle(x + width - radius, centerY, radius, trackColor);
-      canvas.submitRelativeRect(x + radius, y, width - height, height, trackColor);
-
-      float knobX = this.value ? x + width - radius : x + radius;
-      canvas.submitCircle(knobX, centerY, radius - KNOB_INSET, knobColor);
+  private void updateKnob() {
+    if (this.knob == null) {
       return;
     }
 
-    canvas.submitRelativeRect(x, y, width, height, theme.panelEdgeColor());
-    canvas.submitRelativeRect(
-        x + VANILLA_BORDER, y + VANILLA_BORDER,
-        width - VANILLA_BORDER * 2.0F, height - VANILLA_BORDER * 2.0F,
-        trackColor
-    );
-    float knobX = this.value ? x + width - height : x;
-    canvas.submitRelativeRect(knobX, y, height, height, knobColor);
+    if (!WorldMapTheme.get().slidesToggleKnob()) {
+      this.progress = -1.0F;
+      this.knob.setTranslateX(0.0F);
+      return;
+    }
+
+    long now = TimeUtil.getMillis();
+    float target = this.value ? 1.0F : 0.0F;
+    if (this.progress < 0.0F) {
+      this.progress = target;
+    } else {
+      float step = (now - this.lastFrameMillis) / ANIMATION_MILLIS;
+      this.progress = this.progress < target
+          ? Math.min(target, this.progress + step)
+          : Math.max(target, this.progress - step);
+    }
+
+    this.lastFrameMillis = now;
+    float eased = this.progress * this.progress * (3.0F - 2.0F * this.progress);
+    float travel = this.bounds().getWidth(BoundsType.INNER)
+        - this.knob.bounds().getWidth(BoundsType.OUTER)
+        - KNOB_GAP * 2.0F;
+    this.knob.setTranslateX(eased * travel);
   }
 }

@@ -25,7 +25,6 @@ final class WorldMapTheme {
 
   private static final int FANCY_TEXT_COLOR = 0xFFF1F1F1;
   private static final int FANCY_SECONDARY_TEXT_COLOR = 0xFFA0A0A0;
-  private static final int FANCY_SWITCH_ON_COLOR = 0xFF2196F3;
   private static final int FANCY_SELECTION_COLOR = 0xCC0078D7;
 
   private static final int VANILLA_PANEL_COLOR = 0xC8000000;
@@ -35,10 +34,8 @@ final class WorldMapTheme {
   private static final int VANILLA_FOCUS_BORDER_COLOR = 0xFFFFFFFF;
   private static final int VANILLA_TEXT_COLOR = 0xFFFFFFFF;
   private static final int VANILLA_SECONDARY_TEXT_COLOR = 0xFFAAAAAA;
-  private static final int VANILLA_ACCENT_COLOR = 0xFF008FE8;
   private static final int VANILLA_SEGMENT_HOVER_COLOR = 0xDCFFFFFF;
   private static final int VANILLA_SEGMENT_HOVER_TEXT_COLOR = 0xFF000000;
-  private static final int VANILLA_SWITCH_KNOB_OFF_COLOR = 0xFFA0A0A0;
   private static final int VANILLA_SELECTION_COLOR = 0xFF0000FF;
 
   private static final WorldMapTheme INSTANCE = new WorldMapTheme();
@@ -68,6 +65,13 @@ final class WorldMapTheme {
     this.button.refresh(window);
     this.buttonHover.refresh(window);
     this.accent.refresh(window);
+  }
+
+  /**
+   * @return whether toggles slide their knob, the vanilla look snaps it by the theme
+   */
+  boolean slidesToggleKnob() {
+    return this.fancy;
   }
 
   int panelColor() {
@@ -116,22 +120,6 @@ final class WorldMapTheme {
 
   int segmentHoverTextColor() {
     return this.fancy ? FANCY_TEXT_COLOR : VANILLA_SEGMENT_HOVER_TEXT_COLOR;
-  }
-
-  int switchTrackColor(boolean on) {
-    if (on) {
-      return this.fancy ? FANCY_SWITCH_ON_COLOR : VANILLA_ACCENT_COLOR;
-    }
-
-    return this.fancy ? this.button.color : VANILLA_KEY_COLOR;
-  }
-
-  int switchKnobColor(boolean on) {
-    return this.fancy || on ? 0xFFFFFFFF : VANILLA_SWITCH_KNOB_OFF_COLOR;
-  }
-
-  boolean roundSwitch() {
-    return this.fancy;
   }
 
   /**

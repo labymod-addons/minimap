@@ -53,7 +53,7 @@
         "title": "World map",
         "dimension": "Dimension",
         "worlds": "Worlds",
-        "layers": "Layers",
+        "view": "View",
         "follow": "Follow player",
         "caves": "Cave layer",
         "chunkGrid": "Chunk grid",

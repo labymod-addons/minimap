@@ -31,7 +31,7 @@ import net.labymod.api.util.math.position.Position;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Side panel of the world map with dimensions, sub-worlds, layers, the marked areas of the shown
+ * Side panel of the world map with dimensions, sub-worlds, view options, the marked areas of the shown
  * sub-world and the waypoints of the shown dimension.
  */
 final class WorldMapAtlasWidget extends DivWidget {
@@ -113,7 +113,7 @@ final class WorldMapAtlasWidget extends DivWidget {
     content.addChild(ComponentWidget.text(this.viewKey.context()).addId("atlas-subtitle"));
     this.addDimensions(content);
     this.addSubWorlds(content);
-    this.addLayers(content);
+    this.addViewOptions(content);
     this.addAreas(content);
 
     if (this.waypoints != null) {
@@ -212,8 +212,8 @@ final class WorldMapAtlasWidget extends DivWidget {
     }
   }
 
-  private void addLayers(VerticalListWidget<Widget> content) {
-    content.addChild(label("layers"));
+  private void addViewOptions(VerticalListWidget<Widget> content) {
+    content.addChild(label("view"));
     if (this.current) {
       this.followToggle = this.addToggle(content, "follow", this.following, this.actions::setFollowing);
       this.caveToggle = this.addToggle(content, "caves", this.caveLayer, this.actions::setCaveLayer);
@@ -229,7 +229,6 @@ final class WorldMapAtlasWidget extends DivWidget {
       Switchable switchable
   ) {
     WorldMapToggleWidget toggle = new WorldMapToggleWidget(value);
-    toggle.addId("atlas-toggle");
 
     DivWidget row = row(ComponentWidget.i18n(I18N_PREFIX + key), null);
     row.addChild(toggle);
@@ -265,8 +264,7 @@ final class WorldMapAtlasWidget extends DivWidget {
       row.addChild(swatch);
 
       WorldMapToggleWidget toggle = new WorldMapToggleWidget(area.isVisible());
-      toggle.addId("atlas-toggle");
-      toggle.setHoverCursor(CursorTypes.POINTING_HAND);
+        toggle.setHoverCursor(CursorTypes.POINTING_HAND);
       toggle.setPressable(() -> this.actions.setAreaVisible(area, !area.isVisible()));
       row.addChild(toggle);
 

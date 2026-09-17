@@ -58,6 +58,26 @@
     }
   }
 
+  .atlas-toggle {
+    border-radius: 4;
+    background-color: var(--button-color);
+    background-color-transition-duration: 120;
+
+    .atlas-toggle-knob {
+      border-radius: 3;
+      background-color: white;
+    }
+
+    &:selected {
+      background-color: rgb(33, 150, 243);
+    }
+
+    &:selected .atlas-toggle-knob {
+      left: 1;
+      right: null;
+    }
+  }
+
   .atlas-row-active {
     background-color: rgba(180, 180, 180, 80);
   }
