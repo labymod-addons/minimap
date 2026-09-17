@@ -40,6 +40,8 @@ import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.gui.screen.widget.attributes.bounds.BoundsType;
 import net.labymod.api.client.gui.screen.widget.widgets.DivWidget;
 import net.labymod.api.client.gui.screen.widget.widgets.activity.Document;
+import net.labymod.api.client.gui.screen.widget.widgets.popup.SimpleAdvancedPopup;
+import net.labymod.api.client.gui.screen.widget.widgets.popup.SimpleAdvancedPopup.SimplePopupButton;
 import net.labymod.api.client.gui.screen.widget.widgets.renderer.IconWidget;
 import net.labymod.api.client.gui.window.Window;
 import net.labymod.api.client.render.font.FontSize.PredefinedFontSize;
@@ -630,6 +632,48 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   }
 
   @Override
+  public void editArea(MapArea area) {
+    this.areaEditor.select(area);
+    new WorldMapAreaPopup(area, this.service.areas(this.viewKey)).displayInOverlay();
+  }
+
+  @Override
+  public void deleteArea(MapArea area) {
+    MapAreaStore areas = this.service.areas(this.viewKey);
+    Component name = area.name().isEmpty()
+        ? Component.translatable(I18N_PREFIX + "area.unnamed")
+        : Component.text(area.name());
+    SimpleAdvancedPopup.builder()
+        .title(Component.translatable(I18N_PREFIX + "area.deleteTitle"))
+        .description(Component.translatable(I18N_PREFIX + "area.deleteConfirm", name))
+        .addButton(SimplePopupButton.cancel())
+        .addButton(SimplePopupButton.create(
+            "confirm",
+            Component.translatable(I18N_PREFIX + "area.delete"),
+            button -> areas.remove(area)
+        ))
+        .build()
+        .displayInOverlay();
+  }
+
+  @Override
+  public void editWaypoint(WorldMapWaypoint waypoint) {
+    WorldMapWaypoints waypoints = this.service.waypoints();
+    if (waypoints != null) {
+      waypoints.edit(waypoint.id());
+    }
+  }
+
+  @Override
+  public void hideWaypoint(WorldMapWaypoint waypoint) {
+    WorldMapWaypoints waypoints = this.service.waypoints();
+    if (waypoints != null) {
+      waypoints.hide(waypoint.id());
+      this.reload();
+    }
+  }
+
+  @Override
   public void filterWaypoints(String filter) {
     this.waypointFilter = filter;
   }
@@ -1129,19 +1173,13 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     Component title;
     if (waypoints != null && waypoint != null) {
       title = waypoint.title();
-      entries.add(wheelEntry(SpriteCommon.EDIT, "edit", () -> waypoints.edit(waypoint.id())));
-      entries.add(wheelEntry(SpriteCommon.X, "hide", () -> {
-        waypoints.hide(waypoint.id());
-        this.reload();
-      }));
+      entries.add(wheelEntry(SpriteCommon.EDIT, "edit", () -> this.editWaypoint(waypoint)));
+      entries.add(wheelEntry(SpriteCommon.X, "hide", () -> this.hideWaypoint(waypoint)));
     } else if (area != null) {
       title = Component.text(area.name().isEmpty() ? "X " + blockX + "  Z " + blockZ : area.name());
-      entries.add(wheelEntry(SpriteCommon.EDIT, "edit", () -> {
-        this.areaEditor.select(area);
-        new WorldMapAreaPopup(area, areas).displayInOverlay();
-      }));
+      entries.add(wheelEntry(SpriteCommon.EDIT, "edit", () -> this.editArea(area)));
       entries.add(wheelEntry(SpriteCommon.X, "hide", () -> this.setAreaVisible(area, false)));
-      entries.add(wheelEntry(SpriteCommon.TRASH, "delete", () -> areas.remove(area)));
+      entries.add(wheelEntry(SpriteCommon.TRASH, "delete", () -> this.deleteArea(area)));
     } else {
       title = Component.text("X " + blockX + "  Z " + blockZ);
       if (waypoints != null) {

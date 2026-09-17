@@ -19,6 +19,8 @@ import net.labymod.api.client.gui.lss.property.annotation.AutoWidget;
 import net.labymod.api.client.gui.screen.Parent;
 import net.labymod.api.client.gui.screen.widget.Widget;
 import net.labymod.api.client.gui.screen.widget.action.Switchable;
+import net.labymod.api.client.gui.screen.widget.context.ContextMenu;
+import net.labymod.api.client.gui.screen.widget.context.ContextMenuEntry;
 import net.labymod.api.client.gui.screen.widget.cursor.CursorTypes;
 import net.labymod.api.client.gui.screen.widget.widgets.ComponentWidget;
 import net.labymod.api.client.gui.screen.widget.widgets.DivWidget;
@@ -39,6 +41,7 @@ import org.jetbrains.annotations.Nullable;
 public final class WorldMapAtlasWidget extends DivWidget {
 
   private static final String I18N_PREFIX = Util.NAMESPACE + ".worldMap.atlas.";
+  private static final String MENU_I18N_PREFIX = I18N_PREFIX + "menu.";
   private static final long MINUTE_MILLIS = 60_000L;
   private static final long HOUR_MILLIS = 60L * MINUTE_MILLIS;
   private static final long DAY_MILLIS = 24L * HOUR_MILLIS;
@@ -271,6 +274,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
       row.addChild(toggle);
 
       this.makePressable(row, () -> this.actions.focusArea(area));
+      row.createContextMenuLazy(menu -> this.fillAreaMenu(menu, area));
       content.addChild(row);
     }
   }
@@ -323,6 +327,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
       DivWidget row = row(name, distance);
       row.addChild(icon);
       this.makePressable(row, () -> this.actions.focusWaypoint(waypoint));
+      row.createContextMenuLazy(menu -> this.fillWaypointMenu(menu, waypoint));
       content.addChild(row);
       this.waypointRows.add(new WaypointRow(
           row,
@@ -333,6 +338,35 @@ public final class WorldMapAtlasWidget extends DivWidget {
     }
 
     this.applyFilter();
+  }
+
+  private void fillAreaMenu(ContextMenu menu, MapArea area) {
+    menu.addEntry(menuEntry(
+        Component.translatable(MENU_I18N_PREFIX + "edit"),
+        () -> this.actions.editArea(area)
+    ));
+    menu.addEntry(ContextMenuEntry.builder()
+        .text(() -> Component.translatable(MENU_I18N_PREFIX + (area.isVisible() ? "hide" : "show")))
+        .clickHandler(entry -> {
+          this.actions.setAreaVisible(area, !area.isVisible());
+          return true;
+        })
+        .build());
+    menu.addEntry(menuEntry(
+        Component.translatable(MENU_I18N_PREFIX + "delete"),
+        () -> this.actions.deleteArea(area)
+    ));
+  }
+
+  private void fillWaypointMenu(ContextMenu menu, WorldMapWaypoint waypoint) {
+    menu.addEntry(menuEntry(
+        Component.translatable(MENU_I18N_PREFIX + "edit"),
+        () -> this.actions.editWaypoint(waypoint)
+    ));
+    menu.addEntry(menuEntry(
+        Component.translatable(MENU_I18N_PREFIX + "hide"),
+        () -> this.actions.hideWaypoint(waypoint)
+    ));
   }
 
   private void applyFilter() {
@@ -367,6 +401,16 @@ public final class WorldMapAtlasWidget extends DivWidget {
     }
 
     return I18n.getTranslation(I18N_PREFIX + "daysAgo", elapsed / DAY_MILLIS);
+  }
+
+  private static ContextMenuEntry menuEntry(Component text, Runnable action) {
+    return ContextMenuEntry.builder()
+        .text(text)
+        .clickHandler(entry -> {
+          action.run();
+          return true;
+        })
+        .build();
   }
 
   private static ComponentWidget label(String key) {
@@ -411,6 +455,17 @@ public final class WorldMapAtlasWidget extends DivWidget {
     void focusArea(MapArea area);
 
     void setAreaVisible(MapArea area, boolean visible);
+
+    void editArea(MapArea area);
+
+    /**
+     * Deletes the area after the player confirmed it.
+     */
+    void deleteArea(MapArea area);
+
+    void editWaypoint(WorldMapWaypoint waypoint);
+
+    void hideWaypoint(WorldMapWaypoint waypoint);
 
     void filterWaypoints(String filter);
   }

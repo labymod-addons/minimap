@@ -47,7 +47,11 @@
       "area": {
         "defaultName": "Area %s",
         "editTitle": "Edit area",
-        "radius": "Radius %s"
+        "radius": "Radius %s",
+        "unnamed": "this area",
+        "deleteTitle": "Delete area",
+        "deleteConfirm": "Delete %s? This cannot be undone.",
+        "delete": "Delete"
       },
       "atlas": {
         "title": "World map",
@@ -66,7 +70,13 @@
         "justNow": "just now",
         "minutesAgo": "%s min ago",
         "hoursAgo": "%s h ago",
-        "daysAgo": "%s d ago"
+        "daysAgo": "%s d ago",
+        "menu": {
+          "edit": "Edit",
+          "show": "Show",
+          "hide": "Hide",
+          "delete": "Delete"
+        }
       }
     },
     "hudWidget": {
