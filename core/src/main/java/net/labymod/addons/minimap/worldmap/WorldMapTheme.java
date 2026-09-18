@@ -37,6 +37,7 @@ final class WorldMapTheme {
   private static final int VANILLA_SEGMENT_HOVER_COLOR = 0xDCFFFFFF;
   private static final int VANILLA_SEGMENT_HOVER_TEXT_COLOR = 0xFF000000;
   private static final int VANILLA_SELECTION_COLOR = 0xFF0000FF;
+  private static final int CLOSE_HOVER_COLOR = 0xFFE81123;
 
   private static final WorldMapTheme INSTANCE = new WorldMapTheme();
 
@@ -144,6 +145,33 @@ final class WorldMapTheme {
     int fill = this.fancy && active ? this.accent.color : this.panelColor();
     int border = active ? VANILLA_FOCUS_BORDER_COLOR : VANILLA_BORDER_COLOR;
     this.box(canvas, x, y, width, height, withAlpha(fill, alpha), withAlpha(border, alpha));
+  }
+
+  /**
+   * Button drawn on the canvas, lighter while hovered.
+   */
+  void button(ScreenCanvas canvas, float x, float y, float width, float height, boolean hovered, int alpha) {
+    int fill;
+    if (this.fancy) {
+      fill = hovered ? this.buttonHover.color : this.background.color;
+    } else {
+      fill = hovered ? VANILLA_PANEL_HOVER_COLOR : VANILLA_PANEL_COLOR;
+    }
+
+    int border = hovered ? VANILLA_FOCUS_BORDER_COLOR : VANILLA_BORDER_COLOR;
+    this.box(canvas, x, y, width, height, withAlpha(fill, alpha), withAlpha(border, alpha));
+  }
+
+  /**
+   * Close button, red while hovered like a window's close button.
+   */
+  void closeButton(ScreenCanvas canvas, float x, float y, float width, float height, boolean hovered) {
+    if (!hovered) {
+      this.button(canvas, x, y, width, height, false, 255);
+      return;
+    }
+
+    this.box(canvas, x, y, width, height, CLOSE_HOVER_COLOR, CLOSE_HOVER_COLOR);
   }
 
   /**
