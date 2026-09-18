@@ -84,6 +84,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private static final int SELECTION_EDGE_COLOR = 0xFFE04040;
   private static final int RULER_COLOR = 0xFFFFD24A;
   private static final float ZOOM_BUTTON_SIZE = 14.0F;
+  private static final float CLOSE_BUTTON_SIZE = 14.0F;
+  private static final float CLOSE_ICON_SIZE = 8.0F;
   private static final double ZOOM_BUTTON_STEPS = 2.0D;
   private static final double DOUBLE_CLICK_STEPS = 3.0D;
   private static final long DOUBLE_CLICK_NANOS = 300_000_000L;
@@ -386,6 +388,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     if (mouse.getX() < this.atlasRight()) {
+      return true;
+    }
+
+    if (mouseButton.isLeft() && this.isOverCloseButton(mouse.getX(), mouse.getY())) {
+      this.closeScreen();
       return true;
     }
 
@@ -803,10 +810,12 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
     this.renderAtlasBackground(canvas, height);
     this.renderHints(canvas, this.atlasRight(), height, current);
+    this.renderCloseButton(canvas, mouse.getX(), mouse.getY());
     if ((!this.dragging || this.draggedWaypoint != null)
         && this.wheel == null
         && !this.isPopupOpen()
-        && mouse.getX() >= this.atlasRight()) {
+        && mouse.getX() >= this.atlasRight()
+        && !this.isOverCloseButton(mouse.getX(), mouse.getY())) {
       this.renderTooltip(canvas, store, width, height, mouse.getX(), mouse.getY());
     }
   }
@@ -1137,7 +1146,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         + "  Z " + MathHelper.floor(position.getZ());
     float panelWidth = canvas.getTextWidth(text) * this.textScale + TOOLTIP_PADDING * 2.0F;
     float panelHeight = canvas.getLineHeight() * this.textScale + TOOLTIP_PADDING * 2.0F;
-    float x = width - CHROME_MARGIN - panelWidth;
+    float x = width - CHROME_MARGIN - CLOSE_BUTTON_SIZE - 4.0F - panelWidth;
     WorldMapTheme theme = WorldMapTheme.get();
     theme.panel(canvas, x, CHROME_MARGIN, panelWidth, panelHeight, alpha);
     canvas.submitText(
@@ -1574,6 +1583,36 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   }
 
   /**
+   * Stays visible while the atlas is open, unlike the rest of the chrome.
+   */
+  private void renderCloseButton(ScreenCanvas canvas, float mouseX, float mouseY) {
+    float x = this.closeButtonX();
+    boolean hovered = this.isOverCloseButton(mouseX, mouseY);
+    WorldMapTheme theme = WorldMapTheme.get();
+    theme.closeButton(canvas, x, CHROME_MARGIN, CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE, hovered);
+    float inset = (CLOSE_BUTTON_SIZE - CLOSE_ICON_SIZE) / 2.0F;
+    canvas.submitIcon(
+        SpriteCommon.X,
+        x + inset, CHROME_MARGIN + inset,
+        CLOSE_ICON_SIZE, CLOSE_ICON_SIZE,
+        false,
+        hovered ? TEXT_COLOR : theme.textColor()
+    );
+  }
+
+  private boolean isOverCloseButton(float mouseX, float mouseY) {
+    float x = this.closeButtonX();
+    return mouseX >= x
+        && mouseX <= x + CLOSE_BUTTON_SIZE
+        && mouseY >= CHROME_MARGIN
+        && mouseY <= CHROME_MARGIN + CLOSE_BUTTON_SIZE;
+  }
+
+  private float closeButtonX() {
+    return Laby.labyAPI().minecraft().minecraftWindow().getScaledWidth() - CHROME_MARGIN - CLOSE_BUTTON_SIZE;
+  }
+
+  /**
    * @param bottom y of the lower button's bottom edge
    */
   private void renderZoomButtons(ScreenCanvas canvas, float width, float bottom, int alpha, MutableMouse mouse) {
@@ -1590,7 +1629,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         && mouse.getY() >= y
         && mouse.getY() <= y + ZOOM_BUTTON_SIZE;
     WorldMapTheme theme = WorldMapTheme.get();
-    theme.pill(canvas, this.zoomButtonX, y, ZOOM_BUTTON_SIZE, ZOOM_BUTTON_SIZE, hovered, alpha);
+    theme.button(canvas, this.zoomButtonX, y, ZOOM_BUTTON_SIZE, ZOOM_BUTTON_SIZE, hovered, alpha);
     canvas.submitText(
         label,
         this.zoomButtonX + ZOOM_BUTTON_SIZE / 2.0F, y + (ZOOM_BUTTON_SIZE - canvas.getLineHeight()) / 2.0F + 1.0F,
