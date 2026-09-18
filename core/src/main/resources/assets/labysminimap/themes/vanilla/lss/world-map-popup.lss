@@ -1,5 +1,5 @@
 .popup-container {
-  .world-name {
+  .popup-field {
     width: 150;
     height: 20;
     alignment-x: center;

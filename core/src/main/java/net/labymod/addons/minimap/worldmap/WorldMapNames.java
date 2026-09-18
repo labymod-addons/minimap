@@ -11,9 +11,12 @@ import org.jetbrains.annotations.Nullable;
 final class WorldMapNames {
 
   private static final String I18N_PREFIX = Util.NAMESPACE + ".worldMap.";
+  private static final String OVERWORLD = "minecraft:overworld";
+  private static final String NETHER = "minecraft:the_nether";
+  private static final double NETHER_SCALE = 8.0D;
   private static final List<String> VANILLA_DIMENSIONS = List.of(
-      "minecraft:overworld",
-      "minecraft:the_nether",
+      OVERWORLD,
+      NETHER,
       "minecraft:the_end"
   );
   private static final Comparator<MapWorldKey> DIMENSION_ORDER = Comparator
@@ -47,6 +50,25 @@ final class WorldMapNames {
   /**
    * @param name the name the player gave it, {@code null} if none
    */
+  /**
+   * @return the dimension linked to this one by the 1:8 portal scale, {@code null} if none
+   */
+  @Nullable
+  static String counterpart(String dimension) {
+    if (dimension.equals(OVERWORLD)) {
+      return NETHER;
+    }
+
+    return dimension.equals(NETHER) ? OVERWORLD : null;
+  }
+
+  /**
+   * @return blocks in the {@link #counterpart} per block in this dimension
+   */
+  static double counterpartScale(String dimension) {
+    return dimension.equals(NETHER) ? NETHER_SCALE : 1.0D / NETHER_SCALE;
+  }
+
   static String subWorld(MapWorldKey key, @Nullable String name) {
     return name == null ? I18n.getTranslation(I18N_PREFIX + "subWorld", key.subWorld() + 1) : name;
   }
