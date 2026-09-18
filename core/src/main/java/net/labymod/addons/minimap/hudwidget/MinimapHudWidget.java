@@ -404,8 +404,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     private final ConfigProperty<Boolean> showPlayers = ConfigProperty.create(true);
     @SwitchSetting
     private final ConfigProperty<Boolean> showWaypoints = ConfigProperty.create(true);
-    @SwitchSetting
-    private final ConfigProperty<Boolean> showAreas = ConfigProperty.create(true);
 
     @SettingSection("player")
     @DropdownSetting
@@ -455,11 +453,6 @@ public class MinimapHudWidget extends HudWidget<MinimapHudWidgetConfig> {
     @Override
     public ConfigProperty<Boolean> showWaypoints() {
       return this.showWaypoints;
-    }
-
-    @Override
-    public ConfigProperty<Boolean> showAreas() {
-      return this.showAreas;
     }
 
     @Override
