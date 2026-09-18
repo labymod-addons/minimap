@@ -31,6 +31,9 @@ import net.labymod.api.client.world.MinecraftCamera;
 import net.labymod.api.event.Phase;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.lifecycle.GameTickEvent;
+import net.labymod.api.event.client.network.server.SubServerSwitchEvent;
+import net.labymod.api.event.client.world.DimensionChangeEvent;
+import net.labymod.api.event.client.world.WorldEnterEvent;
 import net.labymod.api.event.labymod.externaldevice.ExternalDeviceConnectedEvent;
 import net.labymod.api.externaldevice.ExternalDeviceService;
 import net.labymod.api.externaldevice.ExternalDeviceStream;
@@ -76,6 +79,11 @@ public class MinimapPublisher {
   /** A device paired since the last pass: it needs every tile, not the deltas it never saw. */
   private volatile boolean resendTiles;
   /**
+   * Counts the world changes a device has to drop its tiles for (see {@link #invalidateWorld()}).
+   * Rides along in every state frame; the device compares it with the last one it saw.
+   */
+  private volatile int worldToken;
+  /**
    * Synthetic stream clock: advances EXACTLY 50ms per game tick, independent of wall time. Real
    * tick scheduling jitters (30–70ms with catch-up bursts) while positions advance one fixed step
    * per tick, so stamping wall time made the apparent speed wobble on the phone.
@@ -102,6 +110,34 @@ public class MinimapPublisher {
   /** Fires on a network thread, so the tile cache is dropped on the next tick instead of here. */
   @Subscribe
   public void onDeviceConnected(ExternalDeviceConnectedEvent event) {
+    this.resendTiles = true;
+  }
+
+  @Subscribe
+  public void onWorldEnter(WorldEnterEvent event) {
+    this.invalidateWorld();
+  }
+
+  @Subscribe
+  public void onDimensionChange(DimensionChangeEvent event) {
+    this.invalidateWorld();
+  }
+
+  @Subscribe
+  public void onSubServerSwitch(SubServerSwitchEvent event) {
+    this.invalidateWorld();
+  }
+
+  /**
+   * The same chunk coordinate shows different terrain from now on - the map is a new world, a new
+   * dimension or a new sub-server (the events the world map re-keys on, see
+   * {@code WorldMapService}). The device keeps tiles out to a wider radius than we stream, so it
+   * cannot notice that by itself: it drops everything when the token changes, and we re-send our
+   * whole radius instead of the deltas against the world that is gone.
+   */
+  private void invalidateWorld() {
+    this.worldToken++;
+    this.tileRequests.clear();
     this.resendTiles = true;
   }
 
@@ -158,6 +194,8 @@ public class MinimapPublisher {
     // so neither delivery jitter nor wall-clock tick scheduling can distort the motion.
     state.addProperty("ts", this.streamTime);
     state.addProperty("allowed", allowed);
+    // Bumps on every world change; the device throws its tiles away when it sees a new value.
+    state.addProperty("w", this.worldToken);
     // Same sky brightness the HUD widget shades with, so both maps darken together at night.
     state.addProperty("day", num(this.renderer.dayTime()));
     state.addProperty("underground", this.renderer.isUnderground());

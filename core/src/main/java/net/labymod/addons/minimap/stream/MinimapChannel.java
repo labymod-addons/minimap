@@ -1,13 +1,13 @@
 package net.labymod.addons.minimap.stream;
 
 /**
- * The minimap's channel on top of the Phone HUD stream (see
+ * The minimap's channel on top of the external device stream (see
  * {@code net.labymod.api.externaldevice.ExternalDeviceService}: the core owns transport, pairing and the
  * generic widget snapshot; this addon only publishes its own frames):
  *
  * <ul>
  *   <li><b>Text</b> {@value #MSG_STATE} ({@value #STATE_HZ}&nbsp;Hz): {@code {"t":"state",
- *       "allowed":true,"x":..,"y":..,"z":..,"yaw":..,"players":[{"u":"..","n":"..","x":..,
+ *       "allowed":true,"w":0,"x":..,"y":..,"z":..,"yaw":..,"players":[{"u":"..","n":"..","x":..,
  *       "z":..}],"waypoints":[{"n":"..","x":..,"z":..,"color":..}]}}. {@code allowed} is
  *       {@code false} on blacklisted servers, the app greys the map out and tiles stop.</li>
  *   <li><b>Binary</b> tile frames ({@value #TILE_HZ}&nbsp;Hz, delta-only): one 16&times;16-block
@@ -32,6 +32,11 @@ package net.labymod.addons.minimap.stream;
  *
  * <p>The state additionally carries {@code day} (sky brightness 0..1 as the HUD shader uses it, 1
  * while the cave view is active) and {@code underground} (cave view on).
+ *
+ * <p>{@code w} is the world token: it counts up on every world, dimension and sub-server change,
+ * i.e. whenever the terrain behind a chunk coordinate is a different one. A device caches tiles
+ * beyond the streamed radius and cannot see that happen, so it MUST drop every cached tile and
+ * plane when the token changes; the addon re-sends its whole radius after such a change.
  */
 public final class MinimapChannel {
 
