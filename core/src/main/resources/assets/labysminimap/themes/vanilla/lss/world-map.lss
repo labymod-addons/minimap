@@ -103,16 +103,6 @@
       left: 13;
     }
 
-    .atlas-row-swatch {
-      renderer: "Background";
-      left: 4;
-      top: 50%;
-      alignment-y: center;
-      width: 5;
-      height: 5;
-      border-radius: 1;
-    }
-
     .atlas-row-icon {
       left: 3;
       top: 50%;
