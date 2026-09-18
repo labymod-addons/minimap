@@ -42,7 +42,11 @@ final class CaveLayer {
     this.uniformBlocks = uniformBlocks;
   }
 
-  void tick(ClientWorld world, ClientPlayer player) {
+  /**
+   * @param biomeBlend blocks that grass and foliage colors are averaged over
+   */
+  void tick(ClientWorld world, ClientPlayer player, int biomeBlend) {
+    this.compiler.setBiomeBlend(biomeBlend);
     Position position = player.position();
     int playerY = MathHelper.floor(position.getY());
     if (!this.hasBuilt || Math.abs(playerY - this.builtY) >= REBUILD_HEIGHT_DIFFERENCE) {

@@ -173,6 +173,10 @@ public class ChunkDataStorage {
     this.compilationService.setRoofed(roofed);
   }
 
+  public void setBiomeBlend(int radius) {
+    this.compilationService.setBiomeBlend(radius);
+  }
+
   public boolean shouldProcess() {
     return this.shouldProcess;
   }

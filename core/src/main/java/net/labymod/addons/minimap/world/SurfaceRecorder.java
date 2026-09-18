@@ -64,6 +64,13 @@ public final class SurfaceRecorder {
     }
   }
 
+  /**
+   * @param radius blocks that grass and foliage colors are averaged over
+   */
+  public void setBiomeBlend(int radius) {
+    this.compiler.setBiomeBlend(radius);
+  }
+
   public void tick(ClientWorld world, Sink sink) {
     if (++this.ticks % BLOCK_UPDATE_DELAY_TICKS == 0 && !this.delayed.isEmpty()) {
       this.queue.addAll(this.delayed);

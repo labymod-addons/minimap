@@ -11,6 +11,7 @@ import net.labymod.addons.minimap.laby3d.MinimapUniformBlocks;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.addons.minimap.map.v2.texture.SectionTextureRepository;
 import net.labymod.addons.minimap.world.MapLod;
+import net.labymod.addons.minimap.world.MapMode;
 import net.labymod.addons.minimap.world.MapRegion;
 import net.labymod.addons.minimap.world.MapRegionStore;
 import net.labymod.api.client.gui.screen.ScreenContext;
@@ -28,7 +29,8 @@ import org.jetbrains.annotations.Nullable;
  * Draws saved regions with shaded block textures when zoomed in and pre-shaded overviews of two,
  * four and eight blocks per pixel further out. Picks the level by physical pixels per block, so no
  * overview pixel gets much bigger than a screen pixel. Builds textures for at most 4 ms per frame
- * and frees the least recently drawn ones.
+ * and frees the least recently drawn ones. Map modes other than terrain draw a translucent overlay
+ * built from the loaded regions on top.
  */
 final class WorldMapRenderer {
 
@@ -41,6 +43,9 @@ final class WorldMapRenderer {
   private static final int MAX_FINE_TILES = 144;
   private static final int MAX_REGION_TILES = 512;
   private static final int MAX_GROUP_TILES = 64;
+  private static final int MAX_OVERLAY_TILES = 256;
+  private static final int MAX_FINE_OVERLAY_TILES = 16;
+  private static final int OVERLAY_SIZE = MapRegion.BLOCKS / MapRegion.BIOME_CELL_SIZE;
   private static final float MIN_DETAIL_PIXELS = 1.0F;
   private static final float MIN_FINE_PIXELS = 0.5F;
   private static final float MIN_REGION_PIXELS = 0.25F;
@@ -56,11 +61,15 @@ final class WorldMapRenderer {
   private final Long2ObjectLinkedOpenHashMap<LodTile> fineTiles = new Long2ObjectLinkedOpenHashMap<>();
   private final Long2ObjectLinkedOpenHashMap<LodTile> regionTiles = new Long2ObjectLinkedOpenHashMap<>();
   private final Long2ObjectLinkedOpenHashMap<LodTile> groupTiles = new Long2ObjectLinkedOpenHashMap<>();
+  private final Long2ObjectLinkedOpenHashMap<LodTile> overlayTiles = new Long2ObjectLinkedOpenHashMap<>();
+  private final Long2ObjectLinkedOpenHashMap<LodTile> fineOverlayTiles = new Long2ObjectLinkedOpenHashMap<>();
   private final int[] groupPixels = new int[MapLod.SIZE * MapLod.SIZE];
   @Nullable
   private DynamicTexture fadeTexture;
   @Nullable
   private MapRegionStore store;
+  private MapMode overlayMode = MapMode.TERRAIN;
+  private int overlayBlend;
   private long deadline;
   private int frame;
   private int nextTextureId;
@@ -128,11 +137,94 @@ final class WorldMapRenderer {
     this.trim(this.groupTiles, MAX_GROUP_TILES);
   }
 
+  /**
+   * Draws the mode's overlay on top of what {@link #render} drew this frame. Skips it when zoomed
+   * out too far, since it would have to load every shown region.
+   */
+  void renderOverlay(
+      ScreenContext context,
+      MapRegionStore store,
+      WorldMapCamera camera,
+      float width, float height,
+      float pixelScale,
+      MapMode mode,
+      int biomeBlend
+  ) {
+    if (mode != this.overlayMode || biomeBlend != this.overlayBlend) {
+      disposeTiles(this.overlayTiles);
+      disposeTiles(this.fineOverlayTiles);
+      this.overlayMode = mode;
+      this.overlayBlend = biomeBlend;
+    }
+
+    if (mode == MapMode.TERRAIN) {
+      return;
+    }
+
+    int minRegionX = MathHelper.floor(camera.screenToWorldX(0.0F, width)) >> MapRegion.BLOCK_SHIFT;
+    int minRegionZ = MathHelper.floor(camera.screenToWorldZ(0.0F, height)) >> MapRegion.BLOCK_SHIFT;
+    int maxRegionX = MathHelper.floor(camera.screenToWorldX(width, width)) >> MapRegion.BLOCK_SHIFT;
+    int maxRegionZ = MathHelper.floor(camera.screenToWorldZ(height, height)) >> MapRegion.BLOCK_SHIFT;
+    if ((maxRegionX - minRegionX + 1) * (maxRegionZ - minRegionZ + 1) > MAX_OVERLAY_TILES) {
+      return;
+    }
+
+    boolean fine = camera.scale() * pixelScale >= MIN_DETAIL_PIXELS;
+    Long2ObjectLinkedOpenHashMap<LodTile> tiles = fine ? this.fineOverlayTiles : this.overlayTiles;
+    ScreenCanvas canvas = context.canvas();
+    float size = MapRegion.BLOCKS * camera.scale();
+    for (int regionX = minRegionX; regionX <= maxRegionX; regionX++) {
+      for (int regionZ = minRegionZ; regionZ <= maxRegionZ; regionZ++) {
+        long key = MapRegion.key(regionX, regionZ);
+        LodTile tile = tiles.getAndMoveToLast(key);
+        if (!store.isStored(regionX, regionZ)) {
+          if (tile != null) {
+            tiles.remove(key);
+            tile.dispose();
+          }
+
+          continue;
+        }
+
+        // A built tile only updates while its region is loaded anyway. Loading regions just to
+        // check for changes would reload them nonstop while panning
+        MapRegion region = tile == null
+            ? store.getRegion(regionX, regionZ)
+            : store.loadedRegion(regionX, regionZ);
+        if (region != null
+            && (tile == null || tile.signature != region.revision())
+            && System.nanoTime() < this.deadline) {
+          if (tile == null) {
+            tile = new LodTile(this.nextTextureId++, fine ? MapRegion.BLOCKS : OVERLAY_SIZE);
+            tiles.putAndMoveToLast(key, tile);
+          }
+
+          tile.fill(mode.overlay(region, tile.size, biomeBlend));
+          tile.signature = region.revision();
+        }
+
+        if (tile != null) {
+          this.drawLod(
+              canvas, tile,
+              camera.worldToScreenX((double) regionX * MapRegion.BLOCKS, width),
+              camera.worldToScreenY((double) regionZ * MapRegion.BLOCKS, height),
+              size
+          );
+        }
+      }
+    }
+
+    this.trim(this.overlayTiles, MAX_OVERLAY_TILES);
+    this.trim(this.fineOverlayTiles, MAX_FINE_OVERLAY_TILES);
+  }
+
   void dispose() {
     disposeTiles(this.detailTiles);
     disposeTiles(this.fineTiles);
     disposeTiles(this.regionTiles);
     disposeTiles(this.groupTiles);
+    disposeTiles(this.overlayTiles);
+    disposeTiles(this.fineOverlayTiles);
     if (this.fadeTexture != null) {
       Tile.dispose(this.fadeTexture);
       this.fadeTexture = null;
@@ -243,6 +335,12 @@ final class WorldMapRenderer {
         long key = MapRegion.key(regionX, regionZ);
         LodTile tile = tiles.getAndMoveToLast(key);
         if (lod == null) {
+          if (tile != null && !store.isStored(regionX, regionZ)) {
+            tiles.remove(key);
+            tile.dispose();
+            continue;
+          }
+
           // An evicted overview is reloading, keep drawing what was uploaded
           if (tile != null) {
             this.drawLod(

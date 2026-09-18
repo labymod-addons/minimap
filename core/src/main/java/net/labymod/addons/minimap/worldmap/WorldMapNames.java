@@ -44,8 +44,11 @@ final class WorldMapNames {
     return name.toString();
   }
 
-  static String subWorld(MapWorldKey key) {
-    return I18n.getTranslation(I18N_PREFIX + "subWorld", key.subWorld() + 1);
+  /**
+   * @param name the name the player gave it, {@code null} if none
+   */
+  static String subWorld(MapWorldKey key, @Nullable String name) {
+    return name == null ? I18n.getTranslation(I18N_PREFIX + "subWorld", key.subWorld() + 1) : name;
   }
 
   /**

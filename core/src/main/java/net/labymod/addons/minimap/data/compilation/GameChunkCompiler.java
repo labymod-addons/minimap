@@ -34,6 +34,7 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
   // Not pure black, so fully solid chunks aren't mistaken for chunks without blocks
   private static final int ROOF_ROCK_COLOR = 0xFF1C1616;
   private static final int WATER_MAX_DEPTH = 10;
+  private static final int DEFAULT_BIOME_BLEND = 2;
   private final Map<Block, Boolean> visibilityCache = new IdentityHashMap<>();
   private final BlockColorProvider blockColorProvider;
   private final ClientWorld level;
@@ -42,6 +43,7 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
   private int playerZ;
   private boolean underground;
   private boolean roofed;
+  private int biomeBlend = DEFAULT_BIOME_BLEND;
 
   public GameChunkCompiler() {
     ReferenceStorage references = Laby.references();
@@ -81,6 +83,11 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
   @Override
   public void setRoofed(boolean roofed) {
     this.roofed = roofed;
+  }
+
+  @Override
+  public void setBiomeBlend(int radius) {
+    this.biomeBlend = radius;
   }
 
   /**
@@ -268,7 +275,12 @@ public class GameChunkCompiler implements ChunkCompiler<GameChunkData> {
 
   private int getColor(ColorFormat format, BlockState state) {
     int baseColor = this.blockColorProvider.getColor(state);
-    int multiplier = this.blockColorProvider.getColorMultiplier(state);
+    // LabyMod averages along a cross around the block, the z range is exclusive at the end
+    int multiplier = this.blockColorProvider.getColorMultiplier(
+        state,
+        -this.biomeBlend, -this.biomeBlend,
+        this.biomeBlend, this.biomeBlend + 1
+    );
 
     float redMultiplier = format.normalizedRed(multiplier);
     float greenMultiplier = format.normalizedGreen(multiplier);

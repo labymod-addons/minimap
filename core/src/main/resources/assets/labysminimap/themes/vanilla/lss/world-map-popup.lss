@@ -1,0 +1,7 @@
+.popup-container {
+  .world-name {
+    width: 150;
+    height: 20;
+    alignment-x: center;
+  }
+}

@@ -18,6 +18,7 @@ public class CompilationService {
   private int playerZ;
   private boolean underground;
   private boolean roofed;
+  private int biomeBlend;
 
   public CompilationService() {
     this.compilers = new ArrayList<>();
@@ -36,6 +37,7 @@ public class CompilationService {
       if (compiler.isCompatible(data)) {
         compiler.setPlayerPosition(this.playerX, this.playerY, this.playerZ, this.underground);
         compiler.setRoofed(this.roofed);
+        compiler.setBiomeBlend(this.biomeBlend);
         compiler.compile(data);
         this.compiled.put(chunkId, data);
         compiled = true;
@@ -63,6 +65,10 @@ public class CompilationService {
 
   public void setRoofed(boolean roofed) {
     this.roofed = roofed;
+  }
+
+  public void setBiomeBlend(int radius) {
+    this.biomeBlend = radius;
   }
 
   private void registerCompiler(ChunkCompiler<?> compiler) {
