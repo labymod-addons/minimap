@@ -7,6 +7,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import net.labymod.addons.minimap.api.util.Util;
+import net.labymod.addons.minimap.server.RemotePlayers.PlayerAction;
 import net.labymod.addons.minimap.world.MapMode;
 import net.labymod.addons.minimap.world.MapWorldKey;
 import net.labymod.addons.minimap.world.WorldMapService;
@@ -426,7 +427,9 @@ public final class WorldMapAtlasWidget extends DivWidget {
       DivWidget row = row(name, detail);
       row.addChild(icon);
       UUID uuid = player.uuid();
+      String playerName = player.name();
       this.makePressable(row, () -> this.actions.focusPlayer(uuid));
+      row.createContextMenuLazy(menu -> this.fillPlayerMenu(menu, uuid, playerName));
       rows.add(row);
       this.playerRows.add(new PlayerRow(uuid, detail));
     }
@@ -437,6 +440,16 @@ public final class WorldMapAtlasWidget extends DivWidget {
       } else {
         this.playerList.addChild(row);
       }
+    }
+  }
+
+  private void fillPlayerMenu(ContextMenu menu, UUID uuid, String name) {
+    menu.addEntry(menuEntry(
+        Component.translatable(MENU_I18N_PREFIX + "follow"),
+        () -> this.actions.followPlayer(uuid, name)
+    ));
+    for (PlayerAction action : this.actions.playerActions()) {
+      menu.addEntry(menuEntry(action.name(), () -> this.actions.runPlayerAction(action.id(), uuid)));
     }
   }
 
@@ -657,6 +670,15 @@ public final class WorldMapAtlasWidget extends DivWidget {
     void focusWaypoint(WorldMapWaypoint waypoint);
 
     void focusPlayer(UUID uuid);
+
+    void followPlayer(UUID uuid, String name);
+
+    /**
+     * @return the actions the server offers for players
+     */
+    List<PlayerAction> playerActions();
+
+    void runPlayerAction(String action, UUID player);
 
     void editWaypoint(WorldMapWaypoint waypoint);
 

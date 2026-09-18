@@ -14,6 +14,7 @@ import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.laby3d.MinimapUniformBlocks;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.addons.minimap.server.RemotePlayers;
+import net.labymod.addons.minimap.server.RemotePlayers.PlayerAction;
 import net.labymod.addons.minimap.server.RemotePlayers.RemotePlayer;
 import net.labymod.addons.minimap.world.MapMode;
 import net.labymod.addons.minimap.world.MapRegion;
@@ -28,6 +29,7 @@ import net.labymod.api.client.Minecraft;
 import net.labymod.api.client.component.Component;
 import net.labymod.api.client.component.event.ClickEvent;
 import net.labymod.api.client.component.format.TextDecoration;
+import net.labymod.api.client.component.serializer.plain.PlainTextComponentSerializer;
 import net.labymod.api.client.entity.Entity;
 import net.labymod.api.client.entity.LivingEntity;
 import net.labymod.api.client.entity.player.ClientPlayer;
@@ -186,6 +188,16 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private float zoomButtonX;
   private float zoomInY;
   private float zoomOutY;
+  @Nullable
+  private UUID hoveredPlayer;
+  private String hoveredPlayerName = "";
+  private float hoveredPlayerX;
+  private float hoveredPlayerY;
+  @Nullable
+  private UUID followedPlayer;
+  private String followedPlayerName = "";
+  private double locatedX;
+  private double locatedZ;
 
   public WorldMapActivity(
       MinimapConfigProvider configProvider,
@@ -578,7 +590,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     if (key == Key.SPACE && this.isViewingActive()) {
-      this.camera.setFollowing(true);
+      this.setFollowing(true);
       return true;
     }
 
@@ -592,6 +604,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
   @Override
   public void showWorld(MapWorldKey key) {
+    this.followedPlayer = null;
     String previous = this.viewKey == null ? null : this.viewKey.dimension();
     this.viewKey = key;
     this.followActive = key.equals(this.service.activeKey());
@@ -611,6 +624,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
   @Override
   public void setFollowing(boolean following) {
+    this.followedPlayer = null;
     this.camera.setFollowing(following);
   }
 
@@ -718,6 +732,23 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   }
 
   @Override
+  public void followPlayer(UUID uuid, String name) {
+    this.followedPlayer = uuid;
+    this.followedPlayerName = name;
+    this.camera.setFollowing(true);
+  }
+
+  @Override
+  public List<PlayerAction> playerActions() {
+    return this.remotePlayers.actions();
+  }
+
+  @Override
+  public void runPlayerAction(String action, UUID player) {
+    this.remotePlayers.runAction(action, player);
+  }
+
+  @Override
   public void focusPlayer(UUID uuid) {
     for (WorldMapPlayer player : this.knownPlayers()) {
       if (player.uuid().equals(uuid)) {
@@ -779,7 +810,28 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       this.cameraPlaced = true;
     }
 
-    this.camera.update(width, height, current && player != null, playerX, playerZ);
+    // Panning or following yourself stops following another player
+    if (!this.camera.isFollowing()) {
+      this.followedPlayer = null;
+    }
+
+    boolean canFollow = current && player != null;
+    double followX = playerX;
+    double followZ = playerZ;
+    if (this.followedPlayer != null) {
+      if (this.locatePlayer(minecraft, this.followedPlayer, partialTicks)) {
+        followX = this.locatedX;
+        followZ = this.locatedZ;
+        canFollow = true;
+      } else {
+        // Left the shown dimension or the server stopped reporting them
+        this.followedPlayer = null;
+        this.camera.setFollowing(false);
+        canFollow = false;
+      }
+    }
+
+    this.camera.update(width, height, canFollow, followX, followZ);
 
     MapRegionStore store = this.service.openView(this.viewKey);
     Window window = minecraft.minecraftWindow();
@@ -816,9 +868,14 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     this.renderWaypoints(context, width, height, mouse.getX(), mouse.getY());
-    this.renderRemotePlayers(context.canvas(), minecraft, width, height);
+    this.hoveredPlayer = null;
+    this.renderRemotePlayers(context.canvas(), minecraft, width, height, mouse.getX(), mouse.getY());
     if (current && player != null) {
-      this.renderPlayers(context, minecraft, player, width, height, partialTicks, playerX, playerZ);
+      this.renderPlayers(context, minecraft, player, width, height, partialTicks, playerX, playerZ, mouse);
+    }
+
+    if (this.hoveredPlayer != null) {
+      this.renderPlayerName(context.canvas());
     }
 
     ScreenCanvas canvas = context.canvas();
@@ -931,7 +988,13 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.cavePillX = width - CHROME_MARGIN - this.cavePillWidth;
     this.renderPill(canvas, caveText, this.cavePillX, this.cavePillWidth, caves, alpha);
 
-    String followText = I18n.getTranslation(I18N_PREFIX + (following ? "following" : "freeCamera"));
+    String followText;
+    if (following && this.followedPlayer != null) {
+      followText = I18n.getTranslation(I18N_PREFIX + "followingPlayer", this.followedPlayerName);
+    } else {
+      followText = I18n.getTranslation(I18N_PREFIX + (following ? "following" : "freeCamera"));
+    }
+
     this.followPillWidth = canvas.getTextWidth(followText) * this.textScale + 10.0F;
     this.followPillX = this.cavePillX - 4.0F - this.followPillWidth;
     this.renderPill(canvas, followText, this.followPillX, this.followPillWidth, following, alpha);
@@ -1212,7 +1275,12 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   /**
    * Draws the players the server reported that the client can't see itself.
    */
-  private void renderRemotePlayers(ScreenCanvas canvas, Minecraft minecraft, float width, float height) {
+  private void renderRemotePlayers(
+      ScreenCanvas canvas,
+      Minecraft minecraft,
+      float width, float height,
+      float mouseX, float mouseY
+  ) {
     if (!this.showsPlayers() || !this.configuration.worldMapPlayers().get()) {
       return;
     }
@@ -1238,8 +1306,77 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       float y = this.camera.worldToScreenY(player.z(now), height);
       if (this.isOnScreen(x, y, width, height, PLAYER_HEAD_SIZE)) {
         canvas.submitIcon(player.head(), x - halfHead, y - halfHead, PLAYER_HEAD_SIZE, PLAYER_HEAD_SIZE);
+        this.hoverPlayer(player.uuid(), player.name(), x, y, mouseX, mouseY);
       }
     }
+  }
+
+  private void hoverPlayer(UUID uuid, String name, float x, float y, float mouseX, float mouseY) {
+    float deltaX = mouseX - x;
+    float deltaY = mouseY - y;
+    float radius = PLAYER_HEAD_SIZE / 2.0F + 1.0F;
+    if (deltaX * deltaX + deltaY * deltaY > radius * radius
+        || this.wheel != null
+        || this.dragging
+        || this.selectingChunks
+        || this.isPopupOpen()
+        || mouseX < this.atlasRight()) {
+      return;
+    }
+
+    this.hoveredPlayer = uuid;
+    this.hoveredPlayerName = name;
+    this.hoveredPlayerX = x;
+    this.hoveredPlayerY = y;
+  }
+
+  private void renderPlayerName(ScreenCanvas canvas) {
+    float scale = WorldMapTheme.get().textScale(WAYPOINT_TITLE_SCALE, PredefinedFontSize.MEDIUM);
+    // The faces have their own layer, so the name needs a later one to stay on top
+    canvas.nextLayer();
+    canvas.submitText(
+        this.hoveredPlayerName,
+        this.hoveredPlayerX,
+        this.hoveredPlayerY - PLAYER_HEAD_SIZE / 2.0F - canvas.getLineHeight() * scale - 1.0F,
+        TEXT_COLOR,
+        scale,
+        TextRenderingOptions.SHADOW | TextRenderingOptions.CENTERED
+    );
+  }
+
+  /**
+   * Finds another player in the shown dimension and stores the position in {@link #locatedX} and
+   * {@link #locatedZ}.
+   *
+   * @return whether the player was found
+   */
+  private boolean locatePlayer(Minecraft minecraft, UUID uuid, float partialTicks) {
+    if (this.isViewingActive()) {
+      for (Player player : minecraft.clientWorld().getPlayers()) {
+        if (player.getUniqueId().equals(uuid)) {
+          Position position = player.position();
+          Position previous = player.previousPosition();
+          this.locatedX = position.lerpX(previous, partialTicks);
+          this.locatedZ = position.lerpZ(previous, partialTicks);
+          return true;
+        }
+      }
+    }
+
+    RemotePlayer remote = this.remotePlayers.get(uuid);
+    if (remote == null || !this.showsPlayers() || !remote.dimension().equals(this.viewKey.dimension())) {
+      return false;
+    }
+
+    MapWorldKey active = this.service.activeKey();
+    if (this.viewKey.dimension().equals(active.dimension()) && !this.viewKey.equals(active)) {
+      return false;
+    }
+
+    long now = System.nanoTime();
+    this.locatedX = remote.x(now);
+    this.locatedZ = remote.z(now);
+    return true;
   }
 
   /**
@@ -1312,7 +1449,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       ClientPlayer self,
       float width, float height,
       float partialTicks,
-      double selfX, double selfZ
+      double selfX, double selfZ,
+      MutableMouse mouse
   ) {
     MinimapHudWidgetConfig config = this.configProvider.hudWidgetConfig();
     ScreenCanvas canvas = context.canvas();
@@ -1337,6 +1475,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
               -1,
               true
           );
+          this.hoverPlayer(player.getUniqueId(), player.getName(), x, y, mouse.getX(), mouse.getY());
         }
       }
     }
@@ -1417,7 +1556,30 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     List<WorldMapWheel.Entry> entries = new ArrayList<>();
     WorldMapWaypoints waypoints = this.service.waypoints();
     WorldMapWaypoint waypoint = this.hoveredWaypoint;
+    UUID hoveredPlayer = this.hoveredPlayer;
     Component title;
+    if (hoveredPlayer != null) {
+      String name = this.hoveredPlayerName;
+      title = Component.text(name);
+      entries.add(wheelEntry(SpriteCommon.MOVE, "followPlayer", () -> this.followPlayer(hoveredPlayer, name)));
+      PlainTextComponentSerializer serializer = PlainTextComponentSerializer.plainText();
+      for (PlayerAction action : this.remotePlayers.actions()) {
+        entries.add(new WorldMapWheel.Entry(
+            SpriteCommon.ARROW_RIGHT,
+            serializer.serialize(action.name()),
+            () -> this.remotePlayers.runAction(action.id(), hoveredPlayer)
+        ));
+      }
+
+      this.wheel = new WorldMapWheel(
+          MathHelper.clamp(mouseX, WorldMapWheel.RADIUS, width - WorldMapWheel.RADIUS),
+          MathHelper.clamp(mouseY, WorldMapWheel.RADIUS, height - WorldMapWheel.RADIUS - WorldMapWheel.TITLE_SPACE),
+          title,
+          entries
+      );
+      return;
+    }
+
     if (waypoints != null && waypoint != null) {
       title = waypoint.title();
       entries.add(wheelEntry(SpriteCommon.EDIT, "edit", () -> this.editWaypoint(waypoint)));
@@ -1450,7 +1612,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         () -> Laby.labyAPI().minecraft().setClipboard(blockX + " " + blockY + " " + blockZ)
     ));
     if (this.isViewingActive()) {
-      entries.add(wheelEntry(SpriteCommon.MOVE, "follow", () -> this.camera.setFollowing(true)));
+      entries.add(wheelEntry(SpriteCommon.MOVE, "follow", () -> this.setFollowing(true)));
     }
 
     this.wheel = new WorldMapWheel(

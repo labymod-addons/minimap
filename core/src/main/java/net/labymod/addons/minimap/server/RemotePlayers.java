@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.labymod.addons.minimap.server.MinimapPlayersPacket.Entry;
+import net.labymod.api.client.component.Component;
 import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.network.server.ServerDisconnectEvent;
@@ -15,16 +16,22 @@ import net.labymod.api.event.client.world.WorldEnterEvent;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Players the server reported with {@link MinimapPlayersPacket}. Servers send positions far less
- * often than every tick, so each player glides from where it is drawn to the new position over the
- * time since its previous one. Call every method on the render thread.
+ * Players the server reported with {@link MinimapPlayersPacket} and the actions it offers for them.
+ * Servers send positions less often than every tick, so each player glides from where it is drawn
+ * to the new position over the time since its previous one. Call every method on the render thread.
  */
 public final class RemotePlayers {
 
   private static final long MIN_INTERVAL_NANOS = 50_000_000L;
   private static final long MAX_INTERVAL_NANOS = 5_000_000_000L;
 
+  private final MinimapServers servers;
   private final Map<UUID, RemotePlayer> players = new HashMap<>();
+  private List<PlayerAction> actions = List.of();
+
+  RemotePlayers(MinimapServers servers) {
+    this.servers = servers;
+  }
 
   public Collection<RemotePlayer> players() {
     return this.players.values();
@@ -33,6 +40,21 @@ public final class RemotePlayers {
   @Nullable
   public RemotePlayer get(UUID uuid) {
     return this.players.get(uuid);
+  }
+
+  public List<PlayerAction> actions() {
+    return this.actions;
+  }
+
+  /**
+   * Asks the server to run one of its {@link #actions()} on a player.
+   */
+  public void runAction(String action, UUID player) {
+    this.servers.send(new MinimapPlayerActionPacket(action, player));
+  }
+
+  void setActions(List<PlayerAction> actions) {
+    this.actions = actions;
   }
 
   void update(List<Entry> entries) {
@@ -58,17 +80,29 @@ public final class RemotePlayers {
 
   @Subscribe
   public void onWorldEnter(WorldEnterEvent event) {
-    this.players.clear();
+    this.clear();
   }
 
   @Subscribe
   public void onSubServerSwitch(SubServerSwitchEvent event) {
-    this.players.clear();
+    this.clear();
   }
 
   @Subscribe
   public void onServerDisconnect(ServerDisconnectEvent event) {
+    this.clear();
+  }
+
+  private void clear() {
     this.players.clear();
+    this.actions = List.of();
+  }
+
+  /**
+   * @param id sent back to the server when the player chooses the action
+   */
+  public record PlayerAction(String id, Component name) {
+
   }
 
   public static final class RemotePlayer {

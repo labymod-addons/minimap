@@ -20,6 +20,7 @@
       "subWorldNamed": "%s (%s of %s)",
       "following": "Following",
       "freeCamera": "Free camera",
+      "followingPlayer": "Following %s",
       "caveOn": "Caves on",
       "caveOff": "Caves off",
       "chunk": "Chunk %s, %s",
@@ -45,7 +46,8 @@
         "follow": "Follow",
         "clearRegion": "Clear region",
         "clearChunks": "Clear area",
-        "measure": "Measure"
+        "measure": "Measure",
+        "followPlayer": "Follow"
       },
       "rename": {
         "title": "Rename world",
@@ -105,7 +107,8 @@
           "hide": "Hide",
           "rename": "Rename",
           "mergeInto": "Merge into",
-          "clearMap": "Clear map"
+          "clearMap": "Clear map",
+          "follow": "Follow"
         },
         "goTo": "Go to coordinates",
         "players": "Players (%s)",
