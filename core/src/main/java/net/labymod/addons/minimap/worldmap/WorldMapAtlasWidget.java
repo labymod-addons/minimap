@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import net.labymod.addons.minimap.api.util.Util;
+import net.labymod.addons.minimap.world.MapMode;
 import net.labymod.addons.minimap.world.MapWorldKey;
 import net.labymod.addons.minimap.world.WorldMapService;
 import net.labymod.addons.minimap.world.WorldMapWaypoint;
@@ -17,6 +18,7 @@ import net.labymod.api.client.gui.lss.property.annotation.AutoWidget;
 import net.labymod.api.client.gui.screen.Parent;
 import net.labymod.api.client.gui.screen.widget.Widget;
 import net.labymod.api.client.gui.screen.widget.action.Switchable;
+import net.labymod.api.client.component.format.NamedTextColor;
 import net.labymod.api.client.gui.screen.widget.context.ContextMenu;
 import net.labymod.api.client.gui.screen.widget.context.ContextMenuEntry;
 import net.labymod.api.client.gui.screen.widget.cursor.CursorTypes;
@@ -33,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Side panel of the world map with dimensions, sub-worlds, view options and the waypoints of the
- * shown dimension.
+ * shown dimension. Dimension tabs and sub-world rows have a context menu to manage the saved maps.
  */
 @AutoWidget
 public final class WorldMapAtlasWidget extends DivWidget {
@@ -51,6 +53,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
   @Nullable
   private final MapWorldKey activeKey;
   private final boolean current;
+  private final MapMode mode;
   @Nullable
   private final List<WorldMapWaypoint> waypoints;
   private final List<WaypointRow> waypointRows = new ArrayList<>();
@@ -84,6 +87,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
       boolean caveLayer,
       boolean chunkGrid,
       boolean entities,
+      MapMode mode,
       @Nullable List<WorldMapWaypoint> waypoints,
       String filter
   ) {
@@ -97,6 +101,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.caveLayer = caveLayer;
     this.chunkGrid = chunkGrid;
     this.entities = entities;
+    this.mode = mode;
     this.waypoints = waypoints == null ? null : new ArrayList<>(waypoints);
     this.filter = filter;
   }
@@ -186,7 +191,13 @@ public final class WorldMapAtlasWidget extends DivWidget {
         this.makePressable(tab, () -> this.actions.showWorld(key));
       }
 
-      tab.addChild(ComponentWidget.text(WorldMapNames.dimension(key.dimension())));
+      String name = WorldMapNames.dimension(key.dimension());
+      List<MapWorldKey> subWorlds = WorldMapNames.subWorlds(this.keys, key.dimension());
+      tab.createContextMenuLazy(menu -> menu.addEntry(dangerEntry(
+          Component.translatable(MENU_I18N_PREFIX + "clearMap"),
+          () -> this.actions.clearWorlds(subWorlds, Component.text(name))
+      )));
+      tab.addChild(ComponentWidget.text(name));
       tabs.addFlexibleContent(tab);
     }
 
@@ -204,8 +215,9 @@ public final class WorldMapAtlasWidget extends DivWidget {
       String detail = key.equals(this.activeKey)
           ? I18n.getTranslation(I18N_PREFIX + "hereNow")
           : this.formatLastUsed(this.service.lastUsed(key));
+      String name = WorldMapNames.subWorld(key, this.service.worldName(key));
       DivWidget row = row(
-          ComponentWidget.text(WorldMapNames.subWorld(key)),
+          ComponentWidget.text(name),
           detail == null ? null : ComponentWidget.text(detail)
       );
       if (key.equals(this.viewKey)) {
@@ -214,12 +226,57 @@ public final class WorldMapAtlasWidget extends DivWidget {
         this.makePressable(row, () -> this.actions.showWorld(key));
       }
 
+      row.createContextMenuLazy(menu -> this.fillSubWorldMenu(menu, key, name, subWorlds));
       content.addChild(row);
     }
   }
 
+  private void fillSubWorldMenu(ContextMenu menu, MapWorldKey key, String name, List<MapWorldKey> subWorlds) {
+    menu.addEntry(menuEntry(
+        Component.translatable(MENU_I18N_PREFIX + "rename"),
+        () -> this.actions.renameWorld(key)
+    ));
+    menu.addEntry(ContextMenuEntry.builder()
+        .text(Component.translatable(MENU_I18N_PREFIX + "mergeInto"))
+        .subMenu(() -> {
+          ContextMenu targets = new ContextMenu();
+          for (MapWorldKey target : subWorlds) {
+            if (!target.equals(key)) {
+              String targetName = WorldMapNames.subWorld(target, this.service.worldName(target));
+              targets.addEntry(menuEntry(
+                  Component.text(targetName),
+                  () -> this.actions.mergeWorlds(key, name, target, targetName)
+              ));
+            }
+          }
+
+          return targets;
+        })
+        .build());
+    menu.addEntry(dangerEntry(
+        Component.translatable(MENU_I18N_PREFIX + "clearMap"),
+        () -> this.actions.clearWorlds(List.of(key), Component.text(name))
+    ));
+  }
+
   private void addViewOptions(VerticalListWidget<Widget> content) {
     content.addChild(label("view"));
+    FlexibleContentWidget modes = new FlexibleContentWidget();
+    modes.addId("atlas-tabs");
+    for (MapMode mode : MapMode.values()) {
+      DivWidget tab = new DivWidget();
+      tab.addId("atlas-tab");
+      if (mode == this.mode) {
+        tab.addId("atlas-tab-active");
+      } else {
+        this.makePressable(tab, () -> this.actions.setMode(mode));
+      }
+
+      tab.addChild(ComponentWidget.i18n(I18N_PREFIX + "mode." + mode.name().toLowerCase(Locale.ROOT)));
+      modes.addFlexibleContent(tab);
+    }
+
+    content.addChild(modes);
     if (this.current) {
       this.followToggle = this.addToggle(content, "follow", this.following, this.actions::setFollowing);
       this.caveToggle = this.addToggle(content, "caves", this.caveLayer, this.actions::setCaveLayer);
@@ -227,6 +284,10 @@ public final class WorldMapAtlasWidget extends DivWidget {
     }
 
     this.gridToggle = this.addToggle(content, "chunkGrid", this.chunkGrid, this.actions::setChunkGrid);
+
+    DivWidget export = row(ComponentWidget.i18n(I18N_PREFIX + "export"), null);
+    this.makePressable(export, this.actions::exportImage);
+    content.addChild(export);
   }
 
   private WorldMapToggleWidget addToggle(
@@ -354,6 +415,10 @@ public final class WorldMapAtlasWidget extends DivWidget {
     return I18n.getTranslation(I18N_PREFIX + "daysAgo", elapsed / DAY_MILLIS);
   }
 
+  private static ContextMenuEntry dangerEntry(Component text, Runnable action) {
+    return menuEntry(text.color(NamedTextColor.RED), action);
+  }
+
   private static ContextMenuEntry menuEntry(Component text, Runnable action) {
     return ContextMenuEntry.builder()
         .text(text)
@@ -402,6 +467,21 @@ public final class WorldMapAtlasWidget extends DivWidget {
     void setChunkGrid(boolean enabled);
 
     void setEntities(boolean enabled);
+
+    void setMode(MapMode mode);
+
+    void exportImage();
+
+    void renameWorld(MapWorldKey key);
+
+    void mergeWorlds(MapWorldKey source, String sourceName, MapWorldKey target, String targetName);
+
+    /**
+     * Asks before deleting the saved maps.
+     *
+     * @param name what the confirmation calls them
+     */
+    void clearWorlds(List<MapWorldKey> keys, Component name);
 
     void focusWaypoint(WorldMapWaypoint waypoint);
 

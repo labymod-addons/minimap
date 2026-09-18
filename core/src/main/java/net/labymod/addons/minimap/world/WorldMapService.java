@@ -3,15 +3,24 @@ package net.labymod.addons.minimap.world;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import net.labymod.addons.minimap.MinimapAddon;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.data.GameChunkData;
@@ -54,6 +63,8 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
   private static final int MATCH_SAMPLES = 16;
   private static final int MATCH_TIMEOUT_TICKS = 200;
   private static final String DIMENSION_FILE = "dimension.id";
+  private static final String NAME_FILE = "name";
+  private static final String EXPORT_DIRECTORY = "screenshots";
   private static final long SHUTDOWN_TIMEOUT_SECONDS = 5L;
   private static final Comparator<MapWorldKey> KEY_ORDER = Comparator
       .comparing(MapWorldKey::dimension)
@@ -65,6 +76,7 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
   private final SurfaceRecorder recorder = new SurfaceRecorder();
   private final Queue<Runnable> completions = new ConcurrentLinkedQueue<>();
   private final List<ChunkSample> samples = new ArrayList<>();
+  private final Map<MapWorldKey, String> names = new HashMap<>();
 
   @Nullable
   private MapWorldKey resolvingKey;
@@ -156,6 +168,7 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
       this.tickResolving();
     }
 
+    this.recorder.setBiomeBlend(this.addon.configuration().biomeBlend().get());
     this.recorder.tick(minecraft.clientWorld(), this);
 
     int flushInterval = this.viewing ? VIEWING_FLUSH_INTERVAL_TICKS : FLUSH_INTERVAL_TICKS;
@@ -273,6 +286,140 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
     return SubWorldMatcher.lastUsed(key.directory(this.root));
   }
 
+  /**
+   * @return the name the player gave the sub-world, {@code null} if none
+   */
+  @Nullable
+  public String worldName(MapWorldKey key) {
+    String name = this.names.get(key);
+    if (name == null) {
+      try {
+        name = Files.readString(key.directory(this.root).resolve(NAME_FILE)).trim();
+      } catch (IOException exception) {
+        name = "";
+      }
+
+      this.names.put(key, name);
+    }
+
+    return name.isEmpty() ? null : name;
+  }
+
+  public void renameWorld(MapWorldKey key, String name) {
+    this.names.put(key, name);
+    Path file = key.directory(this.root).resolve(NAME_FILE);
+    byte[] data = name.getBytes(StandardCharsets.UTF_8);
+    this.executor.execute(() -> {
+      try {
+        if (name.isEmpty()) {
+          Files.deleteIfExists(file);
+        } else {
+          MapRegionStore.writeAtomically(file, data);
+        }
+      } catch (IOException exception) {
+        LOGGER.error("Failed to save map name {}", file, exception);
+      }
+    });
+  }
+
+  /**
+   * Deletes everything saved for the sub-worlds. Recording starts over if the player is in one of
+   * them.
+   *
+   * @param done runs on the render thread once the files are gone
+   */
+  public void deleteWorlds(List<MapWorldKey> keys, Runnable done) {
+    boolean active = this.release(keys);
+    List<Path> directories = new ArrayList<>();
+    for (MapWorldKey key : keys) {
+      directories.add(key.directory(this.root));
+      this.names.remove(key);
+    }
+
+    this.executor.execute(() -> {
+      for (Path directory : directories) {
+        try {
+          deleteRecursively(directory);
+        } catch (IOException exception) {
+          LOGGER.error("Failed to delete map {}", directory, exception);
+        }
+      }
+
+      this.completions.add(done);
+    });
+    this.restartRecording(active);
+  }
+
+  /**
+   * Moves the source sub-world into the target. Where both saved a chunk, the one used more
+   * recently wins.
+   *
+   * @param done runs on the render thread once the source is gone
+   */
+  public void mergeWorlds(MapWorldKey source, MapWorldKey target, Runnable done) {
+    boolean active = this.release(List.of(source, target));
+    this.names.remove(source);
+    Path sourceDirectory = source.directory(this.root);
+    Path targetDirectory = target.directory(this.root);
+    this.executor.execute(() -> {
+      try {
+        long sourceUse = SubWorldMatcher.lastUsed(sourceDirectory);
+        long targetUse = SubWorldMatcher.lastUsed(targetDirectory);
+        MapRegionStore.merge(sourceDirectory, targetDirectory, sourceUse > targetUse);
+        if (sourceUse > targetUse) {
+          MapRegionStore.writeAtomically(
+              targetDirectory.resolve(SubWorldMatcher.LAST_USED_FILE),
+              Long.toString(sourceUse).getBytes(StandardCharsets.UTF_8)
+          );
+        }
+
+        deleteRecursively(sourceDirectory);
+      } catch (IOException exception) {
+        LOGGER.error("Failed to merge map {} into {}", sourceDirectory, targetDirectory, exception);
+      }
+
+      this.completions.add(done);
+    });
+    this.restartRecording(active);
+  }
+
+  /**
+   * Saves a rectangle of the key's map as a PNG in the screenshots folder.
+   *
+   * @param blocksPerPixel how many blocks one pixel covers
+   * @param done           gets the written file, or {@code null} if it failed. Runs on the render
+   *                       thread.
+   */
+  public void exportImage(
+      MapWorldKey key,
+      MapMode mode,
+      int biomeBlend,
+      double minX, double minZ,
+      double blocksPerPixel,
+      int width, int height,
+      Consumer<@Nullable Path> done
+  ) {
+    if (this.activeStore != null && this.activeStore.key().equals(key)) {
+      this.activeStore.flush();
+    }
+
+    Path directory = key.directory(this.root);
+    Path file = exportFile(Laby.labyAPI().labyModLoader().getGameDirectory().resolve(EXPORT_DIRECTORY));
+    // Runs after the pending saves, then draws on its own thread so region loading keeps going
+    this.executor.execute(() -> new Thread(() -> {
+      Path written = file;
+      try {
+        MapImageExport.write(directory, mode, biomeBlend, minX, minZ, blocksPerPixel, width, height, file);
+      } catch (IOException | RuntimeException exception) {
+        LOGGER.error("Failed to export map image {}", file, exception);
+        written = null;
+      }
+
+      Path result = written;
+      this.completions.add(() -> done.accept(result));
+    }, "Minimap-WorldMap-Export").start());
+  }
+
   @Nullable
   public WorldMapWaypoints waypoints() {
     return this.waypoints;
@@ -320,6 +467,35 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
       }
     } catch (InterruptedException exception) {
       Thread.currentThread().interrupt();
+    }
+  }
+
+  /**
+   * Closes the stores of the keys before their files change.
+   *
+   * @return whether the recorded world was one of them
+   */
+  private boolean release(List<MapWorldKey> keys) {
+    boolean active = this.activeStore != null && keys.contains(this.activeStore.key());
+    if (active) {
+      this.closeActive();
+    }
+
+    if (this.viewStore != null && keys.contains(this.viewStore.key())) {
+      this.viewStore = null;
+    }
+
+    return active;
+  }
+
+  /**
+   * Resolves the sub-world again. The disk thread runs it after the file changes, so it sees
+   * their result.
+   */
+  private void restartRecording(boolean active) {
+    if (active) {
+      this.recorder.reset();
+      this.refreshKey(null, true);
     }
   }
 
@@ -498,6 +674,39 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
     if (this.activeStore != null) {
       this.activeStore.flush();
       this.activeStore = null;
+    }
+  }
+
+  private static Path exportFile(Path directory) {
+    String name = "worldmap_" + new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss").format(new Date());
+    Path file = directory.resolve(name + ".png");
+    for (int index = 1; Files.exists(file); index++) {
+      file = directory.resolve(name + "_" + index + ".png");
+    }
+
+    return file;
+  }
+
+  private static void deleteRecursively(Path directory) throws IOException {
+    try {
+      Files.walkFileTree(directory, new SimpleFileVisitor<>() {
+        @Override
+        public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+          Files.delete(file);
+          return FileVisitResult.CONTINUE;
+        }
+
+        @Override
+        public FileVisitResult postVisitDirectory(Path directory, IOException exception) throws IOException {
+          if (exception != null) {
+            throw exception;
+          }
+
+          Files.delete(directory);
+          return FileVisitResult.CONTINUE;
+        }
+      });
+    } catch (NoSuchFileException ignored) {
     }
   }
 

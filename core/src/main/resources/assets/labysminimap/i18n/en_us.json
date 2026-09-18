@@ -7,12 +7,17 @@
       },
       "worldMapKey": {
         "name": "World Map Key"
+      },
+      "biomeBlend": {
+        "name": "Biome Blend",
+        "description": "How many blocks grass, leaves and the Biome map mode blend colors across biome borders. Only affects terrain recorded from now on."
       }
     },
     "worldMap": {
       "empty": "Nothing explored here yet",
       "subWorld": "World %s",
       "subWorldOf": "World %s of %s",
+      "subWorldNamed": "%s (%s of %s)",
       "following": "Following",
       "freeCamera": "Free camera",
       "caveOn": "Caves on",
@@ -24,14 +29,48 @@
         "grid": "Grid",
         "atlas": "Atlas",
         "actions": "Actions",
-        "rightClick": "Right click"
+        "rightClick": "Right click",
+        "drag": "Drag",
+        "selectChunks": "Select chunks",
+        "cancel": "Cancel"
       },
       "wheel": {
         "edit": "Edit",
         "hide": "Hide",
         "create": "Waypoint",
         "copy": "Copy",
-        "follow": "Follow"
+        "follow": "Follow",
+        "clearRegion": "Clear region",
+        "clearChunks": "Clear area"
+      },
+      "rename": {
+        "title": "Rename world",
+        "placeholder": "Name"
+      },
+      "merge": {
+        "title": "Merge worlds",
+        "description": "Merge %s into %s? Where both have terrain, the one you visited last wins.",
+        "confirm": "Merge"
+      },
+      "clearMap": {
+        "title": "Clear map",
+        "description": "Delete the whole map of %s? This can't be undone.",
+        "confirm": "Delete"
+      },
+      "clearRegion": {
+        "title": "Clear region",
+        "description": "Delete the map of region %s, %s (32 × 32 chunks)? The map records it again when you come back.",
+        "confirm": "Delete"
+      },
+      "clearChunks": {
+        "title": "Clear area",
+        "description": "Delete the map of these %s × %s chunks? The map records them again when you come back.",
+        "confirm": "Delete"
+      },
+      "export": {
+        "title": "World map",
+        "saved": "Saved map as %s",
+        "failed": "Couldn't save the map image"
       },
       "atlas": {
         "title": "World map",
@@ -42,6 +81,12 @@
         "caves": "Cave layer",
         "chunkGrid": "Chunk grid",
         "entities": "Entities",
+        "export": "Save as image",
+        "mode": {
+          "terrain": "Terrain",
+          "biome": "Biome",
+          "height": "Height"
+        },
         "waypoints": "Waypoints (%s)",
         "search": "Search waypoints",
         "noWaypoints": "No waypoints in this dimension",
@@ -52,7 +97,10 @@
         "daysAgo": "%s d ago",
         "menu": {
           "edit": "Edit",
-          "hide": "Hide"
+          "hide": "Hide",
+          "rename": "Rename",
+          "mergeInto": "Merge into",
+          "clearMap": "Clear map"
         }
       }
     },

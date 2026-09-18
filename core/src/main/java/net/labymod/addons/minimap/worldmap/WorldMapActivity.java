@@ -1,5 +1,6 @@
 package net.labymod.addons.minimap.worldmap;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -11,6 +12,7 @@ import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.laby3d.MinimapUniformBlocks;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
+import net.labymod.addons.minimap.world.MapMode;
 import net.labymod.addons.minimap.world.MapRegion;
 import net.labymod.addons.minimap.world.MapRegionStore;
 import net.labymod.addons.minimap.world.MapWorldKey;
@@ -21,6 +23,8 @@ import net.labymod.api.Laby;
 import net.labymod.api.Textures.SpriteCommon;
 import net.labymod.api.client.Minecraft;
 import net.labymod.api.client.component.Component;
+import net.labymod.api.client.component.event.ClickEvent;
+import net.labymod.api.client.component.format.TextDecoration;
 import net.labymod.api.client.entity.Entity;
 import net.labymod.api.client.entity.LivingEntity;
 import net.labymod.api.client.entity.player.ClientPlayer;
@@ -37,12 +41,16 @@ import net.labymod.api.client.gui.screen.key.Key;
 import net.labymod.api.client.gui.screen.key.MouseButton;
 import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.gui.screen.widget.attributes.bounds.BoundsType;
+import net.labymod.api.client.gui.screen.widget.overlay.WidgetReference;
 import net.labymod.api.client.gui.screen.widget.widgets.DivWidget;
 import net.labymod.api.client.gui.screen.widget.widgets.activity.Document;
+import net.labymod.api.client.gui.screen.widget.widgets.popup.SimpleAdvancedPopup;
+import net.labymod.api.client.gui.screen.widget.widgets.popup.SimpleAdvancedPopup.SimplePopupButton;
 import net.labymod.api.client.gui.screen.widget.widgets.renderer.IconWidget;
 import net.labymod.api.client.gui.window.Window;
 import net.labymod.api.client.render.font.FontSize.PredefinedFontSize;
 import net.labymod.api.client.world.MinecraftCamera;
+import net.labymod.api.notification.Notification;
 import net.labymod.api.util.I18n;
 import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.position.Position;
@@ -50,7 +58,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Full screen map of everything explored. Drag to pan, scroll to zoom towards the cursor, right
- * click for a wheel with waypoint and coordinate actions. Tab slides in the atlas panel.
+ * click for a wheel with waypoint, coordinate and clearing actions. Tab slides in the atlas panel.
  */
 @Link("world-map.lss")
 public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWidget.Actions {
@@ -72,6 +80,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private static final float ENTITY_DOT_RADIUS = 1.5F;
   private static final int ENTITY_COLOR = 0xFFFFFFFF;
   private static final int ENTITY_OUTLINE_COLOR = 0xB0000000;
+  private static final int SELECTION_FILL_COLOR = 0x40E04040;
+  private static final int SELECTION_EDGE_COLOR = 0xFFE04040;
   private static final float WAYPOINT_ICON_SIZE = 12.0F;
   private static final float WAYPOINT_HIT_RADIUS = 7.0F;
   private static final float WAYPOINT_TITLE_SCALE = 0.75F;
@@ -145,6 +155,14 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
   @Nullable
   private WorldMapWheel wheel;
+  @Nullable
+  private WidgetReference popup;
+  private boolean selectingChunks;
+  private boolean selectionDragging;
+  private int selectionStartX;
+  private int selectionStartZ;
+  private int selectionEndX;
+  private int selectionEndZ;
 
   public WorldMapActivity(
       MinimapConfigProvider configProvider,
@@ -168,6 +186,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     super.initialize(parent);
     this.initializedKey = this.viewKey;
     this.wheel = null;
+    this.selectingChunks = false;
+    this.selectionDragging = false;
     this.cancelWaypointDrag();
     this.atlas = null;
     this.atlasHandle = null;
@@ -197,6 +217,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         this.configuration.worldMapCaveLayer().get(),
         this.configuration.worldMapChunkGrid().get(),
         this.configuration.worldMapEntities().get(),
+        this.configuration.worldMapMode().get(),
         waypoints == null ? null : waypoints.waypoints(this.viewKey),
         this.waypointFilter
     );
@@ -255,7 +276,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     ClientPlayer player = minecraft.getClientPlayer();
     boolean current = this.isViewingActive();
     if (this.configuration.worldMapCaveLayer().get() && player != null && current) {
-      this.caveLayer.tick(minecraft.clientWorld(), player);
+      this.caveLayer.tick(minecraft.clientWorld(), player, this.configuration.biomeBlend().get());
     }
 
     if (this.atlas == null) {
@@ -347,6 +368,20 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return true;
     }
 
+    if (this.selectingChunks) {
+      if (mouseButton.isLeft()) {
+        this.selectionStartX = this.chunkAt(mouse.getX(), true);
+        this.selectionStartZ = this.chunkAt(mouse.getY(), false);
+        this.selectionEndX = this.selectionStartX;
+        this.selectionEndZ = this.selectionStartZ;
+        this.selectionDragging = true;
+      } else {
+        this.selectingChunks = false;
+      }
+
+      return true;
+    }
+
     if (mouseButton.isLeft()) {
       if (this.clickChrome(mouse.getX(), mouse.getY())) {
         return true;
@@ -374,6 +409,12 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
   @Override
   public boolean mouseDragged(MutableMouse mouse, MouseButton button, double deltaX, double deltaY) {
+    if (this.selectionDragging && button.isLeft()) {
+      this.selectionEndX = this.chunkAt(mouse.getX(), true);
+      this.selectionEndZ = this.chunkAt(mouse.getY(), false);
+      return true;
+    }
+
     if (!this.dragging || !button.isLeft()) {
       return super.mouseDragged(mouse, button, deltaX, deltaY);
     }
@@ -407,6 +448,13 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
   @Override
   public boolean mouseReleased(MutableMouse mouse, MouseButton mouseButton) {
+    if (this.selectionDragging && mouseButton.isLeft()) {
+      this.selectionDragging = false;
+      this.selectingChunks = false;
+      this.confirmClearChunks();
+      return true;
+    }
+
     if (!this.dragging || !mouseButton.isLeft()) {
       return super.mouseReleased(mouse, mouseButton);
     }
@@ -433,6 +481,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   @Override
   public boolean mouseScrolled(MutableMouse mouse, double scrollDelta) {
     if (this.wheel == null
+        && !this.selectionDragging
         && !super.mouseScrolled(mouse, scrollDelta)
         && mouse.getX() >= this.atlasRight()) {
       this.camera.zoom(mouse.getX(), mouse.getY(), scrollDelta);
@@ -450,6 +499,12 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
     if (this.draggedWaypoint != null && key == Key.ESCAPE) {
       this.cancelWaypointDrag();
+      return true;
+    }
+
+    if (this.selectingChunks && key == Key.ESCAPE) {
+      this.selectingChunks = false;
+      this.selectionDragging = false;
       return true;
     }
 
@@ -521,6 +576,72 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   }
 
   @Override
+  public void setMode(MapMode mode) {
+    this.configuration.worldMapMode().set(mode);
+    this.reload();
+  }
+
+  /**
+   * Saves what the screen shows at its full resolution, without the chrome.
+   */
+  @Override
+  public void exportImage() {
+    if (this.viewKey == null) {
+      return;
+    }
+
+    Window window = Laby.labyAPI().minecraft().minecraftWindow();
+    float width = window.getScaledWidth();
+    float height = window.getScaledHeight();
+    float pixelScale = (float) window.getRawWidth() / width;
+    this.service.exportImage(
+        this.viewKey,
+        this.configuration.worldMapMode().get(),
+        this.configuration.biomeBlend().get(),
+        this.camera.screenToWorldX(0.0F, width),
+        this.camera.screenToWorldZ(0.0F, height),
+        1.0D / (this.camera.scale() * pixelScale),
+        window.getRawWidth(),
+        window.getRawHeight(),
+        this::exported
+    );
+  }
+
+  @Override
+  public void renameWorld(MapWorldKey key) {
+    String name = this.service.worldName(key);
+    this.popup = new WorldMapRenamePopup(name == null ? "" : name, newName -> {
+      this.service.renameWorld(key, newName);
+      this.reload();
+    }).displayInOverlay();
+  }
+
+  @Override
+  public void mergeWorlds(MapWorldKey source, String sourceName, MapWorldKey target, String targetName) {
+    this.confirm(
+        "merge",
+        Component.translatable(
+            I18N_PREFIX + "merge.description",
+            Component.text(sourceName),
+            Component.text(targetName)
+        ),
+        () -> this.service.mergeWorlds(
+            source, target,
+            () -> this.afterWorldsChanged(List.of(source), target)
+        )
+    );
+  }
+
+  @Override
+  public void clearWorlds(List<MapWorldKey> keys, Component name) {
+    this.confirm(
+        "clearMap",
+        Component.translatable(I18N_PREFIX + "clearMap.description", name),
+        () -> this.service.deleteWorlds(keys, () -> this.afterWorldsChanged(keys, null))
+    );
+  }
+
+  @Override
   public void focusWaypoint(WorldMapWaypoint waypoint) {
     this.camera.setFollowing(false);
     this.camera.reset(waypoint.x(), waypoint.z());
@@ -575,10 +696,14 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
     MapRegionStore store = this.service.openView(this.viewKey);
     Window window = minecraft.minecraftWindow();
-    this.renderer.render(
+    float pixelScale = (float) window.getRawWidth() / window.getScaledWidth();
+    this.renderer.render(context, store, this.camera, width, height, pixelScale);
+    this.renderer.renderOverlay(
         context, store, this.camera,
         width, height,
-        (float) window.getRawWidth() / window.getScaledWidth()
+        pixelScale,
+        this.configuration.worldMapMode().get(),
+        this.configuration.biomeBlend().get()
     );
     if (current && this.configuration.worldMapCaveLayer().get()) {
       // Built cave chunks are opaque and cover the dimming, so only the area not built yet stays dark
@@ -586,8 +711,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       this.caveLayer.render(context, this.camera, width, height);
     }
 
-    if (this.configuration.worldMapChunkGrid().get()) {
-      this.renderChunkGrid(context.canvas(), width, height, (float) window.getRawWidth() / window.getScaledWidth());
+    if (this.configuration.worldMapChunkGrid().get() || this.selectingChunks) {
+      this.renderChunkGrid(context.canvas(), width, height, pixelScale);
     }
 
     if (current && player != null && this.configuration.worldMapEntities().get()) {
@@ -595,6 +720,10 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     MutableMouse mouse = context.mouse();
+    if (this.selectingChunks) {
+      this.renderSelection(context.canvas(), width, height, mouse.getX(), mouse.getY());
+    }
+
     this.renderWaypoints(context, width, height, mouse.getX(), mouse.getY());
     if (current && player != null) {
       this.renderPlayers(context, minecraft, player, width, height, partialTicks, playerX, playerZ);
@@ -616,7 +745,10 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
     this.renderAtlasBackground(canvas, height);
     this.renderHints(canvas, this.atlasRight(), height, current);
-    if ((!this.dragging || this.draggedWaypoint != null) && this.wheel == null && mouse.getX() >= this.atlasRight()) {
+    if ((!this.dragging || this.draggedWaypoint != null)
+        && this.wheel == null
+        && !this.isPopupOpen()
+        && mouse.getX() >= this.atlasRight()) {
       this.renderTooltip(canvas, store, width, height, mouse.getX(), mouse.getY());
     }
   }
@@ -678,8 +810,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     if (this.subWorldCount > 1) {
+      String name = this.service.worldName(this.viewKey);
       canvas.submitText(
-          I18n.getTranslation(I18N_PREFIX + "subWorldOf", this.subWorldIndex, this.subWorldCount),
+          name == null
+              ? I18n.getTranslation(I18N_PREFIX + "subWorldOf", this.subWorldIndex, this.subWorldCount)
+              : I18n.getTranslation(I18N_PREFIX + "subWorldNamed", name, this.subWorldIndex, this.subWorldCount),
           width / 2.0F, CHROME_MARGIN + lineHeight + 5.0F,
           withAlpha(TEXT_COLOR, alpha * 3 / 5),
           this.textScale,
@@ -722,6 +857,12 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     float lineHeight = canvas.getLineHeight() * this.textScale;
     float y = height - CHROME_MARGIN - lineHeight - 5.0F;
     float x = left + CHROME_MARGIN;
+    if (this.selectingChunks) {
+      x = this.renderHint(canvas, I18n.getTranslation(I18N_PREFIX + "hint.drag"), "hint.selectChunks", x, y, lineHeight);
+      this.renderHint(canvas, "Esc", "hint.cancel", x, y, lineHeight);
+      return;
+    }
+
     if (current) {
       x = this.renderHint(canvas, "Space", "hint.follow", x, y, lineHeight);
       x = this.renderHint(canvas, "C", "hint.caves", x, y, lineHeight);
@@ -859,6 +1000,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       float deltaX = mouseX - x;
       float deltaY = mouseY - (y - WAYPOINT_ICON_SIZE / 2.0F);
       boolean hovered = dragged || (this.draggedWaypoint == null
+          && !this.selectingChunks
+          && !this.isPopupOpen()
           && deltaX * deltaX + deltaY * deltaY <= WAYPOINT_HIT_RADIUS * WAYPOINT_HIT_RADIUS);
       if (hovered) {
         this.hoveredWaypoint = waypoint;
@@ -1061,6 +1204,18 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
           this.reload();
         }));
       }
+
+      int regionX = blockX >> MapRegion.BLOCK_SHIFT;
+      int regionZ = blockZ >> MapRegion.BLOCK_SHIFT;
+      MapRegionStore store = this.service.openView(key);
+      if (store.isStored(regionX, regionZ)) {
+        entries.add(wheelEntry(
+            SpriteCommon.TRASH, "clearRegion",
+            () -> this.confirmClearRegion(store, regionX, regionZ)
+        ));
+      }
+
+      entries.add(wheelEntry(SpriteCommon.PAINT, "clearChunks", () -> this.selectingChunks = true));
     }
 
     entries.add(wheelEntry(
@@ -1077,6 +1232,140 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         title,
         entries
     );
+  }
+
+  private void confirmClearRegion(MapRegionStore store, int regionX, int regionZ) {
+    this.confirm(
+        "clearRegion",
+        Component.translatable(
+            I18N_PREFIX + "clearRegion.description",
+            Component.text(String.valueOf(regionX)),
+            Component.text(String.valueOf(regionZ))
+        ),
+        () -> store.clearChunks(regionX, regionZ, MapRegion.fullMask())
+    );
+  }
+
+  private void confirmClearChunks() {
+    int minX = Math.min(this.selectionStartX, this.selectionEndX);
+    int minZ = Math.min(this.selectionStartZ, this.selectionEndZ);
+    int maxX = Math.max(this.selectionStartX, this.selectionEndX);
+    int maxZ = Math.max(this.selectionStartZ, this.selectionEndZ);
+    MapRegionStore store = this.service.openView(this.viewKey);
+    this.confirm(
+        "clearChunks",
+        Component.translatable(
+            I18N_PREFIX + "clearChunks.description",
+            Component.text(String.valueOf(maxX - minX + 1)),
+            Component.text(String.valueOf(maxZ - minZ + 1))
+        ),
+        () -> clearChunks(store, minX, minZ, maxX, maxZ)
+    );
+  }
+
+  private static void clearChunks(MapRegionStore store, int minX, int minZ, int maxX, int maxZ) {
+    for (int regionX = minX >> MapRegion.CHUNK_SHIFT; regionX <= maxX >> MapRegion.CHUNK_SHIFT; regionX++) {
+      for (int regionZ = minZ >> MapRegion.CHUNK_SHIFT; regionZ <= maxZ >> MapRegion.CHUNK_SHIFT; regionZ++) {
+        if (!store.isStored(regionX, regionZ)) {
+          continue;
+        }
+
+        int baseX = regionX << MapRegion.CHUNK_SHIFT;
+        int baseZ = regionZ << MapRegion.CHUNK_SHIFT;
+        long[] mask = new long[MapRegion.MASK_LONGS];
+        for (int chunkX = Math.max(minX, baseX); chunkX <= Math.min(maxX, baseX + MapRegion.CHUNKS - 1); chunkX++) {
+          for (int chunkZ = Math.max(minZ, baseZ); chunkZ <= Math.min(maxZ, baseZ + MapRegion.CHUNKS - 1); chunkZ++) {
+            MapRegion.addToMask(mask, chunkX - baseX, chunkZ - baseZ);
+          }
+        }
+
+        store.clearChunks(regionX, regionZ, mask);
+      }
+    }
+  }
+
+  /**
+   * Switches to the replacement when the shown sub-world is gone. While following, the map shows
+   * the recorded world again once the service resolves it.
+   */
+  private void afterWorldsChanged(List<MapWorldKey> removed, @Nullable MapWorldKey replacement) {
+    if (!this.followActive && removed.contains(this.viewKey)) {
+      if (replacement == null) {
+        this.followActive = true;
+        this.camera.setFollowing(true);
+        this.viewKey = this.service.activeKey();
+      } else {
+        this.viewKey = replacement;
+      }
+    }
+
+    this.reload();
+  }
+
+  private void exported(@Nullable Path file) {
+    Component text = file == null
+        ? Component.translatable(I18N_PREFIX + "export.failed")
+        : Component.translatable(I18N_PREFIX + "export.saved", Component.text(file.getFileName().toString()));
+    Laby.labyAPI().notificationController().push(Notification.builder()
+        .title(Component.translatable(I18N_PREFIX + "export.title"))
+        .text(text)
+        .build());
+    if (file != null) {
+      Laby.labyAPI().minecraft().chatExecutor().displayClientMessage(Component.translatable(
+          I18N_PREFIX + "export.saved",
+          Component.text(file.getFileName().toString())
+              .decorate(TextDecoration.UNDERLINED)
+              .clickEvent(ClickEvent.openFile(file.toAbsolutePath().toString()))
+      ));
+    }
+  }
+
+  private void confirm(String key, Component description, Runnable action) {
+    this.popup = SimpleAdvancedPopup.builder()
+        .title(Component.translatable(I18N_PREFIX + key + ".title"))
+        .description(description)
+        .addButton(SimplePopupButton.cancel())
+        .addButton(SimplePopupButton.create(
+            "confirm",
+            Component.translatable(I18N_PREFIX + key + ".confirm"),
+            button -> action.run()
+        ))
+        .build()
+        .displayInOverlay();
+  }
+
+  private boolean isPopupOpen() {
+    return this.popup != null && this.popup.isAlive();
+  }
+
+  /**
+   * @return the chunk under a screen coordinate on the x or z axis
+   */
+  private int chunkAt(float screen, boolean xAxis) {
+    Window window = Laby.labyAPI().minecraft().minecraftWindow();
+    double block = xAxis
+        ? this.camera.screenToWorldX(screen, window.getScaledWidth())
+        : this.camera.screenToWorldZ(screen, window.getScaledHeight());
+    return MathHelper.floor(block) >> 4;
+  }
+
+  /**
+   * Marks the dragged chunks, or the hovered chunk before the drag starts.
+   */
+  private void renderSelection(ScreenCanvas canvas, float width, float height, float mouseX, float mouseY) {
+    int startX = this.selectionDragging ? this.selectionStartX : this.chunkAt(mouseX, true);
+    int startZ = this.selectionDragging ? this.selectionStartZ : this.chunkAt(mouseY, false);
+    int endX = this.selectionDragging ? this.selectionEndX : startX;
+    int endZ = this.selectionDragging ? this.selectionEndZ : startZ;
+    float left = this.camera.worldToScreenX((double) Math.min(startX, endX) * ChunkData.CHUNK_SIZE, width);
+    float top = this.camera.worldToScreenY((double) Math.min(startZ, endZ) * ChunkData.CHUNK_SIZE, height);
+    float right = this.camera.worldToScreenX((double) (Math.max(startX, endX) + 1) * ChunkData.CHUNK_SIZE, width);
+    float bottom = this.camera.worldToScreenY((double) (Math.max(startZ, endZ) + 1) * ChunkData.CHUNK_SIZE, height);
+    canvas.submitRelativeRect(left, top, right - left, bottom - top, SELECTION_FILL_COLOR);
+    canvas.submitRelativeRect(left, top, right - left, 1.0F, SELECTION_EDGE_COLOR);
+    canvas.submitRelativeRect(left, bottom - 1.0F, right - left, 1.0F, SELECTION_EDGE_COLOR);
+    canvas.submitRelativeRect(left, top, 1.0F, bottom - top, SELECTION_EDGE_COLOR);
+    canvas.submitRelativeRect(right - 1.0F, top, 1.0F, bottom - top, SELECTION_EDGE_COLOR);
   }
 
   private static WorldMapWheel.Entry wheelEntry(Icon icon, String key, Runnable action) {

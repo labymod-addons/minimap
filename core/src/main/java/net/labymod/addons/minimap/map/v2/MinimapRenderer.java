@@ -29,6 +29,7 @@ import net.labymod.api.client.gui.screen.state.ScreenCanvas;
 import net.labymod.api.client.gui.screen.state.states.GuiTextureSet;
 import net.labymod.api.client.world.ClientWorld;
 import net.labymod.api.client.world.chunk.Chunk;
+import net.labymod.api.configuration.loader.property.ConfigProperty;
 import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.network.server.ServerSwitchEvent;
 import net.labymod.api.event.client.world.DimensionChangeEvent;
@@ -51,6 +52,7 @@ public final class MinimapRenderer {
   private static final int ROOF_SAMPLE_RADIUS_CHUNKS = 2;
   private final MinimapBounds minimapBounds = new MinimapBounds();
   private final MinimapConfigProvider configProvider;
+  private final ConfigProperty<Integer> biomeBlendProperty;
   private final SectionTextureRepository sectionTextureRepository;
   private final ChunkDataStorage storage;
   private final MinimapUniformBlocks uniformBlocks;
@@ -73,12 +75,15 @@ public final class MinimapRenderer {
   private int[] chunkOrder = new int[0];
   private int chunkOrderRadius = -1;
   private int ticks;
+  private int biomeBlend = -1;
 
   public MinimapRenderer(
       MinimapConfigProvider configProvider,
+      ConfigProperty<Integer> biomeBlendProperty,
       MinimapContext minimapContext
   ) {
     this.configProvider = configProvider;
+    this.biomeBlendProperty = biomeBlendProperty;
     this.sectionTextureRepository = minimapContext.sectionTextureRepository();
     this.storage = minimapContext.storage();
     this.uniformBlocks = minimapContext.uniformBlocks();
@@ -367,6 +372,15 @@ public final class MinimapRenderer {
 
     long dayTime = this.getDayTime();
     this.setDaylightPeriod(DaylightPeriod.findByTime(dayTime));
+
+    int biomeBlend = this.biomeBlendProperty.get();
+    if (biomeBlend != this.biomeBlend) {
+      // Without a reset, chunks compiled with the old radius keep their colors
+      this.biomeBlend = biomeBlend;
+      this.storage.setBiomeBlend(biomeBlend);
+      this.storage.resetCompilations();
+      this.changed = true;
+    }
 
     ClientWorld level = Laby.labyAPI().minecraft().clientWorld();
     int minBuildHeight = level.getMinBuildHeight();

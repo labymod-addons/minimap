@@ -22,7 +22,7 @@ final class SubWorldMatcher {
   static final float MATCH_THRESHOLD = 0.6F;
   static final float NO_OVERLAP = -1.0F;
   private static final Logging LOGGER = Logging.getLogger();
-  private static final String LAST_USED_FILE = "last-used";
+  static final String LAST_USED_FILE = "last-used";
   private static final int MAX_HEIGHT_DIFFERENCE = 1;
 
   private SubWorldMatcher() {

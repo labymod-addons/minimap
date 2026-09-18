@@ -6,6 +6,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.DataFormatException;
@@ -25,6 +26,7 @@ public final class MapRegion {
   public static final int BLOCK_SHIFT = CHUNK_SHIFT + 4;
   public static final int BIOME_CELL_SIZE = 4;
   public static final int BIOME_CELLS = ChunkData.CHUNK_SIZE / BIOME_CELL_SIZE;
+  public static final int MASK_LONGS = CHUNKS * CHUNKS / Long.SIZE;
 
   private static final int MAGIC = 0x4C4D4D52;
   private static final int VERSION = 1;
@@ -100,6 +102,66 @@ public final class MapRegion {
    */
   public long revision() {
     return this.revision;
+  }
+
+  /**
+   * Marks a chunk in a mask for {@link #clearChunks(long[])}.
+   */
+  public static void addToMask(long[] mask, int localChunkX, int localChunkZ) {
+    int bit = localChunkZ * CHUNKS + localChunkX;
+    mask[bit >> 6] |= 1L << bit;
+  }
+
+  public static long[] fullMask() {
+    long[] mask = new long[MASK_LONGS];
+    Arrays.fill(mask, -1L);
+    return mask;
+  }
+
+  public boolean isEmpty() {
+    for (long bits : this.present) {
+      if (bits != 0L) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  public void clearChunks(long[] mask) {
+    for (int index = 0; index < this.present.length; index++) {
+      this.present[index] &= ~mask[index];
+    }
+
+    this.revision = REVISIONS.incrementAndGet();
+  }
+
+  /**
+   * Copies every saved chunk of the other region at the same position into this one.
+   */
+  public void copyChunks(MapRegion other) {
+    for (int chunk = 0; chunk < CHUNK_COUNT; chunk++) {
+      if ((other.present[chunk >> 6] & 1L << chunk) == 0L) {
+        continue;
+      }
+
+      int baseX = (chunk % CHUNKS) << 4;
+      int baseZ = (chunk / CHUNKS) << 4;
+      for (int z = 0; z < ChunkData.CHUNK_SIZE; z++) {
+        int row = (baseZ + z) * BLOCKS + baseX;
+        for (int x = 0; x < ChunkData.CHUNK_SIZE; x++) {
+          int index = row + x;
+          this.colors[index] = other.colors[index];
+          this.heights[index] = other.heights[index];
+          this.lightLevels[index] = other.lightLevels[index];
+          this.biomes[index] = this.biomeId(other.biome(baseX + x, baseZ + z));
+        }
+      }
+
+      this.present[chunk >> 6] |= 1L << chunk;
+    }
+
+    this.revision = REVISIONS.incrementAndGet();
   }
 
   public boolean hasChunk(int localChunkX, int localChunkZ) {

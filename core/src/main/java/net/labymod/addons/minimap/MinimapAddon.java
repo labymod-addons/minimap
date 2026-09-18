@@ -46,7 +46,7 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
     this.registerListener(this.minimapContext.uniformBlocks());
 
     var references = Laby.references();
-    this.minimapRenderer = new MinimapRenderer(this, this.minimapContext);
+    this.minimapRenderer = new MinimapRenderer(this, this.configuration().biomeBlend(), this.minimapContext);
     this.registerListener(this.minimapRenderer);
     references.hudWidgetRegistry().register(this.hudWidget = new MinimapHudWidget(this, this.minimapRenderer));
 
