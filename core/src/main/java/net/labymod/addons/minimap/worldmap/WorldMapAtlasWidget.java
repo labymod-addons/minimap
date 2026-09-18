@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.UUID;
 import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.world.MapMode;
 import net.labymod.addons.minimap.world.MapWorldKey;
@@ -14,6 +15,7 @@ import net.labymod.api.Laby;
 import net.labymod.api.client.component.Component;
 import net.labymod.api.client.component.serializer.plain.PlainTextComponentSerializer;
 import net.labymod.api.client.entity.player.ClientPlayer;
+import net.labymod.api.client.gui.icon.Icon;
 import net.labymod.api.client.gui.lss.property.annotation.AutoWidget;
 import net.labymod.api.client.gui.screen.Parent;
 import net.labymod.api.client.gui.screen.widget.Widget;
@@ -54,6 +56,17 @@ public final class WorldMapAtlasWidget extends DivWidget {
   private final MapWorldKey activeKey;
   private final boolean current;
   private final MapMode mode;
+  private final boolean showPlayers;
+  private final List<PlayerRow> playerRows = new ArrayList<>();
+  private List<WorldMapPlayer> players = List.of();
+  @Nullable
+  private String playerDimension;
+  private double playerX;
+  private double playerZ;
+  @Nullable
+  private ComponentWidget playersLabel;
+  @Nullable
+  private VerticalListWidget<Widget> playerList;
   @Nullable
   private final List<WorldMapWaypoint> waypoints;
   private final List<WaypointRow> waypointRows = new ArrayList<>();
@@ -61,6 +74,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
   private boolean caveLayer;
   private boolean chunkGrid;
   private boolean entities;
+  private boolean playerHeads;
   private String filter;
   @Nullable
   private WorldMapToggleWidget followToggle;
@@ -70,6 +84,8 @@ public final class WorldMapAtlasWidget extends DivWidget {
   private WorldMapToggleWidget gridToggle;
   @Nullable
   private WorldMapToggleWidget entitiesToggle;
+  @Nullable
+  private WorldMapToggleWidget playerHeadsToggle;
   @Nullable
   private TextFieldWidget search;
 
@@ -87,7 +103,9 @@ public final class WorldMapAtlasWidget extends DivWidget {
       boolean caveLayer,
       boolean chunkGrid,
       boolean entities,
+      boolean playerHeads,
       MapMode mode,
+      boolean showPlayers,
       @Nullable List<WorldMapWaypoint> waypoints,
       String filter
   ) {
@@ -101,7 +119,9 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.caveLayer = caveLayer;
     this.chunkGrid = chunkGrid;
     this.entities = entities;
+    this.playerHeads = playerHeads;
     this.mode = mode;
+    this.showPlayers = showPlayers;
     this.waypoints = waypoints == null ? null : new ArrayList<>(waypoints);
     this.filter = filter;
   }
@@ -110,10 +130,14 @@ public final class WorldMapAtlasWidget extends DivWidget {
   public void initialize(Parent parent) {
     super.initialize(parent);
     this.waypointRows.clear();
+    this.playerRows.clear();
+    this.playersLabel = null;
+    this.playerList = null;
     this.followToggle = null;
     this.caveToggle = null;
     this.gridToggle = null;
     this.entitiesToggle = null;
+    this.playerHeadsToggle = null;
     this.search = null;
 
     VerticalListWidget<Widget> content = new VerticalListWidget<>();
@@ -123,6 +147,9 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.addDimensions(content);
     this.addSubWorlds(content);
     this.addViewOptions(content);
+    if (this.showPlayers) {
+      this.addPlayers(content);
+    }
 
     if (this.waypoints != null) {
       this.addWaypoints(content);
@@ -133,11 +160,12 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.addChild(scroll);
   }
 
-  void update(boolean following, boolean caveLayer, boolean chunkGrid, boolean entities) {
+  void update(boolean following, boolean caveLayer, boolean chunkGrid, boolean entities, boolean playerHeads) {
     this.following = following;
     this.caveLayer = caveLayer;
     this.chunkGrid = chunkGrid;
     this.entities = entities;
+    this.playerHeads = playerHeads;
     if (this.gridToggle != null) {
       this.gridToggle.setValue(chunkGrid);
     }
@@ -153,11 +181,45 @@ public final class WorldMapAtlasWidget extends DivWidget {
     if (this.entitiesToggle != null) {
       this.entitiesToggle.setValue(entities);
     }
+
+    if (this.playerHeadsToggle != null) {
+      this.playerHeadsToggle.setValue(playerHeads);
+    }
   }
 
   void updateDistances(double playerX, double playerZ) {
     for (WaypointRow row : this.waypointRows) {
       row.distance().setText(formatDistance(row.waypoint(), playerX, playerZ));
+    }
+  }
+
+  /**
+   * Rebuilds the player list when players join or leave, otherwise only updates the details.
+   *
+   * @param dimension the player's dimension, {@code null} if unknown
+   */
+  void updatePlayers(List<WorldMapPlayer> players, @Nullable String dimension, double x, double z) {
+    boolean changed = !samePlayers(this.players, players);
+    this.players = players;
+    this.playerDimension = dimension;
+    this.playerX = x;
+    this.playerZ = z;
+    if (this.playerList == null) {
+      return;
+    }
+
+    if (changed) {
+      this.fillPlayers(true);
+      return;
+    }
+
+    for (PlayerRow row : this.playerRows) {
+      for (WorldMapPlayer player : players) {
+        if (player.uuid().equals(row.uuid())) {
+          row.detail().setText(this.playerDetail(player));
+          break;
+        }
+      }
     }
   }
 
@@ -281,6 +343,9 @@ public final class WorldMapAtlasWidget extends DivWidget {
       this.followToggle = this.addToggle(content, "follow", this.following, this.actions::setFollowing);
       this.caveToggle = this.addToggle(content, "caves", this.caveLayer, this.actions::setCaveLayer);
       this.entitiesToggle = this.addToggle(content, "entities", this.entities, this.actions::setEntities);
+      this.playerHeadsToggle = this.addToggle(
+          content, "playerHeads", this.playerHeads, this.actions::setPlayerHeads
+      );
     }
 
     this.gridToggle = this.addToggle(content, "chunkGrid", this.chunkGrid, this.actions::setChunkGrid);
@@ -311,6 +376,104 @@ public final class WorldMapAtlasWidget extends DivWidget {
     });
     content.addChild(row);
     return toggle;
+  }
+
+  private void addPlayers(VerticalListWidget<Widget> content) {
+    ComponentWidget label = ComponentWidget.empty();
+    label.addId("atlas-label");
+    content.addChild(label);
+    VerticalListWidget<Widget> list = new VerticalListWidget<>();
+    list.addId("atlas-players");
+    content.addChild(list);
+    this.playersLabel = label;
+    this.playerList = list;
+    this.fillPlayers(false);
+  }
+
+  /**
+   * Lists players in the player's own dimension first, nearest first, then the rest by name.
+   *
+   * @param initialized whether the list is already shown and needs its rows initialized
+   */
+  private void fillPlayers(boolean initialized) {
+    this.playersLabel.setComponent(Component.translatable(
+        I18N_PREFIX + "players",
+        Component.text(String.valueOf(this.players.size()))
+    ));
+    this.playerRows.clear();
+    if (initialized) {
+      this.playerList.removeChildIf(widget -> true);
+    }
+
+    List<Widget> rows = new ArrayList<>();
+    if (this.players.isEmpty()) {
+      rows.add(ComponentWidget.i18n(I18N_PREFIX + "noPlayers").addId("atlas-empty"));
+    }
+
+    List<WorldMapPlayer> sorted = new ArrayList<>(this.players);
+    sorted.sort(Comparator
+        .comparingInt((WorldMapPlayer player) -> player.dimension().equals(this.playerDimension) ? 0 : 1)
+        .thenComparingDouble(player -> player.dimension().equals(this.playerDimension)
+            ? distanceSquared(player.x(), player.z(), this.playerX, this.playerZ)
+            : 0.0D)
+        .thenComparing(WorldMapPlayer::name, String.CASE_INSENSITIVE_ORDER));
+    for (WorldMapPlayer player : sorted) {
+      IconWidget icon = new IconWidget(Icon.head(player.uuid()));
+      icon.addId("atlas-row-icon");
+      ComponentWidget name = ComponentWidget.text(player.name());
+      name.addId("atlas-row-name-indented");
+      ComponentWidget detail = ComponentWidget.text(this.playerDetail(player));
+      DivWidget row = row(name, detail);
+      row.addChild(icon);
+      UUID uuid = player.uuid();
+      this.makePressable(row, () -> this.actions.focusPlayer(uuid));
+      rows.add(row);
+      this.playerRows.add(new PlayerRow(uuid, detail));
+    }
+
+    for (Widget row : rows) {
+      if (initialized) {
+        this.playerList.addChildInitialized(row);
+      } else {
+        this.playerList.addChild(row);
+      }
+    }
+  }
+
+  private String playerDetail(WorldMapPlayer player) {
+    if (!player.dimension().equals(this.playerDimension)) {
+      return WorldMapNames.dimension(player.dimension());
+    }
+
+    return Math.round(Math.sqrt(distanceSquared(player.x(), player.z(), this.playerX, this.playerZ))) + " m";
+  }
+
+  private static boolean samePlayers(List<WorldMapPlayer> first, List<WorldMapPlayer> second) {
+    if (first.size() != second.size()) {
+      return false;
+    }
+
+    for (WorldMapPlayer player : first) {
+      boolean found = false;
+      for (WorldMapPlayer other : second) {
+        if (other.uuid().equals(player.uuid()) && other.dimension().equals(player.dimension())) {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private static double distanceSquared(double x, double z, double otherX, double otherZ) {
+    double deltaX = x - otherX;
+    double deltaZ = z - otherZ;
+    return deltaX * deltaX + deltaZ * deltaZ;
   }
 
   private void addWaypoints(VerticalListWidget<Widget> content) {
@@ -472,6 +635,8 @@ public final class WorldMapAtlasWidget extends DivWidget {
 
     void setEntities(boolean enabled);
 
+    void setPlayerHeads(boolean enabled);
+
     void setMode(MapMode mode);
 
     void exportImage();
@@ -491,11 +656,17 @@ public final class WorldMapAtlasWidget extends DivWidget {
 
     void focusWaypoint(WorldMapWaypoint waypoint);
 
+    void focusPlayer(UUID uuid);
+
     void editWaypoint(WorldMapWaypoint waypoint);
 
     void hideWaypoint(WorldMapWaypoint waypoint);
 
     void filterWaypoints(String filter);
+  }
+
+  private record PlayerRow(UUID uuid, ComponentWidget detail) {
+
   }
 
   private record WaypointRow(

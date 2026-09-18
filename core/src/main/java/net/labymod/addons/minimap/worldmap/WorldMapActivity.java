@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.config.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapPlayerIcon;
@@ -12,6 +13,8 @@ import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.laby3d.MinimapUniformBlocks;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
+import net.labymod.addons.minimap.server.RemotePlayers;
+import net.labymod.addons.minimap.server.RemotePlayers.RemotePlayer;
 import net.labymod.addons.minimap.world.MapMode;
 import net.labymod.addons.minimap.world.MapRegion;
 import net.labymod.addons.minimap.world.MapRegionStore;
@@ -110,6 +113,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private final WorldMapService service;
   private final WorldMapOpener opener;
   private final MinimapConfiguration configuration;
+  private final RemotePlayers remotePlayers;
   private final WorldMapRenderer renderer;
   private final CaveLayer caveLayer;
   private final WorldMapCamera camera = new WorldMapCamera();
@@ -188,6 +192,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       WorldMapService service,
       WorldMapOpener opener,
       MinimapConfiguration configuration,
+      RemotePlayers remotePlayers,
       MinimapRenderer minimapRenderer,
       MinimapUniformBlocks uniformBlocks
   ) {
@@ -195,6 +200,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.service = service;
     this.opener = opener;
     this.configuration = configuration;
+    this.remotePlayers = remotePlayers;
     this.renderer = new WorldMapRenderer(minimapRenderer, uniformBlocks);
     this.caveLayer = new CaveLayer(minimapRenderer, uniformBlocks);
     this.viewKey = service.activeKey();
@@ -240,11 +246,14 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         this.configuration.worldMapCaveLayer().get(),
         this.configuration.worldMapChunkGrid().get(),
         this.configuration.worldMapEntities().get(),
+        this.configuration.worldMapPlayers().get(),
         this.configuration.worldMapMode().get(),
+        this.showsPlayers(),
         waypoints == null ? null : waypoints.waypoints(this.viewKey),
         this.waypointFilter
     );
     atlas.addId("atlas");
+    this.updateAtlasPlayers(atlas);
 
     IconWidget handleIcon = new IconWidget(SpriteCommon.WHITE_GREATER_THAN);
     DivWidget handle = new DivWidget();
@@ -310,7 +319,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         this.camera.isFollowing(),
         this.configuration.worldMapCaveLayer().get(),
         this.configuration.worldMapChunkGrid().get(),
-        this.configuration.worldMapEntities().get()
+        this.configuration.worldMapEntities().get(),
+        this.configuration.worldMapPlayers().get()
     );
     if (this.ticks % ATLAS_REFRESH_TICKS != 0) {
       return;
@@ -321,6 +331,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       this.reload();
       return;
     }
+
+    this.updateAtlasPlayers(this.atlas);
 
     if (current && player != null) {
       Position position = player.position();
@@ -620,6 +632,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   }
 
   @Override
+  public void setPlayerHeads(boolean enabled) {
+    this.configuration.worldMapPlayers().set(enabled);
+  }
+
+  @Override
   public void setMode(MapMode mode) {
     this.configuration.worldMapMode().set(mode);
     this.reload();
@@ -698,6 +715,17 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         Component.translatable(I18N_PREFIX + "clearMap.description", name),
         () -> this.service.deleteWorlds(keys, () -> this.afterWorldsChanged(keys, null))
     );
+  }
+
+  @Override
+  public void focusPlayer(UUID uuid) {
+    for (WorldMapPlayer player : this.knownPlayers()) {
+      if (player.uuid().equals(uuid)) {
+        this.camera.setFollowing(false);
+        this.camera.reset(player.x(), player.z());
+        return;
+      }
+    }
   }
 
   @Override
@@ -788,6 +816,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     this.renderWaypoints(context, width, height, mouse.getX(), mouse.getY());
+    this.renderRemotePlayers(context.canvas(), minecraft, width, height);
     if (current && player != null) {
       this.renderPlayers(context, minecraft, player, width, height, partialTicks, playerX, playerZ);
     }
@@ -1180,6 +1209,103 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
   }
 
+  /**
+   * Draws the players the server reported that the client can't see itself.
+   */
+  private void renderRemotePlayers(ScreenCanvas canvas, Minecraft minecraft, float width, float height) {
+    if (!this.showsPlayers() || !this.configuration.worldMapPlayers().get()) {
+      return;
+    }
+
+    MapWorldKey active = this.service.activeKey();
+    // Sub-worlds of the recorded dimension are other worlds behind the same address
+    if (this.viewKey.dimension().equals(active.dimension()) && !this.viewKey.equals(active)) {
+      return;
+    }
+
+    ClientPlayer self = minecraft.getClientPlayer();
+    canvas.nextLayer();
+    float halfHead = PLAYER_HEAD_SIZE / 2.0F;
+    long now = System.nanoTime();
+    for (RemotePlayer player : this.remotePlayers.players()) {
+      if (!player.dimension().equals(this.viewKey.dimension())
+          || (self != null && player.uuid().equals(self.getUniqueId()))
+          || isLoaded(minecraft, player.uuid())) {
+        continue;
+      }
+
+      float x = this.camera.worldToScreenX(player.x(now), width);
+      float y = this.camera.worldToScreenY(player.z(now), height);
+      if (this.isOnScreen(x, y, width, height, PLAYER_HEAD_SIZE)) {
+        canvas.submitIcon(player.head(), x - halfHead, y - halfHead, PLAYER_HEAD_SIZE, PLAYER_HEAD_SIZE);
+      }
+    }
+  }
+
+  /**
+   * @return whether the shown map is of the world the player is in, so other players can be located
+   */
+  private boolean showsPlayers() {
+    MapWorldKey active = this.service.activeKey();
+    return this.viewKey != null && active != null && this.viewKey.sameWorld(active);
+  }
+
+  /**
+   * @return the other players of the recorded world, from the client where it sees them and from
+   *     the server otherwise
+   */
+  private List<WorldMapPlayer> knownPlayers() {
+    List<WorldMapPlayer> players = new ArrayList<>();
+    if (!this.showsPlayers()) {
+      return players;
+    }
+
+    Minecraft minecraft = Laby.labyAPI().minecraft();
+    ClientPlayer self = minecraft.getClientPlayer();
+    String dimension = this.service.activeKey().dimension();
+    for (Player player : minecraft.clientWorld().getPlayers()) {
+      if (player != self) {
+        Position position = player.position();
+        players.add(new WorldMapPlayer(
+            player.getUniqueId(), player.getName(), dimension, position.getX(), position.getZ()
+        ));
+      }
+    }
+
+    long now = System.nanoTime();
+    for (RemotePlayer player : this.remotePlayers.players()) {
+      if ((self == null || !player.uuid().equals(self.getUniqueId())) && !isLoaded(minecraft, player.uuid())) {
+        players.add(new WorldMapPlayer(
+            player.uuid(), player.name(), player.dimension(), player.x(now), player.z(now)
+        ));
+      }
+    }
+
+    return players;
+  }
+
+  private void updateAtlasPlayers(WorldMapAtlasWidget atlas) {
+    ClientPlayer self = Laby.labyAPI().minecraft().getClientPlayer();
+    MapWorldKey active = this.service.activeKey();
+    if (self == null || active == null) {
+      atlas.updatePlayers(this.knownPlayers(), null, 0.0D, 0.0D);
+      return;
+    }
+
+    Position position = self.position();
+    atlas.updatePlayers(this.knownPlayers(), active.dimension(), position.getX(), position.getZ());
+  }
+
+  private static boolean isLoaded(Minecraft minecraft, UUID uuid) {
+    for (Player player : minecraft.clientWorld().getPlayers()) {
+      if (player.getUniqueId().equals(uuid)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   private void renderPlayers(
       ScreenContext context,
       Minecraft minecraft,
@@ -1190,8 +1316,10 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   ) {
     MinimapHudWidgetConfig config = this.configProvider.hudWidgetConfig();
     ScreenCanvas canvas = context.canvas();
+    // Faces use their own pipeline, which the canvas could otherwise sort below the terrain
+    canvas.nextLayer();
     float halfHead = PLAYER_HEAD_SIZE / 2.0F;
-    if (config.showPlayers().get()) {
+    if (this.configuration.worldMapPlayers().get()) {
       for (Player player : minecraft.clientWorld().getPlayers()) {
         if (player == self) {
           continue;

@@ -28,10 +28,12 @@ public class MinimapServers {
   };
 
 
+  private final RemotePlayers remotePlayers = new RemotePlayers();
   private boolean currentlyAllowed = true;
 
   public void init() {
     Laby.labyAPI().eventBus().registerListener(this);
+    Laby.labyAPI().eventBus().registerListener(this.remotePlayers);
 
     LabyModProtocolService protocolService = Laby.references().labyModProtocolService();
     ProtocolRegistry registry = protocolService.registry();
@@ -39,6 +41,12 @@ public class MinimapServers {
     registry.registerProtocol(protocol);
 
     protocol.registerPacket(1, MinimapPacket.class, Direction.BOTH, new MinimapPacketHandler(this));
+    protocol.registerPacket(
+        2,
+        MinimapPlayersPacket.class,
+        Direction.CLIENTBOUND,
+        new MinimapPlayersPacketHandler(this.remotePlayers)
+    );
     TranslationProtocol legacyTranslationProtocol = new TranslationProtocol(LEGACY_ID, protocol);
     legacyTranslationProtocol.registerListener(new MinimapTranslationListener());
     protocolService.translationRegistry().register(legacyTranslationProtocol);
@@ -77,6 +85,10 @@ public class MinimapServers {
   @Subscribe
   public void updateAllowedState(ServerDisconnectEvent event) {
     this.currentlyAllowed = true;
+  }
+
+  public RemotePlayers remotePlayers() {
+    return this.remotePlayers;
   }
 
   public boolean isCurrentlyAllowed() {

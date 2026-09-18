@@ -85,6 +85,7 @@
         "caves": "Cave layer",
         "chunkGrid": "Chunk grid",
         "entities": "Entities",
+        "playerHeads": "Players",
         "export": "Save as image",
         "mode": {
           "terrain": "Terrain",
@@ -106,7 +107,9 @@
           "mergeInto": "Merge into",
           "clearMap": "Clear map"
         },
-        "goTo": "Go to coordinates"
+        "goTo": "Go to coordinates",
+        "players": "Players (%s)",
+        "noPlayers": "No other players known"
       },
       "counterpart": "%s %s, %s",
       "goTo": {

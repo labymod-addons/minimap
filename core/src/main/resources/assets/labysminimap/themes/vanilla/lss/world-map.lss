@@ -23,6 +23,12 @@
     padding-right: 4;
   }
 
+  .atlas-players {
+    width: 100%;
+    height: fit-content;
+    space-between-entries: 2;
+  }
+
   .atlas-title {
     font-size: 1;
     text-color: white;

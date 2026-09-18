@@ -28,6 +28,8 @@ public class MinimapConfiguration extends AddonConfig implements MinimapConfig {
 
   private final ConfigProperty<Boolean> worldMapEntities = new ConfigProperty<>(true);
 
+  private final ConfigProperty<Boolean> worldMapPlayers = new ConfigProperty<>(true);
+
   private final ConfigProperty<MapMode> worldMapMode = ConfigProperty.createEnum(MapMode.TERRAIN);
 
   @Override
@@ -60,6 +62,10 @@ public class MinimapConfiguration extends AddonConfig implements MinimapConfig {
 
   public ConfigProperty<Boolean> worldMapEntities() {
     return this.worldMapEntities;
+  }
+
+  public ConfigProperty<Boolean> worldMapPlayers() {
+    return this.worldMapPlayers;
   }
 
   public ConfigProperty<MapMode> worldMapMode() {
