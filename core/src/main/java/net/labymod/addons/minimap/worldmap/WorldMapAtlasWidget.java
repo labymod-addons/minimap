@@ -57,6 +57,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
   private boolean following;
   private boolean caveLayer;
   private boolean chunkGrid;
+  private boolean entities;
   private String filter;
   @Nullable
   private WorldMapToggleWidget followToggle;
@@ -64,6 +65,8 @@ public final class WorldMapAtlasWidget extends DivWidget {
   private WorldMapToggleWidget caveToggle;
   @Nullable
   private WorldMapToggleWidget gridToggle;
+  @Nullable
+  private WorldMapToggleWidget entitiesToggle;
   @Nullable
   private TextFieldWidget search;
 
@@ -80,6 +83,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
       boolean following,
       boolean caveLayer,
       boolean chunkGrid,
+      boolean entities,
       @Nullable List<WorldMapWaypoint> waypoints,
       String filter
   ) {
@@ -92,6 +96,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.following = following;
     this.caveLayer = caveLayer;
     this.chunkGrid = chunkGrid;
+    this.entities = entities;
     this.waypoints = waypoints == null ? null : new ArrayList<>(waypoints);
     this.filter = filter;
   }
@@ -103,6 +108,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.followToggle = null;
     this.caveToggle = null;
     this.gridToggle = null;
+    this.entitiesToggle = null;
     this.search = null;
 
     VerticalListWidget<Widget> content = new VerticalListWidget<>();
@@ -122,10 +128,11 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.addChild(scroll);
   }
 
-  void update(boolean following, boolean caveLayer, boolean chunkGrid) {
+  void update(boolean following, boolean caveLayer, boolean chunkGrid, boolean entities) {
     this.following = following;
     this.caveLayer = caveLayer;
     this.chunkGrid = chunkGrid;
+    this.entities = entities;
     if (this.gridToggle != null) {
       this.gridToggle.setValue(chunkGrid);
     }
@@ -136,6 +143,10 @@ public final class WorldMapAtlasWidget extends DivWidget {
 
     if (this.caveToggle != null) {
       this.caveToggle.setValue(caveLayer);
+    }
+
+    if (this.entitiesToggle != null) {
+      this.entitiesToggle.setValue(entities);
     }
   }
 
@@ -212,6 +223,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
     if (this.current) {
       this.followToggle = this.addToggle(content, "follow", this.following, this.actions::setFollowing);
       this.caveToggle = this.addToggle(content, "caves", this.caveLayer, this.actions::setCaveLayer);
+      this.entitiesToggle = this.addToggle(content, "entities", this.entities, this.actions::setEntities);
     }
 
     this.gridToggle = this.addToggle(content, "chunkGrid", this.chunkGrid, this.actions::setChunkGrid);
@@ -388,6 +400,8 @@ public final class WorldMapAtlasWidget extends DivWidget {
     void setCaveLayer(boolean enabled);
 
     void setChunkGrid(boolean enabled);
+
+    void setEntities(boolean enabled);
 
     void focusWaypoint(WorldMapWaypoint waypoint);
 

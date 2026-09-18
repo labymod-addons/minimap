@@ -19,6 +19,10 @@ public class MinimapConfiguration extends AddonConfig implements MinimapConfig {
 
   private final ConfigProperty<Boolean> worldMapChunkGrid = new ConfigProperty<>(false);
 
+  private final ConfigProperty<Boolean> worldMapCaveLayer = new ConfigProperty<>(false);
+
+  private final ConfigProperty<Boolean> worldMapEntities = new ConfigProperty<>(true);
+
   @Override
   public ConfigProperty<Boolean> enabled() {
     return this.enabled;
@@ -34,6 +38,14 @@ public class MinimapConfiguration extends AddonConfig implements MinimapConfig {
 
   public ConfigProperty<Boolean> worldMapChunkGrid() {
     return this.worldMapChunkGrid;
+  }
+
+  public ConfigProperty<Boolean> worldMapCaveLayer() {
+    return this.worldMapCaveLayer;
+  }
+
+  public ConfigProperty<Boolean> worldMapEntities() {
+    return this.worldMapEntities;
   }
 
   @Override
