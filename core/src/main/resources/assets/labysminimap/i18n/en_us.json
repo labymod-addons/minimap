@@ -32,7 +32,10 @@
         "rightClick": "Right click",
         "drag": "Drag",
         "selectChunks": "Select chunks",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "click": "Click",
+        "setEnd": "Set end",
+        "clear": "Clear"
       },
       "wheel": {
         "edit": "Edit",
@@ -41,7 +44,8 @@
         "copy": "Copy",
         "follow": "Follow",
         "clearRegion": "Clear region",
-        "clearChunks": "Clear area"
+        "clearChunks": "Clear area",
+        "measure": "Measure"
       },
       "rename": {
         "title": "Rename world",
@@ -101,7 +105,16 @@
           "rename": "Rename",
           "mergeInto": "Merge into",
           "clearMap": "Clear map"
-        }
+        },
+        "goTo": "Go to coordinates"
+      },
+      "counterpart": "%s %s, %s",
+      "goTo": {
+        "title": "Go to coordinates",
+        "placeholder": "X Z"
+      },
+      "ruler": {
+        "counterpart": "%s: %s m"
       }
     },
     "hudWidget": {

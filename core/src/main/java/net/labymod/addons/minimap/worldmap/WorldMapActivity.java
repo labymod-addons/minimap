@@ -82,6 +82,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private static final int ENTITY_OUTLINE_COLOR = 0xB0000000;
   private static final int SELECTION_FILL_COLOR = 0x40E04040;
   private static final int SELECTION_EDGE_COLOR = 0xFFE04040;
+  private static final int RULER_COLOR = 0xFFFFD24A;
+  private static final float ZOOM_BUTTON_SIZE = 14.0F;
+  private static final double ZOOM_BUTTON_STEPS = 2.0D;
+  private static final double DOUBLE_CLICK_STEPS = 3.0D;
+  private static final long DOUBLE_CLICK_NANOS = 300_000_000L;
   private static final float WAYPOINT_ICON_SIZE = 12.0F;
   private static final float WAYPOINT_HIT_RADIUS = 7.0F;
   private static final float WAYPOINT_TITLE_SCALE = 0.75F;
@@ -163,6 +168,18 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private int selectionStartZ;
   private int selectionEndX;
   private int selectionEndZ;
+  private boolean measuring;
+  private boolean measureFixed;
+  private double measureStartX;
+  private double measureStartZ;
+  private double measureEndX;
+  private double measureEndZ;
+  private long lastClickNanos;
+  private float lastClickX;
+  private float lastClickY;
+  private float zoomButtonX;
+  private float zoomInY;
+  private float zoomOutY;
 
   public WorldMapActivity(
       MinimapConfigProvider configProvider,
@@ -184,6 +201,10 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   @Override
   public void initialize(Parent parent) {
     super.initialize(parent);
+    if (!Objects.equals(this.viewKey, this.initializedKey)) {
+      this.measuring = false;
+    }
+
     this.initializedKey = this.viewKey;
     this.wheel = null;
     this.selectingChunks = false;
@@ -470,6 +491,10 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       WorldMapWaypoints waypoints = this.service.waypoints();
       if (waypoints != null && pressed != null) {
         waypoints.edit(pressed.id());
+      } else if (this.measuring) {
+        this.clickRuler(mouse.getX(), mouse.getY());
+      } else {
+        this.clickMap(mouse.getX(), mouse.getY());
       }
     } else if (System.nanoTime() - this.lastDragNanos <= FLING_WINDOW_NANOS) {
       this.camera.fling(this.flingX, this.flingZ);
@@ -508,6 +533,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return true;
     }
 
+    if (this.measuring && key == Key.ESCAPE) {
+      this.measuring = false;
+      return true;
+    }
+
     if (this.atlas != null && this.atlas.isSearchFocused()) {
       return super.keyPressed(key, type);
     }
@@ -543,9 +573,16 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
   @Override
   public void showWorld(MapWorldKey key) {
+    String previous = this.viewKey == null ? null : this.viewKey.dimension();
     this.viewKey = key;
     this.followActive = key.equals(this.service.activeKey());
     this.camera.setFollowing(this.followActive);
+    if (!this.followActive && previous != null && key.dimension().equals(WorldMapNames.counterpart(previous))) {
+      // One nether block is 8 overworld blocks, scale the center to stay on the same spot
+      double scale = WorldMapNames.counterpartScale(previous);
+      this.camera.reset(this.camera.centerX() * scale, this.camera.centerZ() * scale);
+    }
+
     if (!this.followActive) {
       this.caveLayer.dispose();
     }
@@ -608,12 +645,27 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   }
 
   @Override
+  public void goToCoordinates() {
+    this.popup = new WorldMapTextPopup(
+        Component.translatable(I18N_PREFIX + "goTo.title"),
+        Component.translatable(I18N_PREFIX + "goTo.placeholder"),
+        "",
+        this::goTo
+    ).displayInOverlay();
+  }
+
+  @Override
   public void renameWorld(MapWorldKey key) {
     String name = this.service.worldName(key);
-    this.popup = new WorldMapRenamePopup(name == null ? "" : name, newName -> {
-      this.service.renameWorld(key, newName);
-      this.reload();
-    }).displayInOverlay();
+    this.popup = new WorldMapTextPopup(
+        Component.translatable(I18N_PREFIX + "rename.title"),
+        Component.translatable(I18N_PREFIX + "rename.placeholder"),
+        name == null ? "" : name,
+        newName -> {
+          this.service.renameWorld(key, newName);
+          this.reload();
+        }
+    ).displayInOverlay();
   }
 
   @Override
@@ -724,6 +776,10 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       this.renderSelection(context.canvas(), width, height, mouse.getX(), mouse.getY());
     }
 
+    if (this.measuring) {
+      this.renderRuler(context.canvas(), width, height, mouse.getX(), mouse.getY());
+    }
+
     this.renderWaypoints(context, width, height, mouse.getX(), mouse.getY());
     if (current && player != null) {
       this.renderPlayers(context, minecraft, player, width, height, partialTicks, playerX, playerZ);
@@ -741,6 +797,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
           this.renderPlayerCoordinates(canvas, player, width, chromeAlpha);
         }
       }
+
+      this.renderZoomButtons(canvas, width, current ? this.pillY - 4.0F : height - CHROME_MARGIN, chromeAlpha, mouse);
     }
 
     this.renderAtlasBackground(canvas, height);
@@ -863,6 +921,13 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return;
     }
 
+    if (this.measuring) {
+      String click = I18n.getTranslation(I18N_PREFIX + "hint.click");
+      x = this.renderHint(canvas, click, this.measureFixed ? "hint.clear" : "hint.setEnd", x, y, lineHeight);
+      this.renderHint(canvas, "Esc", "hint.clear", x, y, lineHeight);
+      return;
+    }
+
     if (current) {
       x = this.renderHint(canvas, "Space", "hint.follow", x, y, lineHeight);
       x = this.renderHint(canvas, "C", "hint.caves", x, y, lineHeight);
@@ -905,6 +970,18 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
           Component.text(String.valueOf(blockZ >> 4))
       ));
     }
+
+    String counterpart = WorldMapNames.counterpart(this.viewKey.dimension());
+    if (counterpart != null) {
+      double scale = WorldMapNames.counterpartScale(this.viewKey.dimension());
+      text = text.append(Component.text("  ·  ")).append(Component.translatable(
+          I18N_PREFIX + "counterpart",
+          Component.text(WorldMapNames.dimension(counterpart)),
+          Component.text(String.valueOf(MathHelper.floor(blockX * scale))),
+          Component.text(String.valueOf(MathHelper.floor(blockZ * scale)))
+      ));
+    }
+
     float tooltipWidth = canvas.getTextWidth(text) * this.textScale + TOOLTIP_PADDING * 2.0F;
     float tooltipHeight = canvas.getLineHeight() * this.textScale + TOOLTIP_PADDING * 2.0F;
     float x = mouseX + TOOLTIP_OFFSET;
@@ -944,6 +1021,18 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
           this.showWorld(key);
           return true;
         }
+      }
+    }
+
+    if (mouseX >= this.zoomButtonX && mouseX <= this.zoomButtonX + ZOOM_BUTTON_SIZE) {
+      if (mouseY >= this.zoomInY && mouseY <= this.zoomInY + ZOOM_BUTTON_SIZE) {
+        this.zoomAtCenter(ZOOM_BUTTON_STEPS);
+        return true;
+      }
+
+      if (mouseY >= this.zoomOutY && mouseY <= this.zoomOutY + ZOOM_BUTTON_SIZE) {
+        this.zoomAtCenter(-ZOOM_BUTTON_STEPS);
+        return true;
       }
     }
 
@@ -1218,6 +1307,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       entries.add(wheelEntry(SpriteCommon.PAINT, "clearChunks", () -> this.selectingChunks = true));
     }
 
+    entries.add(wheelEntry(SpriteCommon.PIN, "measure", () -> this.startRuler(blockX, blockZ)));
     entries.add(wheelEntry(
         SpriteCommon.COPY, "copy",
         () -> Laby.labyAPI().minecraft().setClipboard(blockX + " " + blockY + " " + blockZ)
@@ -1366,6 +1456,148 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     canvas.submitRelativeRect(left, bottom - 1.0F, right - left, 1.0F, SELECTION_EDGE_COLOR);
     canvas.submitRelativeRect(left, top, 1.0F, bottom - top, SELECTION_EDGE_COLOR);
     canvas.submitRelativeRect(right - 1.0F, top, 1.0F, bottom - top, SELECTION_EDGE_COLOR);
+  }
+
+  /**
+   * Accepts "x z" and "x y z", separated by spaces or commas.
+   */
+  private void goTo(String text) {
+    String[] parts = text.split("[\\s,]+");
+    if (parts.length != 2 && parts.length != 3) {
+      return;
+    }
+
+    double x;
+    double z;
+    try {
+      x = Double.parseDouble(parts[0]);
+      z = Double.parseDouble(parts[parts.length - 1]);
+    } catch (NumberFormatException exception) {
+      return;
+    }
+
+    this.camera.setFollowing(false);
+    this.camera.reset(Math.floor(x) + 0.5D, Math.floor(z) + 0.5D);
+  }
+
+  private void zoomAtCenter(double steps) {
+    Window window = Laby.labyAPI().minecraft().minecraftWindow();
+    this.camera.zoom(window.getScaledWidth() / 2.0F, window.getScaledHeight() / 2.0F, steps);
+  }
+
+  /**
+   * Zooms in on a double click.
+   */
+  private void clickMap(float mouseX, float mouseY) {
+    long now = System.nanoTime();
+    if (now - this.lastClickNanos <= DOUBLE_CLICK_NANOS
+        && Math.abs(mouseX - this.lastClickX) <= CLICK_TOLERANCE
+        && Math.abs(mouseY - this.lastClickY) <= CLICK_TOLERANCE) {
+      this.camera.zoom(mouseX, mouseY, DOUBLE_CLICK_STEPS);
+      this.lastClickNanos = 0L;
+      return;
+    }
+
+    this.lastClickNanos = now;
+    this.lastClickX = mouseX;
+    this.lastClickY = mouseY;
+  }
+
+  private void startRuler(int blockX, int blockZ) {
+    this.measuring = true;
+    this.measureFixed = false;
+    this.measureStartX = blockX + 0.5D;
+    this.measureStartZ = blockZ + 0.5D;
+  }
+
+  /**
+   * The first click sets the end of the ruler, the next one removes it.
+   */
+  private void clickRuler(float mouseX, float mouseY) {
+    if (this.measureFixed) {
+      this.measuring = false;
+      return;
+    }
+
+    Window window = Laby.labyAPI().minecraft().minecraftWindow();
+    this.measureEndX = MathHelper.floor(this.camera.screenToWorldX(mouseX, window.getScaledWidth())) + 0.5D;
+    this.measureEndZ = MathHelper.floor(this.camera.screenToWorldZ(mouseY, window.getScaledHeight())) + 0.5D;
+    this.measureFixed = true;
+  }
+
+  private void renderRuler(ScreenCanvas canvas, float width, float height, float mouseX, float mouseY) {
+    double endX = this.measureFixed
+        ? this.measureEndX
+        : MathHelper.floor(this.camera.screenToWorldX(mouseX, width)) + 0.5D;
+    double endZ = this.measureFixed
+        ? this.measureEndZ
+        : MathHelper.floor(this.camera.screenToWorldZ(mouseY, height)) + 0.5D;
+    float fromX = this.camera.worldToScreenX(this.measureStartX, width);
+    float fromY = this.camera.worldToScreenY(this.measureStartZ, height);
+    float toX = this.camera.worldToScreenX(endX, width);
+    float toY = this.camera.worldToScreenY(endZ, height);
+
+    // Line shapes only report a tiny bounding box, so the canvas could sort them below the terrain
+    canvas.nextLayer();
+    thickLine(canvas, fromX, fromY, toX, toY, DRAG_LINE_OUTLINE_WIDTH, DRAG_LINE_OUTLINE_COLOR);
+    canvas.submitCircle(fromX, fromY, 3.0F, DRAG_LINE_OUTLINE_COLOR);
+    canvas.submitCircle(toX, toY, 3.0F, DRAG_LINE_OUTLINE_COLOR);
+    thickLine(canvas, fromX, fromY, toX, toY, DRAG_LINE_WIDTH, RULER_COLOR);
+    canvas.submitCircle(fromX, fromY, 2.0F, RULER_COLOR);
+    canvas.submitCircle(toX, toY, 2.0F, RULER_COLOR);
+
+    double distance = Math.hypot(endX - this.measureStartX, endZ - this.measureStartZ);
+    Component label = Component.text(Math.round(distance) + " m");
+    String counterpart = WorldMapNames.counterpart(this.viewKey.dimension());
+    if (counterpart != null) {
+      long scaled = Math.round(distance * WorldMapNames.counterpartScale(this.viewKey.dimension()));
+      label = label.append(Component.text("  ·  ")).append(Component.translatable(
+          I18N_PREFIX + "ruler.counterpart",
+          Component.text(WorldMapNames.dimension(counterpart)),
+          Component.text(String.valueOf(scaled))
+      ));
+    }
+
+    float labelWidth = canvas.getTextWidth(label) * this.textScale + TOOLTIP_PADDING * 2.0F;
+    float labelHeight = canvas.getLineHeight() * this.textScale + TOOLTIP_PADDING * 2.0F;
+    float x = (fromX + toX - labelWidth) / 2.0F;
+    float y = (fromY + toY) / 2.0F - labelHeight - 4.0F;
+    WorldMapTheme theme = WorldMapTheme.get();
+    theme.panel(canvas, x, y, labelWidth, labelHeight, 255);
+    canvas.submitComponent(
+        label,
+        x + TOOLTIP_PADDING, y + TOOLTIP_PADDING,
+        theme.textColor(),
+        this.textScale,
+        theme.textOptions()
+    );
+  }
+
+  /**
+   * @param bottom y of the lower button's bottom edge
+   */
+  private void renderZoomButtons(ScreenCanvas canvas, float width, float bottom, int alpha, MutableMouse mouse) {
+    this.zoomButtonX = width - CHROME_MARGIN - ZOOM_BUTTON_SIZE;
+    this.zoomOutY = bottom - ZOOM_BUTTON_SIZE;
+    this.zoomInY = this.zoomOutY - 2.0F - ZOOM_BUTTON_SIZE;
+    this.renderZoomButton(canvas, "+", this.zoomInY, alpha, mouse);
+    this.renderZoomButton(canvas, "-", this.zoomOutY, alpha, mouse);
+  }
+
+  private void renderZoomButton(ScreenCanvas canvas, String label, float y, int alpha, MutableMouse mouse) {
+    boolean hovered = mouse.getX() >= this.zoomButtonX
+        && mouse.getX() <= this.zoomButtonX + ZOOM_BUTTON_SIZE
+        && mouse.getY() >= y
+        && mouse.getY() <= y + ZOOM_BUTTON_SIZE;
+    WorldMapTheme theme = WorldMapTheme.get();
+    theme.pill(canvas, this.zoomButtonX, y, ZOOM_BUTTON_SIZE, ZOOM_BUTTON_SIZE, hovered, alpha);
+    canvas.submitText(
+        label,
+        this.zoomButtonX + ZOOM_BUTTON_SIZE / 2.0F, y + (ZOOM_BUTTON_SIZE - canvas.getLineHeight()) / 2.0F + 1.0F,
+        withAlpha(theme.textColor(), alpha),
+        1.0F,
+        theme.textOptions() | TextRenderingOptions.CENTERED
+    );
   }
 
   private static WorldMapWheel.Entry wheelEntry(Icon icon, String key, Runnable action) {

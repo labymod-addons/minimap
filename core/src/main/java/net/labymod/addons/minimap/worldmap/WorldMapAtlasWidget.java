@@ -285,6 +285,10 @@ public final class WorldMapAtlasWidget extends DivWidget {
 
     this.gridToggle = this.addToggle(content, "chunkGrid", this.chunkGrid, this.actions::setChunkGrid);
 
+    DivWidget goTo = row(ComponentWidget.i18n(I18N_PREFIX + "goTo"), null);
+    this.makePressable(goTo, this.actions::goToCoordinates);
+    content.addChild(goTo);
+
     DivWidget export = row(ComponentWidget.i18n(I18N_PREFIX + "export"), null);
     this.makePressable(export, this.actions::exportImage);
     content.addChild(export);
@@ -471,6 +475,8 @@ public final class WorldMapAtlasWidget extends DivWidget {
     void setMode(MapMode mode);
 
     void exportImage();
+
+    void goToCoordinates();
 
     void renameWorld(MapWorldKey key);
 

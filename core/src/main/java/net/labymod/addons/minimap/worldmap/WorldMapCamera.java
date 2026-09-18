@@ -114,6 +114,14 @@ final class WorldMapCamera {
     return this.following;
   }
 
+  double centerX() {
+    return this.centerX;
+  }
+
+  double centerZ() {
+    return this.centerZ;
+  }
+
   /**
    * Screen pixels per block.
    */

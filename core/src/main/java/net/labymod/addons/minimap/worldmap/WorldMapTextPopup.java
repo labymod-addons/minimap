@@ -2,7 +2,6 @@ package net.labymod.addons.minimap.worldmap;
 
 import java.util.List;
 import java.util.function.Consumer;
-import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.api.client.component.Component;
 import net.labymod.api.client.gui.screen.activity.Link;
 import net.labymod.api.client.gui.screen.widget.Widget;
@@ -11,20 +10,25 @@ import net.labymod.api.client.gui.screen.widget.widgets.layout.list.VerticalList
 import net.labymod.api.client.gui.screen.widget.widgets.popup.SimpleAdvancedPopup;
 
 /**
- * Names a sub-world. An empty name goes back to the numbered default.
+ * Asks for one line of text. Pressing Enter confirms.
  */
 @Link("world-map-popup.lss")
-public final class WorldMapRenamePopup extends SimpleAdvancedPopup {
+public final class WorldMapTextPopup extends SimpleAdvancedPopup {
 
-  private static final int MAX_NAME_LENGTH = 32;
+  private static final int MAX_LENGTH = 32;
 
-  private final TextFieldWidget name = new TextFieldWidget();
-  private final Consumer<String> rename;
+  private final TextFieldWidget field = new TextFieldWidget();
+  private final Component placeholder;
+  private final Consumer<String> submit;
 
-  WorldMapRenamePopup(String name, Consumer<String> rename) {
-    this.rename = rename;
-    this.name.setText(name);
-    this.title = Component.translatable(Util.NAMESPACE + ".worldMap.rename.title");
+  /**
+   * @param submit gets the trimmed text
+   */
+  WorldMapTextPopup(Component title, Component placeholder, String text, Consumer<String> submit) {
+    this.placeholder = placeholder;
+    this.submit = submit;
+    this.field.setText(text);
+    this.title = title;
     this.widgetFunction = this::addWidgets;
     this.buttons = List.of(
         SimplePopupButton.confirm(button -> this.apply()),
@@ -33,17 +37,17 @@ public final class WorldMapRenamePopup extends SimpleAdvancedPopup {
   }
 
   private void addWidgets(VerticalListWidget<Widget> container) {
-    this.name.addId("world-name");
-    this.name.maximalLength(MAX_NAME_LENGTH);
-    this.name.placeholder(Component.translatable(Util.NAMESPACE + ".worldMap.rename.placeholder"));
-    this.name.submitHandler(text -> {
+    this.field.addId("popup-field");
+    this.field.maximalLength(MAX_LENGTH);
+    this.field.placeholder(this.placeholder);
+    this.field.submitHandler(text -> {
       this.apply();
       this.close();
     });
-    container.addChild(this.name);
+    container.addChild(this.field);
   }
 
   private void apply() {
-    this.rename.accept(this.name.getText().trim());
+    this.submit.accept(this.field.getText().trim());
   }
 }
