@@ -7,6 +7,7 @@ import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.config.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.map.MinimapPlayerIcon;
 import net.labymod.addons.minimap.api.util.Util;
+import net.labymod.addons.minimap.config.MinimapConfiguration;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.addons.minimap.laby3d.MinimapUniformBlocks;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
@@ -20,6 +21,8 @@ import net.labymod.api.Laby;
 import net.labymod.api.Textures.SpriteCommon;
 import net.labymod.api.client.Minecraft;
 import net.labymod.api.client.component.Component;
+import net.labymod.api.client.entity.Entity;
+import net.labymod.api.client.entity.LivingEntity;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.entity.player.Player;
 import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
@@ -40,7 +43,6 @@ import net.labymod.api.client.gui.screen.widget.widgets.renderer.IconWidget;
 import net.labymod.api.client.gui.window.Window;
 import net.labymod.api.client.render.font.FontSize.PredefinedFontSize;
 import net.labymod.api.client.world.MinecraftCamera;
-import net.labymod.api.configuration.loader.property.ConfigProperty;
 import net.labymod.api.util.I18n;
 import net.labymod.api.util.math.MathHelper;
 import net.labymod.api.util.math.position.Position;
@@ -67,6 +69,9 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private static final float CHUNK_GRID_FADE_SCALE = 1.0F;
   private static final float PLAYER_ICON_SIZE = 8.0F;
   private static final float PLAYER_HEAD_SIZE = 8.0F;
+  private static final float ENTITY_DOT_RADIUS = 1.5F;
+  private static final int ENTITY_COLOR = 0xFFFFFFFF;
+  private static final int ENTITY_OUTLINE_COLOR = 0xB0000000;
   private static final float WAYPOINT_ICON_SIZE = 12.0F;
   private static final float WAYPOINT_HIT_RADIUS = 7.0F;
   private static final float WAYPOINT_TITLE_SCALE = 0.75F;
@@ -87,8 +92,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private final MinimapConfigProvider configProvider;
   private final WorldMapService service;
   private final WorldMapOpener opener;
-  private final ConfigProperty<Boolean> atlasOpen;
-  private final ConfigProperty<Boolean> chunkGrid;
+  private final MinimapConfiguration configuration;
   private final WorldMapRenderer renderer;
   private final CaveLayer caveLayer;
   private final WorldMapCamera camera = new WorldMapCamera();
@@ -98,7 +102,6 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   @Nullable
   private MapWorldKey initializedKey;
   private boolean followActive = true;
-  private boolean caveLayerEnabled;
   private boolean cameraPlaced;
   private boolean dragging;
   private float dragDistance;
@@ -147,16 +150,14 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       MinimapConfigProvider configProvider,
       WorldMapService service,
       WorldMapOpener opener,
-      ConfigProperty<Boolean> atlasOpen,
-      ConfigProperty<Boolean> chunkGrid,
+      MinimapConfiguration configuration,
       MinimapRenderer minimapRenderer,
       MinimapUniformBlocks uniformBlocks
   ) {
     this.configProvider = configProvider;
     this.service = service;
     this.opener = opener;
-    this.atlasOpen = atlasOpen;
-    this.chunkGrid = chunkGrid;
+    this.configuration = configuration;
     this.renderer = new WorldMapRenderer(minimapRenderer, uniformBlocks);
     this.caveLayer = new CaveLayer(minimapRenderer, uniformBlocks);
     this.viewKey = service.activeKey();
@@ -193,8 +194,9 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         this.viewKey,
         this.isViewingActive(),
         this.camera.isFollowing(),
-        this.caveLayerEnabled,
-        this.chunkGrid.get(),
+        this.configuration.worldMapCaveLayer().get(),
+        this.configuration.worldMapChunkGrid().get(),
+        this.configuration.worldMapEntities().get(),
         waypoints == null ? null : waypoints.waypoints(this.viewKey),
         this.waypointFilter
     );
@@ -252,7 +254,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     Minecraft minecraft = Laby.labyAPI().minecraft();
     ClientPlayer player = minecraft.getClientPlayer();
     boolean current = this.isViewingActive();
-    if (this.caveLayerEnabled && player != null && current) {
+    if (this.configuration.worldMapCaveLayer().get() && player != null && current) {
       this.caveLayer.tick(minecraft.clientWorld(), player);
     }
 
@@ -260,7 +262,12 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       return;
     }
 
-    this.atlas.update(this.camera.isFollowing(), this.caveLayerEnabled, this.chunkGrid.get());
+    this.atlas.update(
+        this.camera.isFollowing(),
+        this.configuration.worldMapCaveLayer().get(),
+        this.configuration.worldMapChunkGrid().get(),
+        this.configuration.worldMapEntities().get()
+    );
     if (this.ticks % ATLAS_REFRESH_TICKS != 0) {
       return;
     }
@@ -462,7 +469,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     if (key == Key.G) {
-      this.setChunkGrid(!this.chunkGrid.get());
+      this.setChunkGrid(!this.configuration.worldMapChunkGrid().get());
       return true;
     }
 
@@ -472,7 +479,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     if (key == Key.C && this.isViewingActive()) {
-      this.setCaveLayer(!this.caveLayerEnabled);
+      this.setCaveLayer(!this.configuration.worldMapCaveLayer().get());
       return true;
     }
 
@@ -484,8 +491,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.viewKey = key;
     this.followActive = key.equals(this.service.activeKey());
     this.camera.setFollowing(this.followActive);
-    if (!this.followActive && this.caveLayerEnabled) {
-      this.caveLayerEnabled = false;
+    if (!this.followActive) {
       this.caveLayer.dispose();
     }
 
@@ -499,14 +505,19 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
   @Override
   public void setCaveLayer(boolean enabled) {
-    if (this.caveLayerEnabled == enabled) {
+    if (this.configuration.worldMapCaveLayer().get() == enabled) {
       return;
     }
 
-    this.caveLayerEnabled = enabled;
+    this.configuration.worldMapCaveLayer().set(enabled);
     if (!enabled) {
       this.caveLayer.dispose();
     }
+  }
+
+  @Override
+  public void setEntities(boolean enabled) {
+    this.configuration.worldMapEntities().set(enabled);
   }
 
   @Override
@@ -539,7 +550,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
   @Override
   public void setChunkGrid(boolean enabled) {
-    this.chunkGrid.set(enabled);
+    this.configuration.worldMapChunkGrid().set(enabled);
   }
 
   private void renderMap(ScreenContext context, Minecraft minecraft, float width, float height) {
@@ -569,14 +580,18 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         width, height,
         (float) window.getRawWidth() / window.getScaledWidth()
     );
-    if (current && this.caveLayerEnabled) {
+    if (current && this.configuration.worldMapCaveLayer().get()) {
       // Built cave chunks are opaque and cover the dimming, so only the area not built yet stays dark
       context.canvas().submitRelativeRect(0.0F, 0.0F, width, height, CAVE_UNBUILT_DIM_COLOR);
       this.caveLayer.render(context, this.camera, width, height);
     }
 
-    if (this.chunkGrid.get()) {
+    if (this.configuration.worldMapChunkGrid().get()) {
       this.renderChunkGrid(context.canvas(), width, height, (float) window.getRawWidth() / window.getScaledWidth());
+    }
+
+    if (current && player != null && this.configuration.worldMapEntities().get()) {
+      this.renderEntities(context.canvas(), minecraft, width, height, partialTicks);
     }
 
     MutableMouse mouse = context.mouse();
@@ -593,6 +608,9 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       this.renderDimensionBar(canvas, width, chromeAlpha);
       if (current) {
         this.renderStatePills(canvas, width, height, chromeAlpha);
+        if (player != null) {
+          this.renderPlayerCoordinates(canvas, player, width, chromeAlpha);
+        }
       }
     }
 
@@ -676,10 +694,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.pillY = height - CHROME_MARGIN - this.pillHeight;
 
     boolean following = this.camera.isFollowing();
-    String caveText = I18n.getTranslation(I18N_PREFIX + (this.caveLayerEnabled ? "caveOn" : "caveOff"));
+    boolean caves = this.configuration.worldMapCaveLayer().get();
+    String caveText = I18n.getTranslation(I18N_PREFIX + (caves ? "caveOn" : "caveOff"));
     this.cavePillWidth = canvas.getTextWidth(caveText) * this.textScale + 10.0F;
     this.cavePillX = width - CHROME_MARGIN - this.cavePillWidth;
-    this.renderPill(canvas, caveText, this.cavePillX, this.cavePillWidth, this.caveLayerEnabled, alpha);
+    this.renderPill(canvas, caveText, this.cavePillX, this.cavePillWidth, caves, alpha);
 
     String followText = I18n.getTranslation(I18N_PREFIX + (following ? "following" : "freeCamera"));
     this.followPillWidth = canvas.getTextWidth(followText) * this.textScale + 10.0F;
@@ -738,7 +757,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     int blockX = MathHelper.floor(this.camera.screenToWorldX(mouseX, width));
     int blockZ = MathHelper.floor(this.camera.screenToWorldZ(mouseY, height));
     Component text = this.describeLocation(store, blockX, blockZ);
-    if (this.chunkGrid.get()) {
+    if (this.configuration.worldMapChunkGrid().get()) {
       text = text.append(Component.text("  ·  ")).append(Component.translatable(
           I18N_PREFIX + "chunk",
           Component.text(String.valueOf(blockX >> 4)),
@@ -797,7 +816,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     if (mouseX >= this.cavePillX && mouseX <= this.cavePillX + this.cavePillWidth) {
-      this.setCaveLayer(!this.caveLayerEnabled);
+      this.setCaveLayer(!this.configuration.worldMapCaveLayer().get());
       return true;
     }
 
@@ -811,7 +830,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   ) {
     this.hoveredWaypoint = null;
     WorldMapWaypoints waypoints = this.service.waypoints();
-    if (waypoints == null) {
+    if (waypoints == null || !this.configProvider.hudWidgetConfig().showWaypoints().get()) {
       return;
     }
 
@@ -876,6 +895,47 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       }
 
       context.popStack();
+    }
+  }
+
+  private void renderPlayerCoordinates(ScreenCanvas canvas, ClientPlayer player, float width, int alpha) {
+    Position position = player.position();
+    String text = "X " + MathHelper.floor(position.getX())
+        + "  Y " + MathHelper.floor(position.getY())
+        + "  Z " + MathHelper.floor(position.getZ());
+    float panelWidth = canvas.getTextWidth(text) * this.textScale + TOOLTIP_PADDING * 2.0F;
+    float panelHeight = canvas.getLineHeight() * this.textScale + TOOLTIP_PADDING * 2.0F;
+    float x = width - CHROME_MARGIN - panelWidth;
+    WorldMapTheme theme = WorldMapTheme.get();
+    theme.panel(canvas, x, CHROME_MARGIN, panelWidth, panelHeight, alpha);
+    canvas.submitText(
+        text,
+        x + TOOLTIP_PADDING, CHROME_MARGIN + TOOLTIP_PADDING,
+        withAlpha(theme.textColor(), alpha),
+        this.textScale,
+        theme.textOptions()
+    );
+  }
+
+  private void renderEntities(
+      ScreenCanvas canvas,
+      Minecraft minecraft,
+      float width, float height,
+      float partialTicks
+  ) {
+    for (Entity entity : minecraft.clientWorld().getEntities()) {
+      if (!(entity instanceof LivingEntity) || entity instanceof Player) {
+        continue;
+      }
+
+      Position position = entity.position();
+      Position previous = entity.previousPosition();
+      float x = this.camera.worldToScreenX(position.lerpX(previous, partialTicks), width);
+      float y = this.camera.worldToScreenY(position.lerpZ(previous, partialTicks), height);
+      if (this.isOnScreen(x, y, width, height, ENTITY_DOT_RADIUS)) {
+        canvas.submitCircle(x, y, ENTITY_DOT_RADIUS + 0.75F, ENTITY_OUTLINE_COLOR);
+        canvas.submitCircle(x, y, ENTITY_DOT_RADIUS, ENTITY_COLOR);
+      }
     }
   }
 
@@ -1118,8 +1178,8 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   }
 
   private void toggleAtlas() {
-    boolean open = !this.atlasOpen.get();
-    this.atlasOpen.set(open);
+    boolean open = !this.configuration.worldMapAtlasOpen().get();
+    this.configuration.worldMapAtlasOpen().set(open);
     if (!open && this.atlas != null) {
       this.atlas.unfocusSearch();
     }
@@ -1130,7 +1190,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     float seconds = this.lastFrameNanos == 0L ? 0.0F : (now - this.lastFrameNanos) / 1.0E9F;
     this.lastFrameNanos = now;
 
-    float target = this.atlasOpen.get() ? 1.0F : 0.0F;
+    float target = this.configuration.worldMapAtlasOpen().get() ? 1.0F : 0.0F;
     if (this.atlasProgress < 0.0F) {
       this.atlasProgress = target;
     } else if (this.atlasProgress < target) {
@@ -1147,7 +1207,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.atlas.setTranslateX(offset);
     this.atlasHandle.setTranslateX(offset);
     this.atlas.setVisible(this.atlasProgress > 0.0F);
-    Icon handleIcon = this.atlasOpen.get() ? SpriteCommon.WHITE_LESS_THAN : SpriteCommon.WHITE_GREATER_THAN;
+    Icon handleIcon = this.configuration.worldMapAtlasOpen().get() ? SpriteCommon.WHITE_LESS_THAN : SpriteCommon.WHITE_GREATER_THAN;
     if (this.atlasHandleIcon.icon().get() != handleIcon) {
       this.atlasHandleIcon.icon().set(handleIcon);
     }

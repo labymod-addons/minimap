@@ -41,6 +41,7 @@
         "follow": "Follow player",
         "caves": "Cave layer",
         "chunkGrid": "Chunk grid",
+        "entities": "Entities",
         "waypoints": "Waypoints (%s)",
         "search": "Search waypoints",
         "noWaypoints": "No waypoints in this dimension",
