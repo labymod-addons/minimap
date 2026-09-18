@@ -11,6 +11,7 @@ import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
 import net.labymod.addons.minimap.server.MinimapServers;
+import net.labymod.addons.minimap.server.RemotePlayers;
 import net.labymod.addons.minimap.stream.MinimapPublisher;
 import net.labymod.addons.minimap.world.WorldMapService;
 import net.labymod.addons.minimap.worldmap.WorldMapOpener;
@@ -107,6 +108,10 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
 
   public boolean isMinimapAllowed() {
     return this.servers.isCurrentlyAllowed();
+  }
+
+  public RemotePlayers remotePlayers() {
+    return this.servers.remotePlayers();
   }
 
   public static ReferenceStorage getReferences() {

@@ -53,6 +53,7 @@ public class WorldMapOpener {
         this.service,
         this,
         this.addon.configuration(),
+        this.addon.remotePlayers(),
         this.minimapRenderer,
         this.uniformBlocks
     ));
