@@ -10,6 +10,7 @@
     width: 100%;
     height: 100%;
     padding: 8 4 8 8;
+    modify-content-width: false;
 
     Scrollbar {
       width: 3;
@@ -20,13 +21,17 @@
     width: 100%;
     height: fit-content;
     space-between-entries: 2;
-    padding-right: 4;
+    padding-right: 1;
   }
 
   .atlas-players {
     width: 100%;
     height: fit-content;
     space-between-entries: 2;
+  }
+
+  .atlas-section {
+    margin-top: 5;
   }
 
   .atlas-title {
@@ -115,6 +120,14 @@
       alignment-y: center;
       width: 7;
       height: 7;
+    }
+
+    .atlas-row-arrow {
+      right: 3;
+      top: 50%;
+      alignment-y: center;
+      width: 6;
+      height: 6;
     }
 
     .atlas-row-detail {

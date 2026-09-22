@@ -261,6 +261,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         this.configuration.worldMapPlayers().get(),
         this.configuration.worldMapMode().get(),
         this.showsPlayers(),
+        this.configuration.worldMapPlayersFolded().get(),
         waypoints == null ? null : waypoints.waypoints(this.viewKey),
         this.waypointFilter
     );
@@ -746,6 +747,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   @Override
   public void runPlayerAction(String action, UUID player) {
     this.remotePlayers.runAction(action, player);
+  }
+
+  @Override
+  public void setPlayersFolded(boolean folded) {
+    this.configuration.worldMapPlayersFolded().set(folded);
   }
 
   @Override

@@ -13,6 +13,7 @@ import net.labymod.addons.minimap.world.MapWorldKey;
 import net.labymod.addons.minimap.world.WorldMapService;
 import net.labymod.addons.minimap.world.WorldMapWaypoint;
 import net.labymod.api.Laby;
+import net.labymod.api.Textures.SpriteCommon;
 import net.labymod.api.client.component.Component;
 import net.labymod.api.client.component.serializer.plain.PlainTextComponentSerializer;
 import net.labymod.api.client.entity.player.ClientPlayer;
@@ -58,6 +59,9 @@ public final class WorldMapAtlasWidget extends DivWidget {
   private final boolean current;
   private final MapMode mode;
   private final boolean showPlayers;
+  private boolean playersFolded;
+  @Nullable
+  private IconWidget playersArrow;
   private final List<PlayerRow> playerRows = new ArrayList<>();
   private List<WorldMapPlayer> players = List.of();
   @Nullable
@@ -89,6 +93,8 @@ public final class WorldMapAtlasWidget extends DivWidget {
   private WorldMapToggleWidget playerHeadsToggle;
   @Nullable
   private TextFieldWidget search;
+  @Nullable
+  private ScrollWidget scroll;
 
   /**
    * @param current   whether the player is in the shown world
@@ -107,6 +113,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
       boolean playerHeads,
       MapMode mode,
       boolean showPlayers,
+      boolean playersFolded,
       @Nullable List<WorldMapWaypoint> waypoints,
       String filter
   ) {
@@ -123,6 +130,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.playerHeads = playerHeads;
     this.mode = mode;
     this.showPlayers = showPlayers;
+    this.playersFolded = playersFolded;
     this.waypoints = waypoints == null ? null : new ArrayList<>(waypoints);
     this.filter = filter;
   }
@@ -133,6 +141,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.waypointRows.clear();
     this.playerRows.clear();
     this.playersLabel = null;
+    this.playersArrow = null;
     this.playerList = null;
     this.followToggle = null;
     this.caveToggle = null;
@@ -140,6 +149,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.entitiesToggle = null;
     this.playerHeadsToggle = null;
     this.search = null;
+    this.scroll = null;
 
     VerticalListWidget<Widget> content = new VerticalListWidget<>();
     content.addId("atlas-content");
@@ -159,6 +169,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
     ScrollWidget scroll = new ScrollWidget(content);
     scroll.addId("atlas-scroll");
     this.addChild(scroll);
+    this.scroll = scroll;
   }
 
   void update(boolean following, boolean caveLayer, boolean chunkGrid, boolean entities, boolean playerHeads) {
@@ -379,16 +390,37 @@ public final class WorldMapAtlasWidget extends DivWidget {
     return toggle;
   }
 
+  /**
+   * Clicking the header folds the list, so players joining and leaving don't shift the panel.
+   */
   private void addPlayers(VerticalListWidget<Widget> content) {
     ComponentWidget label = ComponentWidget.empty();
-    label.addId("atlas-label");
-    content.addChild(label);
+    IconWidget arrow = new IconWidget(this.foldIcon());
+    arrow.addId("atlas-row-arrow");
+    DivWidget header = row(label, null);
+    header.addId("atlas-section");
+    header.addChild(arrow);
+    this.makePressable(header, this::togglePlayers);
+    content.addChild(header);
+
     VerticalListWidget<Widget> list = new VerticalListWidget<>();
     list.addId("atlas-players");
     content.addChild(list);
     this.playersLabel = label;
+    this.playersArrow = arrow;
     this.playerList = list;
     this.fillPlayers(false);
+  }
+
+  private void togglePlayers() {
+    this.playersFolded = !this.playersFolded;
+    this.playersArrow.icon().set(this.foldIcon());
+    this.actions.setPlayersFolded(this.playersFolded);
+    this.fillPlayers(true);
+  }
+
+  private Icon foldIcon() {
+    return this.playersFolded ? SpriteCommon.SMALL_DOWN : SpriteCommon.SMALL_UP;
   }
 
   /**
@@ -404,6 +436,11 @@ public final class WorldMapAtlasWidget extends DivWidget {
     this.playerRows.clear();
     if (initialized) {
       this.playerList.removeChildIf(widget -> true);
+    }
+
+    if (this.playersFolded) {
+      this.relayout(initialized);
+      return;
     }
 
     List<Widget> rows = new ArrayList<>();
@@ -440,6 +477,18 @@ public final class WorldMapAtlasWidget extends DivWidget {
       } else {
         this.playerList.addChild(row);
       }
+    }
+
+    this.relayout(initialized);
+  }
+
+  /**
+   * Widgets don't pass size changes up to their parents, so the panel lays itself out again after
+   * the player rows change.
+   */
+  private void relayout(boolean initialized) {
+    if (initialized && this.scroll != null) {
+      this.scroll.updateBounds();
     }
   }
 
@@ -679,6 +728,8 @@ public final class WorldMapAtlasWidget extends DivWidget {
     List<PlayerAction> playerActions();
 
     void runPlayerAction(String action, UUID player);
+
+    void setPlayersFolded(boolean folded);
 
     void editWaypoint(WorldMapWaypoint waypoint);
 
