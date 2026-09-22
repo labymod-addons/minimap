@@ -9,4 +9,13 @@ public interface ChunkCompiler<T extends ChunkData> {
   void compile(T t);
 
   void setPlayerPosition(int playerX, int playerY, int playerZ, boolean underground);
+
+  default void setRoofed(boolean roofed) {
+  }
+
+  /**
+   * @param radius blocks that grass and foliage colors are averaged over
+   */
+  default void setBiomeBlend(int radius) {
+  }
 }

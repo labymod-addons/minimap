@@ -12,6 +12,7 @@ import net.labymod.api.event.client.world.WorldEnterEvent.Type;
 import net.labymod.api.serverapi.LabyModProtocolService;
 import net.labymod.api.serverapi.TranslationProtocol;
 import net.labymod.serverapi.api.ProtocolRegistry;
+import net.labymod.serverapi.api.packet.Packet;
 import net.labymod.serverapi.api.packet.Direction;
 import net.labymod.serverapi.api.payload.PayloadChannelIdentifier;
 import net.labymod.serverapi.core.AddonProtocol;
@@ -28,17 +29,36 @@ public class MinimapServers {
   };
 
 
+  private final RemotePlayers remotePlayers = new RemotePlayers(this);
   private boolean currentlyAllowed = true;
+  private LabyModProtocolService protocolService;
+  private AddonProtocol protocol;
 
   public void init() {
     Laby.labyAPI().eventBus().registerListener(this);
+    Laby.labyAPI().eventBus().registerListener(this.remotePlayers);
 
     LabyModProtocolService protocolService = Laby.references().labyModProtocolService();
     ProtocolRegistry registry = protocolService.registry();
     AddonProtocol protocol = new AddonProtocol(protocolService, Util.NAMESPACE);
     registry.registerProtocol(protocol);
+    this.protocolService = protocolService;
+    this.protocol = protocol;
 
     protocol.registerPacket(1, MinimapPacket.class, Direction.BOTH, new MinimapPacketHandler(this));
+    protocol.registerPacket(
+        2,
+        MinimapPlayersPacket.class,
+        Direction.CLIENTBOUND,
+        new MinimapPlayersPacketHandler(this.remotePlayers)
+    );
+    protocol.registerPacket(
+        3,
+        MinimapPlayerActionsPacket.class,
+        Direction.CLIENTBOUND,
+        new MinimapPlayerActionsPacketHandler(this.remotePlayers)
+    );
+    protocol.registerPacket(4, MinimapPlayerActionPacket.class, Direction.SERVERBOUND);
     TranslationProtocol legacyTranslationProtocol = new TranslationProtocol(LEGACY_ID, protocol);
     legacyTranslationProtocol.registerListener(new MinimapTranslationListener());
     protocolService.translationRegistry().register(legacyTranslationProtocol);
@@ -77,6 +97,14 @@ public class MinimapServers {
   @Subscribe
   public void updateAllowedState(ServerDisconnectEvent event) {
     this.currentlyAllowed = true;
+  }
+
+  void send(Packet packet) {
+    this.protocolService.send(this.protocol, packet);
+  }
+
+  public RemotePlayers remotePlayers() {
+    return this.remotePlayers;
   }
 
   public boolean isCurrentlyAllowed() {

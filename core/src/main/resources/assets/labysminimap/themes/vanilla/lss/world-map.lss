@@ -1,0 +1,200 @@
+.atlas {
+  left: 0;
+  top: 0;
+  width: 140;
+  height: 100%;
+
+  .atlas-scroll {
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    padding: 8 4 8 8;
+    modify-content-width: false;
+
+    Scrollbar {
+      width: 3;
+    }
+  }
+
+  .atlas-content {
+    width: 100%;
+    height: fit-content;
+    space-between-entries: 2;
+    padding-right: 1;
+  }
+
+  .atlas-players {
+    width: 100%;
+    height: fit-content;
+    space-between-entries: 2;
+  }
+
+  .atlas-section {
+    margin-top: 5;
+  }
+
+  .atlas-title {
+    font-size: 1;
+    text-color: white;
+  }
+
+  .atlas-subtitle {
+    font-size: small;
+    text-color: gray;
+    margin-bottom: 2;
+  }
+
+  .atlas-label {
+    font-size: small;
+    text-color: rgb(155, 155, 155);
+    margin-top: 7;
+    margin-bottom: 1;
+  }
+
+  .atlas-empty {
+    font-size: small;
+    text-color: gray;
+    margin-top: 2;
+  }
+
+  .atlas-tabs {
+    renderer: "Background";
+    width: 100%;
+    height: 15;
+    orientation: horizontal;
+    space-between-entries: 1;
+    padding: 1;
+    background-color: rgba(0, 0, 0, 130);
+  }
+
+  .atlas-tab {
+    renderer: "Background";
+    height: 100%;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 25);
+    }
+
+    Component {
+      left: 50%;
+      top: 50%;
+      alignment-x: center;
+      alignment-y: center;
+      font-size: medium;
+      text-color: rgb(155, 155, 155);
+    }
+  }
+
+  .atlas-tab-active {
+    background-color: rgba(255, 255, 255, 51);
+
+    Component {
+      text-color: white;
+    }
+  }
+
+  .atlas-row {
+    renderer: "Background";
+    width: 100%;
+    height: 14;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 25);
+    }
+
+    .atlas-row-name {
+      left: 3;
+      top: 50%;
+      alignment-y: center;
+      font-size: medium;
+    }
+
+    .atlas-row-name-indented {
+      left: 13;
+    }
+
+    .atlas-row-icon {
+      left: 3;
+      top: 50%;
+      alignment-y: center;
+      width: 7;
+      height: 7;
+    }
+
+    .atlas-row-arrow {
+      right: 3;
+      top: 50%;
+      alignment-y: center;
+      width: 6;
+      height: 6;
+    }
+
+    .atlas-row-detail {
+      right: 3;
+      top: 50%;
+      alignment-y: center;
+      font-size: small;
+      text-color: gray;
+    }
+
+    .atlas-toggle {
+      renderer: "Background";
+      right: 3;
+      top: 50%;
+      alignment-y: center;
+      width: 16;
+      height: 8;
+      background-color: rgb(85, 85, 85);
+
+      .atlas-toggle-knob {
+        renderer: "Background";
+        left: 1;
+        top: 50%;
+        alignment-y: center;
+        width: 6;
+        height: 6;
+        background-color: rgb(160, 160, 160);
+      }
+
+      &:selected {
+        background-color: rgb(0, 143, 232);
+      }
+
+      &:selected .atlas-toggle-knob {
+        left: null;
+        right: 1;
+        background-color: white;
+      }
+    }
+  }
+
+  .atlas-row-active {
+    background-color: rgba(255, 255, 255, 51);
+  }
+
+  .atlas-search {
+    width: 100%;
+    height: 14;
+    margin-bottom: 2;
+    padding: 3 3 0 3;
+    font-size: medium;
+  }
+}
+
+.atlas-handle {
+  left: 140;
+  top: 50%;
+  alignment-y: center;
+  width: 9;
+  height: 30;
+
+  Icon {
+    left: 50%;
+    top: 50%;
+    alignment-x: center;
+    alignment-y: center;
+    width: 5;
+    height: 5;
+  }
+}

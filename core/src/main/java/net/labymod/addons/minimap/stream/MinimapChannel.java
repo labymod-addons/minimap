@@ -16,12 +16,19 @@ package net.labymod.addons.minimap.stream;
  *       {@code MinimapPublisher#TILE_SCALE}) so the phone gets crisp block edges; its pixel size
  *       is therefore a multiple of 16. Chunk world bounds are
  *       {@code [chunkX*16 .. chunkX*16+15]}.</li>
+ *   <li><b>Command</b> {@value #CMD_TILES}: {@code {"minX":..,"minZ":..,"maxX":..,"maxZ":..}}
+ *       in chunk coordinates, at most {@value #MAX_REQUEST_CHUNKS} chunks per axis. Streams the
+ *       saved tiles of that area as tile frames, so the app can show explored areas away from the
+ *       player. Answers {@code {"chunks":n}}, the number of chunks looked up. The addon keeps only
+ *       the newest four requests.</li>
  * </ul>
  */
 public final class MinimapChannel {
 
   public static final String MSG_STATE = "state";
   public static final byte BINARY_TILE = 0x01;
+  public static final String CMD_TILES = "minimap.tiles";
+  public static final int MAX_REQUEST_CHUNKS = 64;
 
   /** Player position/heading + overlays, in Hz (20 = every game tick). */
   public static final int STATE_HZ = 20;

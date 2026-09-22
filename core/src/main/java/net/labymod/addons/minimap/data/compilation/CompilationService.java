@@ -17,6 +17,8 @@ public class CompilationService {
   private int playerY;
   private int playerZ;
   private boolean underground;
+  private boolean roofed;
+  private int biomeBlend;
 
   public CompilationService() {
     this.compilers = new ArrayList<>();
@@ -34,6 +36,8 @@ public class CompilationService {
     for (ChunkCompiler compiler : this.compilers) {
       if (compiler.isCompatible(data)) {
         compiler.setPlayerPosition(this.playerX, this.playerY, this.playerZ, this.underground);
+        compiler.setRoofed(this.roofed);
+        compiler.setBiomeBlend(this.biomeBlend);
         compiler.compile(data);
         this.compiled.put(chunkId, data);
         compiled = true;
@@ -59,12 +63,24 @@ public class CompilationService {
     this.underground = underground;
   }
 
+  public void setRoofed(boolean roofed) {
+    this.roofed = roofed;
+  }
+
+  public void setBiomeBlend(int radius) {
+    this.biomeBlend = radius;
+  }
+
   private void registerCompiler(ChunkCompiler<?> compiler) {
     this.compilers.add(compiler);
   }
 
   public void resetCompilation(ChunkData data) {
     this.compiled.remove(this.getChunkId(data));
+  }
+
+  public void resetCompilation(int chunkX, int chunkZ) {
+    this.compiled.remove(Util.getChunkId(chunkX, chunkZ));
   }
 
   public boolean isCompiled(ChunkData data) {

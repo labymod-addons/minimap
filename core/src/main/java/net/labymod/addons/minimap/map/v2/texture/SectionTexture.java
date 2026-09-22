@@ -58,6 +58,11 @@ public class SectionTexture {
     this.texture.upload();
   }
 
+  public void dispose() {
+    this.texture.release();
+    this.texture.close();
+  }
+
   public DeviceTexture deviceTexture() {
     return this.texture.deviceTexture();
   }
