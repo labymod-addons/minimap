@@ -35,8 +35,9 @@ public final class MapRegion {
   private static final int MAX_BIOMES = 255;
   private static final AtomicLong REVISIONS = new AtomicLong();
 
-  private final int x;
-  private final int z;
+  // Only a save snapshot changes position, when copyTo reuses it for another region
+  private int x;
+  private int z;
   private final int[] colors;
   private final short[] heights;
   private final byte[] lightLevels;
@@ -243,6 +244,23 @@ public final class MapRegion {
     );
     copy.revision = this.revision;
     return copy;
+  }
+
+  /**
+   * Overwrites the target with this region, position included. Lets a save snapshot be reused
+   * instead of allocating a couple of megabytes of arrays for every save.
+   */
+  public void copyTo(MapRegion target) {
+    target.x = this.x;
+    target.z = this.z;
+    System.arraycopy(this.colors, 0, target.colors, 0, COLUMNS);
+    System.arraycopy(this.heights, 0, target.heights, 0, COLUMNS);
+    System.arraycopy(this.lightLevels, 0, target.lightLevels, 0, COLUMNS);
+    System.arraycopy(this.biomes, 0, target.biomes, 0, COLUMNS);
+    System.arraycopy(this.present, 0, target.present, 0, this.present.length);
+    target.biomePalette.clear();
+    target.biomePalette.addAll(this.biomePalette);
+    target.revision = this.revision;
   }
 
   public byte[] encode() {

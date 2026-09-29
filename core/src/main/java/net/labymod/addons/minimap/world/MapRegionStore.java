@@ -13,6 +13,8 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
@@ -29,6 +31,7 @@ public final class MapRegionStore {
   private static final int MAX_LOADED_REGIONS = 24;
   private static final int MAX_LOADED_LODS = 1024;
   private static final int MAX_LOADED_FINE_LODS = 160;
+  private static final int MAX_SPARE_SNAPSHOTS = 2;
   private static final String REGION_DIRECTORY = "regions";
   // Overviews used to be half the size, the new directory keeps them from being read as corrupt
   private static final String LOD_DIRECTORY = "lod256";
@@ -50,6 +53,9 @@ public final class MapRegionStore {
   private final LongSet dirty = new LongOpenHashSet();
   // Regions a flush queued, saved one per saveNext call
   private final LongLinkedOpenHashSet pending = new LongLinkedOpenHashSet();
+  // Saved snapshots handed back by the disk thread. A fresh one is a couple of megabytes, and on a
+  // default heap every one of its arrays is a humongous allocation that stalled the saving frame.
+  private final Deque<MapRegion> spareSnapshots = new ArrayDeque<>();
   private boolean indexed;
 
   public MapRegionStore(MapWorldKey key, Path root, Executor executor) {
@@ -261,9 +267,24 @@ public final class MapRegionStore {
 
   private void saveRegion(long key) {
     MapRegion region = this.regions.get(key);
-    if (region != null) {
-      MapRegion snapshot = region.copy();
-      this.executor.execute(() -> this.save(snapshot));
+    if (region == null) {
+      return;
+    }
+
+    MapRegion snapshot = this.spareSnapshots.pollLast();
+    if (snapshot == null) {
+      snapshot = region.copy();
+    } else {
+      region.copyTo(snapshot);
+    }
+
+    MapRegion saved = snapshot;
+    this.executor.execute(() -> this.save(saved));
+  }
+
+  private void recycleSnapshot(MapRegion snapshot) {
+    if (this.spareSnapshots.size() < MAX_SPARE_SNAPSHOTS) {
+      this.spareSnapshots.addLast(snapshot);
     }
   }
 
@@ -475,6 +496,9 @@ public final class MapRegionStore {
       });
     } catch (IOException exception) {
       LOGGER.error("Failed to save map region {}", regionFile, exception);
+    } finally {
+      // Nothing reads the snapshot after this, so the next save may overwrite it
+      this.completions.add(() -> this.recycleSnapshot(snapshot));
     }
   }
 
