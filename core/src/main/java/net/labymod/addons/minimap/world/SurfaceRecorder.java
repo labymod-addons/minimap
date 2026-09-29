@@ -26,6 +26,8 @@ public final class SurfaceRecorder {
   private final LongSet delayed = new LongOpenHashSet();
   private final String[] biomes = new String[MapRegion.BIOME_CELLS * MapRegion.BIOME_CELLS];
   private int ticks;
+  // Running average of recording one chunk, which biome blending can make cost several ms
+  private long chunkNanos;
 
   public void enqueue(int chunkX, int chunkZ) {
     this.queue.add(MapRegion.key(chunkX, chunkZ));
@@ -81,8 +83,15 @@ public final class SurfaceRecorder {
     this.compiler.setRoofed(this.roofDetector.isRoofed());
 
     long deadline = System.nanoTime() + BUILD_BUDGET_NANOS;
+    boolean recorded = false;
     int remaining = this.queue.size();
     while (remaining-- > 0) {
+      // Checking the budget only after a chunk let one expensive chunk run far past it. The first
+      // chunk of a tick always runs, so recording keeps moving when chunks cost more than the budget.
+      if (recorded && System.nanoTime() + this.chunkNanos > deadline) {
+        return;
+      }
+
       long key = this.queue.removeFirstLong();
       int chunkX = MapRegion.keyX(key);
       int chunkZ = MapRegion.keyZ(key);
@@ -107,6 +116,7 @@ public final class SurfaceRecorder {
         continue;
       }
 
+      long start = System.nanoTime();
       GameChunkData data = new GameChunkData(chunk);
       this.compiler.compile(data);
       if (this.isEmpty(data)) {
@@ -116,9 +126,11 @@ public final class SurfaceRecorder {
         sink.accept(data, this.biomes);
       }
 
-      if (System.nanoTime() >= deadline) {
-        return;
-      }
+      long cost = System.nanoTime() - start;
+      this.chunkNanos = this.chunkNanos == 0L
+          ? cost
+          : this.chunkNanos + ((cost - this.chunkNanos) >> 3);
+      recorded = true;
     }
   }
 

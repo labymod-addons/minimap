@@ -171,9 +171,13 @@ public final class WorldMapService implements SurfaceRecorder.Sink {
     this.recorder.setBiomeBlend(this.addon.configuration().biomeBlend().get());
     this.recorder.tick(minecraft.clientWorld(), this);
 
-    int flushInterval = this.viewing ? VIEWING_FLUSH_INTERVAL_TICKS : FLUSH_INTERVAL_TICKS;
-    if (this.activeStore != null && this.ticks % flushInterval == 0) {
-      this.activeStore.flush();
+    if (this.activeStore != null) {
+      int flushInterval = this.viewing ? VIEWING_FLUSH_INTERVAL_TICKS : FLUSH_INTERVAL_TICKS;
+      if (this.ticks % flushInterval == 0) {
+        this.activeStore.scheduleFlush();
+      }
+
+      this.activeStore.saveNext();
     }
   }
 

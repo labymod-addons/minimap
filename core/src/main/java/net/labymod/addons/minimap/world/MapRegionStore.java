@@ -2,7 +2,7 @@ package net.labymod.addons.minimap.world;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
-import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
@@ -48,6 +48,8 @@ public final class MapRegionStore {
   private final LongSet loadingRegions = new LongOpenHashSet();
   private final LongSet loadingLods = new LongOpenHashSet();
   private final LongSet dirty = new LongOpenHashSet();
+  // Regions a flush queued, saved one per saveNext call
+  private final LongLinkedOpenHashSet pending = new LongLinkedOpenHashSet();
   private boolean indexed;
 
   public MapRegionStore(MapWorldKey key, Path root, Executor executor) {
@@ -188,8 +190,7 @@ public final class MapRegionStore {
     MapRegion region = this.regions.get(key);
     if (region != null) {
       region.clearChunks(mask);
-      MapRegion snapshot = region.copy();
-      this.executor.execute(() -> this.save(snapshot));
+      this.saveRegion(key);
       return;
     }
 
@@ -222,20 +223,48 @@ public final class MapRegionStore {
   }
 
   /**
-   * Saves every changed region in the background and unloads the least recently used ones.
+   * Saves every changed region in the background right away and unloads the least recently used
+   * ones. For closing and exporting; while recording, {@link #scheduleFlush()} spreads the saves.
    */
   public void flush() {
-    LongIterator iterator = this.dirty.iterator();
-    while (iterator.hasNext()) {
-      MapRegion region = this.regions.get(iterator.nextLong());
-      if (region != null) {
-        MapRegion snapshot = region.copy();
-        this.executor.execute(() -> this.save(snapshot));
-      }
+    this.scheduleFlush();
+    while (!this.pending.isEmpty()) {
+      this.saveRegion(this.pending.removeFirstLong());
     }
 
-    this.dirty.clear();
     this.evictRegions();
+  }
+
+  /**
+   * Queues every changed region for {@link #saveNext()}. A save copies the whole region, a couple
+   * of megabytes, on the render thread; copying all of them in one tick stalled that frame.
+   */
+  public void scheduleFlush() {
+    this.pending.addAll(this.dirty);
+    this.dirty.clear();
+  }
+
+  /**
+   * Saves the next region {@link #scheduleFlush()} queued, and unloads the least recently used
+   * regions once the queue is empty. Call it every tick.
+   */
+  public void saveNext() {
+    if (this.pending.isEmpty()) {
+      return;
+    }
+
+    this.saveRegion(this.pending.removeFirstLong());
+    if (this.pending.isEmpty()) {
+      this.evictRegions();
+    }
+  }
+
+  private void saveRegion(long key) {
+    MapRegion region = this.regions.get(key);
+    if (region != null) {
+      MapRegion snapshot = region.copy();
+      this.executor.execute(() -> this.save(snapshot));
+    }
   }
 
   /**
@@ -246,7 +275,8 @@ public final class MapRegionStore {
     ObjectIterator<Long2ObjectMap.Entry<MapRegion>> iterator =
         this.regions.long2ObjectEntrySet().fastIterator();
     while (excess > 0 && iterator.hasNext()) {
-      if (this.dirty.contains(iterator.next().getLongKey())) {
+      long key = iterator.next().getLongKey();
+      if (this.dirty.contains(key) || this.pending.contains(key)) {
         continue;
       }
 
