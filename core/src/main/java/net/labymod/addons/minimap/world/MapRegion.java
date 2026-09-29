@@ -33,6 +33,8 @@ public final class MapRegion {
   private static final int COLUMNS = BLOCKS * BLOCKS;
   private static final int CHUNK_COUNT = CHUNKS * CHUNKS;
   private static final int MAX_BIOMES = 255;
+  // Color int, height short, light byte and biome byte
+  private static final int COLUMN_BYTES = Integer.BYTES + Short.BYTES + Byte.BYTES + Byte.BYTES;
   private static final AtomicLong REVISIONS = new AtomicLong();
 
   // Only a save snapshot changes position, when copyTo reuses it for another region
@@ -264,7 +266,7 @@ public final class MapRegion {
   }
 
   public byte[] encode() {
-    ByteArrayOutputStream bytes = new ByteArrayOutputStream(COLUMNS);
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream(this.encodedSize());
     try (DataOutputStream output = new DataOutputStream(bytes)) {
       output.writeInt(MAGIC);
       output.writeShort(VERSION);
@@ -300,6 +302,29 @@ public final class MapRegion {
     }
 
     return Compression.deflate(bytes.toByteArray());
+  }
+
+  /**
+   * The size {@link #encode()} writes before compression, so its buffer is allocated once instead
+   * of doubling its way up to a couple of megabytes. Biome ids are ASCII, one byte per char.
+   */
+  private int encodedSize() {
+    int chunks = 0;
+    for (long bits : this.present) {
+      chunks += Long.bitCount(bits);
+    }
+
+    int paletteBytes = 0;
+    for (String biome : this.biomePalette) {
+      paletteBytes += Short.BYTES + biome.length();
+    }
+
+    return Integer.BYTES
+        + Short.BYTES
+        + this.present.length * Long.BYTES
+        + Short.BYTES
+        + paletteBytes
+        + chunks * ChunkData.CHUNK_SIZE * ChunkData.CHUNK_SIZE * COLUMN_BYTES;
   }
 
   public static MapRegion decode(int x, int z, byte[] data) throws IOException {

@@ -492,7 +492,12 @@ public final class MapRegionStore {
       this.completions.add(() -> {
         this.stored.add(key);
         this.loadingLods.remove(key);
-        this.putLod(key, lod, small);
+        // Only overviews on display are replaced. Caching the rest kept a few hundred KB per save
+        // alive that nothing read, and every young collection copied it until it reached the old
+        // generation. The file is written, so the world map loads it once it wants it.
+        if (this.fineLods.containsKey(key) || this.lods.containsKey(key)) {
+          this.putLod(key, lod, small);
+        }
       });
     } catch (IOException exception) {
       LOGGER.error("Failed to save map region {}", regionFile, exception);
