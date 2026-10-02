@@ -6,7 +6,6 @@ import net.labymod.addons.minimap.api.config.MinimapConfigProvider;
 import net.labymod.addons.minimap.api.config.MinimapHudWidgetConfig;
 import net.labymod.addons.minimap.api.generated.ReferenceStorage;
 import net.labymod.addons.minimap.config.MinimapConfiguration;
-import net.labymod.addons.minimap.debug.ImGuiMinimapDebug;
 import net.labymod.addons.minimap.hudwidget.MinimapHudWidget;
 import net.labymod.addons.minimap.integration.waypoints.WaypointsIntegration;
 import net.labymod.addons.minimap.map.v2.MinimapRenderer;
@@ -74,8 +73,6 @@ public class MinimapAddon extends LabyAddon<MinimapConfiguration> implements Min
         this.minimapRenderer,
         this.minimapContext.uniformBlocks()
     ));
-
-    references.controlEntryRegistry().registerEntry(false, ImGuiMinimapDebug::new);
   }
 
   @Override
