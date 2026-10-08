@@ -8,7 +8,10 @@
                 "name": "Minimapa",
                 "displayType": {
                     "entries": {
-                        "minecraftMapSquare": "Mapa do Minecraft"
+                        "minecraftMapSquare": "Mapa do Minecraft",
+                        "roundWood": "Madeira Redonda",
+                        "squareParchment": "Pergaminho Quadrado",
+                        "square": "Quadrado"
                     }
                 },
                 "showPlayers": {
@@ -29,7 +32,26 @@
                     }
                 },
                 "cardinalType": {
-                    "name": "Cardeais"
+                    "name": "Cardeais",
+                    "entries": {
+                        "hidden": "Oculto",
+                        "numbers": "0, 1, 2, 3"
+                    }
+                },
+                "showCoordinates": {
+                    "name": "Mostrar Coordenadas"
+                },
+                "showWaypoints": {
+                    "name": "Mostrar Waypoints"
+                },
+                "updateMethod": {
+                    "name": "Método de Atualização",
+                    "entries": {
+                        "blockTrigger": "Enquanto se move (FPS Mais Baixo)"
+                    }
+                },
+                "zoom": {
+                    "name": "Zoom"
                 }
             }
         }
