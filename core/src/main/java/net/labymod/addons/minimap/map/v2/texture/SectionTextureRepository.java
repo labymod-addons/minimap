@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.Collection;
 import net.labymod.addons.minimap.data.ChunkData;
 import net.labymod.api.client.world.chunk.Chunk;
+import net.labymod.api.profiler.frame.FrameProfiler;
 
 public class SectionTextureRepository {
 
@@ -38,7 +39,9 @@ public class SectionTextureRepository {
     long key = this.getSectionKey(x, z);
     CompositeSectionTexture texture = this.textures.get(key);
     if (texture == null) {
+      FrameProfiler.push("createSection");
       texture = new CompositeSectionTexture(x, z, SECTION_SIZE);
+      FrameProfiler.pop();
       this.textures.put(key, texture);
     }
 

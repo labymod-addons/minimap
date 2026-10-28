@@ -34,6 +34,7 @@ import net.labymod.api.event.Subscribe;
 import net.labymod.api.event.client.network.server.ServerSwitchEvent;
 import net.labymod.api.event.client.world.DimensionChangeEvent;
 import net.labymod.api.laby3d.pipeline.material.GuiMaterial;
+import net.labymod.api.profiler.frame.FrameProfiler;
 import net.labymod.api.util.Lazy;
 import net.labymod.api.util.color.format.ColorFormat;
 import net.labymod.api.util.logging.Logging;
@@ -338,7 +339,9 @@ public final class MinimapRenderer {
       }
     }
 
+    FrameProfiler.push("upload");
     texture.updateTexture();
+    FrameProfiler.pop();
   }
 
   public static int lightmapColor(int blockLightLevel) {
@@ -406,7 +409,9 @@ public final class MinimapRenderer {
     }
 
     this.storage.setPlayerPosition(player.position(), underground);
+    FrameProfiler.push("roof");
     boolean roofView = this.updateRoofView(level, midX, MathHelper.floor(position.getY()), midZ);
+    FrameProfiler.pop();
     this.storage.setRoofed(roofView);
 
     int minChunkX = (midX - buildRadius) >> 4;
@@ -421,8 +426,11 @@ public final class MinimapRenderer {
           minChunkX, minChunkZ,
           maxChunkX, maxChunkZ,
           (chunkX, chunkZ, chunk) -> {
+            FrameProfiler.push("compile");
             this.storage.compile(chunk);
+            FrameProfiler.swap("write");
             writeChunk(this.sectionTextureRepository, chunkX, chunkZ, chunk, minBuildHeight);
+            FrameProfiler.pop();
           });
 
       this.minimapBounds.update(minX, minZ, maxX, maxZ, 0);
@@ -431,7 +439,9 @@ public final class MinimapRenderer {
     }
 
     if (++this.ticks % EVICTION_INTERVAL_TICKS == 0) {
+      FrameProfiler.push("evict");
       this.evictDistantSections(midChunkX, midChunkZ, buildRadius);
+      FrameProfiler.pop();
     }
 
     int py = MathHelper.floor(position.getY());
