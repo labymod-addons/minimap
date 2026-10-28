@@ -34,6 +34,7 @@ public class ChunkDataStorage {
   private final Map<Long, ChunkData> chunks = new HashMap<>();
   private final CompilationService compilationService = new CompilationService();
   private boolean shouldProcess;
+  private boolean underground;
 
   public ChunkDataStorage() {
   }
@@ -120,6 +121,11 @@ public class ChunkDataStorage {
     }
   }
 
+  /**
+   * The game reports every block whose light changes, thousands for one torch or a loaded chunk.
+   * Above ground the map only reads the light right above the top block of a column, so a change
+   * below it does not rebuild the chunk.
+   */
   @Subscribe
   public void onLightUpdate(LightUpdateEvent event) {
     IntVector3 blockPosition = event.getBlockPosition();
@@ -131,10 +137,16 @@ public class ChunkDataStorage {
     int chunkZ = z >> 4;
 
     ChunkData chunk = this.chunks.get(this.getChunkId(chunkX, chunkZ));
-    if (chunk != null) {
-      this.resetCompilation(chunk);
-      this.setShouldProcess(true);
+    if (chunk == null || !this.isCompiled(chunk)) {
+      return;
     }
+
+    if (!this.underground && blockPosition.getY() < chunk.getHeight(x & 15, z & 15)) {
+      return;
+    }
+
+    this.resetCompilation(chunk);
+    this.setShouldProcess(true);
   }
 
   @Subscribe
@@ -166,6 +178,7 @@ public class ChunkDataStorage {
   }
 
   public void setPlayerPosition(Position position, boolean underground) {
+    this.underground = underground;
     this.compilationService.setPlayerPosition(position, underground);
   }
 

@@ -6,6 +6,7 @@ import net.labymod.addons.minimap.api.util.Util;
 import net.labymod.addons.minimap.map.v2.texture.SectionTexture.Variant;
 import net.labymod.api.client.resources.texture.DynamicTexture;
 import net.labymod.api.client.resources.texture.GameImage;
+import net.labymod.api.profiler.frame.FrameProfiler;
 import net.labymod.laby3d.api.textures.DeviceTextureView;
 import net.labymod.laby3d.api.textures.SamplerDescription;
 import net.labymod.laby3d.api.textures.SamplerDescription.Filter;
@@ -24,6 +25,7 @@ public class CompositeSectionTexture {
   private final int x;
   private final int z;
   private boolean fading;
+  private boolean dirty;
   private boolean previousDirty;
 
   public CompositeSectionTexture(int x, int z, int size) {
@@ -91,10 +93,12 @@ public class CompositeSectionTexture {
     this.fadeTexture.close();
   }
 
-  public void updateTexture() {
-    for (SectionTexture texture : this.textures.values()) {
-      texture.updateTexture();
-    }
+  /**
+   * Uploads the textures the next time the section is drawn, so a section that gets several
+   * chunks in one tick goes up once.
+   */
+  public void markDirty() {
+    this.dirty = true;
   }
 
   /**
@@ -138,7 +142,20 @@ public class CompositeSectionTexture {
     this.fading = true;
   }
 
-  public void updateFade(long now) {
+  /**
+   * Uploads what changed since the last draw and advances the chunk fades.
+   */
+  public void prepareDraw(long now) {
+    if (this.dirty) {
+      FrameProfiler.push("upload");
+      for (SectionTexture texture : this.textures.values()) {
+        texture.updateTexture();
+      }
+      FrameProfiler.pop();
+
+      this.dirty = false;
+    }
+
     if (this.previousDirty) {
       for (SectionTexture texture : this.previousTextures.values()) {
         texture.updateTexture();

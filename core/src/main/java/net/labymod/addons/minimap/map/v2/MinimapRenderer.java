@@ -250,7 +250,7 @@ public final class MinimapRenderer {
         SectionTexture previousColorTexture = composite.getPreviousTexture(Variant.COLOR);
         SectionTexture previousHeightmapTexture = composite.getPreviousTexture(Variant.HEIGHTMAP);
         SectionTexture previousLightmapTexture = composite.getPreviousTexture(Variant.LIGHTMAP);
-        composite.updateFade(now);
+        composite.prepareDraw(now);
         canvas.submitState(
             (pose, scissorArea) ->
                 new MinimapGuiBlitRenderState(
@@ -296,7 +296,8 @@ public final class MinimapRenderer {
   }
 
   /**
-   * Writes the chunk's pixels into its section textures and uploads them.
+   * Writes the chunk's pixels into its section textures. They are uploaded the next time the
+   * section is drawn.
    */
   public static void writeChunk(
       SectionTextureRepository repository,
@@ -339,9 +340,7 @@ public final class MinimapRenderer {
       }
     }
 
-    FrameProfiler.push("upload");
-    texture.updateTexture();
-    FrameProfiler.pop();
+    texture.markDirty();
   }
 
   public static int lightmapColor(int blockLightLevel) {
