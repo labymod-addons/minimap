@@ -652,7 +652,6 @@ public final class MinimapRenderer {
       return;
     }
 
-    System.out.println("Changed period from " + this.currentPeriod + " to " + period);
     this.currentPeriod = period;
   }
 
