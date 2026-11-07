@@ -120,6 +120,11 @@ public class ChunkDataStorage {
     }
   }
 
+  /**
+   * The client fires this for every single light change, hundreds of thousands after a teleport.
+   * The map only stores the light right above the column's top block, one or two blocks over its
+   * height, so changes anywhere else don't trigger a recompile.
+   */
   @Subscribe
   public void onLightUpdate(LightUpdateEvent event) {
     IntVector3 blockPosition = event.getBlockPosition();
@@ -127,13 +132,14 @@ public class ChunkDataStorage {
     int x = blockPosition.getX();
     int z = blockPosition.getZ();
 
-    int chunkX = x >> 4;
-    int chunkZ = z >> 4;
+    ChunkData chunk = this.chunks.get(this.getChunkId(x >> 4, z >> 4));
+    if (chunk == null || !this.isCompiled(chunk)) {
+      return;
+    }
 
-    ChunkData chunk = this.chunks.get(this.getChunkId(chunkX, chunkZ));
-    if (chunk != null) {
+    int offset = blockPosition.getY() - chunk.getHeight(x & 15, z & 15);
+    if (offset == 1 || offset == 2) {
       this.resetCompilation(chunk);
-      this.setShouldProcess(true);
     }
   }
 
