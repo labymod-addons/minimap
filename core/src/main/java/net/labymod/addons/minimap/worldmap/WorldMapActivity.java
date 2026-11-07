@@ -30,8 +30,6 @@ import net.labymod.api.client.component.Component;
 import net.labymod.api.client.component.event.ClickEvent;
 import net.labymod.api.client.component.format.TextDecoration;
 import net.labymod.api.client.component.serializer.plain.PlainTextComponentSerializer;
-import net.labymod.api.client.entity.Entity;
-import net.labymod.api.client.entity.LivingEntity;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.entity.player.Player;
 import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
@@ -82,9 +80,6 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private static final float CHUNK_GRID_FADE_SCALE = 1.0F;
   private static final float PLAYER_ICON_SIZE = 8.0F;
   private static final float PLAYER_HEAD_SIZE = 8.0F;
-  private static final float ENTITY_DOT_RADIUS = 1.5F;
-  private static final int ENTITY_COLOR = 0xFFFFFFFF;
-  private static final int ENTITY_OUTLINE_COLOR = 0xB0000000;
   private static final int SELECTION_FILL_COLOR = 0x40E04040;
   private static final int SELECTION_EDGE_COLOR = 0xFFE04040;
   private static final int RULER_COLOR = 0xFFFFD24A;
@@ -118,6 +113,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
   private final RemotePlayers remotePlayers;
   private final WorldMapRenderer renderer;
   private final CaveLayer caveLayer;
+  private final WorldMapEntityDots entityDots = new WorldMapEntityDots();
   private final WorldMapCamera camera = new WorldMapCamera();
 
   @Nullable
@@ -300,6 +296,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.service.closeView();
     this.renderer.dispose();
     this.caveLayer.dispose();
+    this.entityDots.dispose();
   }
 
   @Override
@@ -861,7 +858,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     }
 
     if (current && player != null && this.configuration.worldMapEntities().get()) {
-      this.renderEntities(context.canvas(), minecraft, width, height, partialTicks);
+      this.entityDots.render(
+          context.canvas(), minecraft, this.camera,
+          width, height,
+          pixelScale, partialTicks
+      );
     }
 
     MutableMouse mouse = context.mouse();
@@ -1254,28 +1255,6 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
         this.textScale,
         theme.textOptions()
     );
-  }
-
-  private void renderEntities(
-      ScreenCanvas canvas,
-      Minecraft minecraft,
-      float width, float height,
-      float partialTicks
-  ) {
-    for (Entity entity : minecraft.clientWorld().getEntities()) {
-      if (!(entity instanceof LivingEntity) || entity instanceof Player) {
-        continue;
-      }
-
-      Position position = entity.position();
-      Position previous = entity.previousPosition();
-      float x = this.camera.worldToScreenX(position.lerpX(previous, partialTicks), width);
-      float y = this.camera.worldToScreenY(position.lerpZ(previous, partialTicks), height);
-      if (this.isOnScreen(x, y, width, height, ENTITY_DOT_RADIUS)) {
-        canvas.submitCircle(x, y, ENTITY_DOT_RADIUS + 0.75F, ENTITY_OUTLINE_COLOR);
-        canvas.submitCircle(x, y, ENTITY_DOT_RADIUS, ENTITY_COLOR);
-      }
-    }
   }
 
   /**
