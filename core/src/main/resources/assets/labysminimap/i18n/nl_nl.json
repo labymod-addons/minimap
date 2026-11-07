@@ -71,7 +71,7 @@
                 },
                 "caveMode": {
                     "name": "Grotmodus",
-                    "description": "Schakelt grotmodus in voor de minimap.\n§4§lWAARSCHUWING§r: Dit kan lag veroorzaken!"
+                    "description": "Schakelt grotmodus in voor de minimap."
                 },
                 "header": {
                     "player": {

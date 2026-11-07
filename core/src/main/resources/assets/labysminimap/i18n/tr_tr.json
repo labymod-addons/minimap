@@ -71,7 +71,7 @@
                 },
                 "caveMode": {
                     "name": "Mağara Modu",
-                    "description": "Mini harita için mağara modunu etkinleştirir.\n§4§lUYARI§r: Bu durum gecikmeye neden olabilir!"
+                    "description": "Mini harita için mağara modunu etkinleştirir."
                 },
                 "header": {
                     "player": {
