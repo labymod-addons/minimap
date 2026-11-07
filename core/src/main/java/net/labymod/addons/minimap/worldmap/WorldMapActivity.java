@@ -24,7 +24,6 @@ import net.labymod.addons.minimap.world.WorldMapService;
 import net.labymod.addons.minimap.world.WorldMapWaypoint;
 import net.labymod.addons.minimap.world.WorldMapWaypoints;
 import net.labymod.api.Laby;
-import net.labymod.api.Textures.SpriteCommon;
 import net.labymod.api.client.Minecraft;
 import net.labymod.api.client.component.Component;
 import net.labymod.api.client.component.event.ClickEvent;
@@ -34,6 +33,11 @@ import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.entity.player.Player;
 import net.labymod.api.client.gfx.pipeline.renderer.text.TextRenderingOptions;
 import net.labymod.api.client.gui.icon.Icon;
+import net.labymod.api.client.gui.icon.catalog.IconsCommon;
+import net.labymod.api.client.gui.icon.catalog.IconsCursor;
+import net.labymod.api.client.gui.icon.catalog.IconsLabyConnect;
+import net.labymod.api.client.gui.icon.catalog.IconsMods;
+import net.labymod.api.client.gui.icon.catalog.IconsScreenshot;
 import net.labymod.api.client.gui.mouse.MutableMouse;
 import net.labymod.api.client.gui.screen.Parent;
 import net.labymod.api.client.gui.screen.ScreenContext;
@@ -264,7 +268,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     atlas.addId("atlas");
     this.updateAtlasPlayers(atlas);
 
-    IconWidget handleIcon = new IconWidget(SpriteCommon.WHITE_GREATER_THAN);
+    IconWidget handleIcon = new IconWidget(IconsCommon.NEXT);
     DivWidget handle = new DivWidget();
     handle.addId("atlas-handle");
     handle.addChild(handleIcon);
@@ -1546,11 +1550,11 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     if (hoveredPlayer != null) {
       String name = this.hoveredPlayerName;
       title = Component.text(name);
-      entries.add(wheelEntry(SpriteCommon.MOVE, "followPlayer", () -> this.followPlayer(hoveredPlayer, name)));
+      entries.add(wheelEntry(IconsMods.MOVE_WIDGET, "followPlayer", () -> this.followPlayer(hoveredPlayer, name)));
       PlainTextComponentSerializer serializer = PlainTextComponentSerializer.plainText();
       for (PlayerAction action : this.remotePlayers.actions()) {
         entries.add(new WorldMapWheel.Entry(
-            SpriteCommon.ARROW_RIGHT,
+            IconsCommon.NEXT,
             serializer.serialize(action.name()),
             () -> this.remotePlayers.runAction(action.id(), hoveredPlayer)
         ));
@@ -1567,12 +1571,12 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
 
     if (waypoints != null && waypoint != null) {
       title = waypoint.title();
-      entries.add(wheelEntry(SpriteCommon.EDIT, "edit", () -> this.editWaypoint(waypoint)));
-      entries.add(wheelEntry(SpriteCommon.X, "hide", () -> this.hideWaypoint(waypoint)));
+      entries.add(wheelEntry(IconsScreenshot.EDIT, "edit", () -> this.editWaypoint(waypoint)));
+      entries.add(wheelEntry(IconsCommon.CLOSE, "hide", () -> this.hideWaypoint(waypoint)));
     } else {
       title = Component.text("X " + blockX + "  Z " + blockZ);
       if (waypoints != null) {
-        entries.add(wheelEntry(SpriteCommon.ADD, "create", () -> {
+        entries.add(wheelEntry(IconsCommon.ADD, "create", () -> {
           waypoints.create(key, blockX, blockY, blockZ);
           this.reload();
         }));
@@ -1583,21 +1587,21 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
       MapRegionStore store = this.service.openView(key);
       if (store.isStored(regionX, regionZ)) {
         entries.add(wheelEntry(
-            SpriteCommon.TRASH, "clearRegion",
+            IconsCommon.TRASH, "clearRegion",
             () -> this.confirmClearRegion(store, regionX, regionZ)
         ));
       }
 
-      entries.add(wheelEntry(SpriteCommon.PAINT, "clearChunks", () -> this.selectingChunks = true));
+      entries.add(wheelEntry(IconsCursor.PEN, "clearChunks", () -> this.selectingChunks = true));
     }
 
-    entries.add(wheelEntry(SpriteCommon.PIN, "measure", () -> this.startRuler(blockX, blockZ)));
+    entries.add(wheelEntry(IconsLabyConnect.PIN, "measure", () -> this.startRuler(blockX, blockZ)));
     entries.add(wheelEntry(
-        SpriteCommon.COPY, "copy",
+        IconsCommon.COPY_SMALL, "copy",
         () -> Laby.labyAPI().minecraft().setClipboard(blockX + " " + blockY + " " + blockZ)
     ));
     if (this.isViewingActive()) {
-      entries.add(wheelEntry(SpriteCommon.MOVE, "follow", () -> this.setFollowing(true)));
+      entries.add(wheelEntry(IconsMods.MOVE_WIDGET, "follow", () -> this.setFollowing(true)));
     }
 
     this.wheel = new WorldMapWheel(
@@ -1867,7 +1871,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     theme.closeButton(canvas, x, CHROME_MARGIN, CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE, hovered);
     float inset = (CLOSE_BUTTON_SIZE - CLOSE_ICON_SIZE) / 2.0F;
     canvas.submitIcon(
-        SpriteCommon.X,
+        IconsCommon.CLOSE,
         x + inset, CHROME_MARGIN + inset,
         CLOSE_ICON_SIZE, CLOSE_ICON_SIZE,
         false,
@@ -2042,7 +2046,7 @@ public class WorldMapActivity extends SimpleActivity implements WorldMapAtlasWid
     this.atlas.setTranslateX(offset);
     this.atlasHandle.setTranslateX(offset);
     this.atlas.setVisible(this.atlasProgress > 0.0F);
-    Icon handleIcon = this.configuration.worldMapAtlasOpen().get() ? SpriteCommon.WHITE_LESS_THAN : SpriteCommon.WHITE_GREATER_THAN;
+    Icon handleIcon = this.configuration.worldMapAtlasOpen().get() ? IconsCommon.BACK : IconsCommon.NEXT;
     if (this.atlasHandleIcon.icon().get() != handleIcon) {
       this.atlasHandleIcon.icon().set(handleIcon);
     }

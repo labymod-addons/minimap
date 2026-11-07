@@ -13,11 +13,11 @@ import net.labymod.addons.minimap.world.MapWorldKey;
 import net.labymod.addons.minimap.world.WorldMapService;
 import net.labymod.addons.minimap.world.WorldMapWaypoint;
 import net.labymod.api.Laby;
-import net.labymod.api.Textures.SpriteCommon;
 import net.labymod.api.client.component.Component;
 import net.labymod.api.client.component.serializer.plain.PlainTextComponentSerializer;
 import net.labymod.api.client.entity.player.ClientPlayer;
 import net.labymod.api.client.gui.icon.Icon;
+import net.labymod.api.client.gui.icon.catalog.IconsCommon;
 import net.labymod.api.client.gui.lss.property.annotation.AutoWidget;
 import net.labymod.api.client.gui.screen.Parent;
 import net.labymod.api.client.gui.screen.widget.Widget;
@@ -420,7 +420,7 @@ public final class WorldMapAtlasWidget extends DivWidget {
   }
 
   private Icon foldIcon() {
-    return this.playersFolded ? SpriteCommon.SMALL_DOWN : SpriteCommon.SMALL_UP;
+    return this.playersFolded ? IconsCommon.CHEVRON_DOWN : IconsCommon.CHEVRON_UP;
   }
 
   /**
